@@ -1,5 +1,9 @@
 import type { DynamoDB } from 'aws-sdk';
-import { Converter } from 'aws-sdk/clients/dynamodb';
+import {
+	BatchGetResponseMap,
+	Converter,
+	KeyList,
+} from 'aws-sdk/clients/dynamodb';
 import {
 	buildKey,
 	Index,
@@ -9,6 +13,8 @@ import {
 	IndexPrivatePropertyMap,
 	isIndex,
 	KeyConfiguration,
+	PK,
+	SK,
 } from './keys';
 import msgpack from '@msgpack/msgpack';
 import cbor from 'cbor';
@@ -75,10 +81,21 @@ export interface FacetOptions<T> {
 	 */
 	compress?: boolean;
 	/**
-	 * A configured connection to Dynamo DB from
-	 * the aws-sdk
+	 * Connection information for Dynamo DB.
+	 *
+	 * Required to use any of the data methods
 	 */
-	dynamoDb: DynamoDB;
+	connection: {
+		/**
+		 * A configured connection to Dynamo DB from
+		 * the aws-sdk
+		 */
+		dynamoDb: DynamoDB;
+		/**
+		 * The Dynamo DB table to write to
+		 */
+		tableName: string;
+	};
 }
 
 export class Facet<T> {
@@ -89,6 +106,7 @@ export class Facet<T> {
 	#raw?: RawFormat;
 	#compress: boolean;
 	#ttl?: keyof T;
+	#connection: { dynamoDb: DynamoDB; tableName: string };
 
 	readonly delimiter: string;
 
@@ -101,6 +119,7 @@ export class Facet<T> {
 		raw,
 		compress,
 		ttl,
+		connection,
 	}: FacetOptions<T>) {
 		this.#PK = PK;
 		this.#SK = SK;
@@ -109,6 +128,7 @@ export class Facet<T> {
 		this.#raw = raw;
 		this.#compress = !!compress;
 		this.#ttl = ttl;
+		this.#connection = connection;
 		/**
 		 * Create the index properties for this model for
 		 * any indexes that were configured
@@ -126,14 +146,14 @@ export class Facet<T> {
 	/**
 	 * Construct the partition key
 	 */
-	pk(model: T, shard?: number) {
+	pk(model: Partial<T>, shard?: number) {
 		return buildKey(this.#PK, model, this.delimiter, shard);
 	}
 
 	/**
 	 * Construct the sort key
 	 */
-	sk(model: T, shard?: number) {
+	sk(model: Partial<T>, shard?: number) {
 		return buildKey(this.#SK, model, this.delimiter, shard);
 	}
 
@@ -176,8 +196,8 @@ export class Facet<T> {
 		 * Create the partition keys and the sort keys
 		 */
 		const facetKeys: Record<string, string> = {};
-		facetKeys['PK'] = this.pk(model);
-		facetKeys['SK'] = this.sk(model);
+		facetKeys[PK] = this.pk(model);
+		facetKeys[SK] = this.sk(model);
 
 		/**
 		 * Create any Global Secondary Index partition and
@@ -239,6 +259,157 @@ export class Facet<T> {
 		}
 
 		return this.#validator(recordToValidate);
+	}
+
+	// Data Methods
+	/**
+	 * Get a single record from the database
+	 * @param query
+	 * @returns
+	 */
+	private async getSingleItem(query: Partial<T>): Promise<T | null> {
+		if (!this.#connection) {
+			throw new Error(
+				'No connection to Dynamo DB is configured for this Facet',
+			);
+		}
+		/**
+		 * Attempt to get the record from the DB
+		 */
+		const result = await this.#connection.dynamoDb
+			.getItem({
+				TableName: this.#connection.tableName,
+				Key: {
+					[PK]: {
+						S: this.pk(query),
+					},
+					[SK]: {
+						S: this.sk(query),
+					},
+				},
+			})
+			.promise();
+
+		/**
+		 * Throw if we get an error
+		 */
+		if (result.$response.error) {
+			throw result.$response.error;
+		}
+
+		/**
+		 * If we got the record, return it
+		 */
+		if (result.Item) {
+			return this.out(result.Item);
+		}
+
+		/**
+		 * Return nothing if we didn't get the item
+		 */
+		return null;
+	}
+
+	/**
+	 * Get a batch of items from Dynamo DB.
+	 *
+	 * This function should be called after we've made sure that
+	 * the batches only have a maximum of 100 items
+	 * @param queries
+	 */
+	private async getBatch(queries: Partial<T>[]): Promise<T[]> {
+		/**
+		 * An array of all the items we found
+		 */
+		const items: T[] = [];
+
+		/**
+		 * Function to gather items from a batch response
+		 */
+		const gatherItems = (batchResponse?: BatchGetResponseMap) => {
+			if (batchResponse && batchResponse[this.#connection.tableName]) {
+				const itemsFromResponse = batchResponse[this.#connection.tableName].map(
+					(item) => this.out(item),
+				);
+				items.push(...itemsFromResponse);
+			}
+		};
+
+		const keysToGet: KeyList = queries.map((query) => {
+			return {
+				[PK]: {
+					S: this.pk(query),
+				},
+				[SK]: {
+					S: this.sk(query),
+				},
+			};
+		});
+
+		const results = await this.getBatchKeys(keysToGet);
+		const { Responses, UnprocessedKeys } = results;
+		/**
+		 * Collect all of the responses
+		 */
+		gatherItems(Responses);
+
+		/**
+		 * Retry any unprocessed keys
+		 */
+		let attempts = 0;
+		if (UnprocessedKeys && UnprocessedKeys[this.#connection.tableName]) {
+			/**
+			 * We will keep putting unprocessed items into this array
+			 * until we don't have any unprocessed items left
+			 */
+			const unprocessed = [...UnprocessedKeys[this.#connection.tableName].Keys];
+
+			while (unprocessed.length > 0 && attempts < 10) {
+				attempts += 1;
+				/**
+				 * Retry the unprocessed keys
+				 */
+				const {
+					Responses: RetriedResponses,
+					UnprocessedKeys: StillUnprocessed,
+				} = await this.getBatchKeys(unprocessed.splice(0));
+
+				/**
+				 * Gather any results
+				 */
+				gatherItems(RetriedResponses);
+
+				/**
+				 * If we have any items that are still unprocessed we'll
+				 * add them back to the unprocessed array so we can retry them
+				 */
+				if (StillUnprocessed && StillUnprocessed[this.#connection.tableName]) {
+					unprocessed.push(
+						...StillUnprocessed[this.#connection.tableName].Keys,
+					);
+				}
+			}
+		}
+
+		return items;
+	}
+
+	/**
+	 * Make a batch request to Dynamo DB to get
+	 * specific keys
+	 * @param keys
+	 * @returns
+	 */
+	private async getBatchKeys(keys: KeyList) {
+		return this.#connection.dynamoDb
+			.batchGetItem({
+				RequestItems: {
+					[this.#connection.tableName]: {
+						Keys: keys,
+					},
+				},
+			})
+			.promise();
 	}
 
 	// Global Secondary Indexes

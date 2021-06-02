@@ -31,6 +31,9 @@ export enum Index {
 	GSI20 = 'GSI20',
 }
 
+export const PK = 'PK';
+export const SK = 'SK';
+
 export const IndexSet: Set<Index> = new Set([
 	Index.GSI1,
 	Index.GSI2,
@@ -162,7 +165,7 @@ export type IndexKeyOptions<T> = Partial<
  */
 export function buildKey<T>(
 	keyConfig: KeyConfiguration<T>,
-	model: T,
+	model: Partial<T>,
 	delimiter: string,
 	shard?: number,
 ) {
