@@ -13,6 +13,7 @@ module.exports = {
 		semi: 'off',
 		'no-unused-vars': 'off',
 		'@typescript-eslint/no-unused-vars': 'error',
+		'no-dupe-class-members': 'off',
 		'prettier/prettier': [
 			'error',
 			{
