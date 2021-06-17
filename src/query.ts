@@ -2,10 +2,16 @@ import { decodeCursor, encodeCursor } from './cursor';
 import { Facet, FacetIndex } from './facet';
 import { IndexKeyNameMap, PK, SK } from './keys';
 
-export interface PartitionQueryOptions<T> {
-	facet: Facet<T>;
+export interface PartitionQueryOptions<
+	T,
+	PK extends keyof T,
+	SK extends keyof T,
+	GSIPK extends keyof T,
+	GSISK extends keyof T,
+> {
+	facet: Facet<T, PK, SK>;
 	partitionIdentifier: Partial<T>;
-	index?: FacetIndex<T>;
+	index?: FacetIndex<T, PK, SK, GSIPK, GSISK>;
 	shard?: number;
 }
 
@@ -51,19 +57,25 @@ export interface QueryOptions {
 	shard?: number;
 }
 
-export class PartitionQuery<T> {
-	#facet: Facet<T>;
-	#index?: FacetIndex<T>;
+export class PartitionQuery<
+	T,
+	PK extends keyof T,
+	SK extends keyof T,
+	GSIPK extends keyof T = never,
+	GSISK extends keyof T = never,
+> {
+	#facet: Facet<T, PK, SK>;
+	#index?: FacetIndex<T, PK, SK, GSIPK, GSISK>;
 	#PK: string;
 	#SK: string;
-	partition: string;
+	#partition: string;
 
 	constructor({
 		facet,
 		partitionIdentifier,
 		index,
 		shard,
-	}: PartitionQueryOptions<T>) {
+	}: PartitionQueryOptions<T, PK, SK, GSIPK, GSISK>) {
 		this.#facet = facet;
 		this.#index = index;
 
@@ -71,11 +83,11 @@ export class PartitionQuery<T> {
 			const IndexKeys = IndexKeyNameMap[this.#index.name];
 			this.#PK = IndexKeys.PK;
 			this.#SK = IndexKeys.SK;
-			this.partition = this.#index.pk(partitionIdentifier, shard);
+			this.#partition = this.#index.pk(partitionIdentifier, shard);
 		} else {
 			this.#PK = PK;
 			this.#SK = SK;
-			this.partition = this.#facet.pk(partitionIdentifier, shard);
+			this.#partition = this.#facet.pk(partitionIdentifier, shard);
 		}
 	}
 
@@ -119,7 +131,7 @@ export class PartitionQuery<T> {
 				},
 				ExpressionAttributeValues: {
 					':partition': {
-						S: this.partition,
+						S: this.#partition,
 					},
 					':sort': {
 						S: sortKey,
@@ -150,5 +162,95 @@ export class PartitionQuery<T> {
 		return queryResult;
 	}
 
-	greaterThan() {}
+	greaterThan(
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions = {},
+	) {
+		return this.compare(Comparison.Greater, sort as Partial<T>, options);
+	}
+
+	greaterThanOrEqual(
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions = {},
+	) {
+		return this.compare(Comparison.GreaterOrEqual, sort as Partial<T>, options);
+	}
+
+	lessThan(sort: Partial<Pick<T, GSISK>> | string, options: QueryOptions = {}) {
+		return this.compare(Comparison.Less, sort as Partial<T>, options);
+	}
+
+	lessThanOrEqual(
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions = {},
+	) {
+		return this.compare(Comparison.LessOrEqual, sort as Partial<T>, options);
+	}
+
+	async beginsWith(
+		sort: Partial<Pick<T, GSISK>> | string,
+		{ cursor, limit, scanForward = true, shard }: QueryOptions = {},
+	) {
+		const { dynamoDb, tableName } = this.#facet.connection;
+
+		const queryResult: QueryResult<T> = {
+			records: [],
+		};
+
+		let sortKey: string;
+		/**
+		 * If we were given a string we'll use it, otherwise we'll
+		 * create the sort key using the getKey function of the facet
+		 */
+		if (typeof sort === 'string') {
+			sortKey = sort;
+		} else {
+			sortKey = this.#index
+				? this.#index.sk(sort as Partial<T>)
+				: this.#facet.sk(sort as Partial<T>, shard);
+		}
+
+		const lastEvaluatedKey = decodeCursor(cursor);
+
+		const results = await dynamoDb
+			.query({
+				TableName: tableName,
+				IndexName: this.#index?.name,
+				KeyConditionExpression: '#PK = :partition AND begins_with(#SK, :sort)',
+				ExpressionAttributeNames: {
+					'#PK': this.#PK,
+					'#SK': this.#SK,
+				},
+				ExpressionAttributeValues: {
+					':partition': {
+						S: this.#partition,
+					},
+					':sort': {
+						S: sortKey,
+					},
+				},
+				Limit: limit,
+				ScanIndexForward: scanForward,
+				ExclusiveStartKey: lastEvaluatedKey,
+			})
+			.promise();
+
+		/**
+		 * Gather any items that were returned
+		 */
+		if (results.Items) {
+			results.Items.forEach((item) => {
+				queryResult.records.push(this.#facet.out(item));
+			});
+		}
+
+		/**
+		 * Attach the cursor if needed
+		 */
+		if (results.LastEvaluatedKey) {
+			queryResult.cursor = encodeCursor(results.LastEvaluatedKey);
+		}
+
+		return queryResult;
+	}
 }

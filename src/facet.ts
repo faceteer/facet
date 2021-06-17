@@ -662,7 +662,10 @@ export class FacetIndex<
 	/**
 	 * Query a partition within the index
 	 */
-	query(partition: Partial<T>, shard?: number) {
+	query(
+		partition: Pick<T, GSIPK> & Partial<T>,
+		shard?: number,
+	): PartitionQuery<T, PK, SK, GSIPK, GSISK> {
 		return new PartitionQuery({
 			facet: this.#facet,
 			partitionIdentifier: partition,

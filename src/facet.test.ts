@@ -34,13 +34,22 @@ export const PageFacet = new Facet({
 	indexes: {
 		GSI1: {
 			PK: {
-				keys: ['pageId'],
-				prefix: '#FBPG',
+				keys: ['orgId'],
+				prefix: '#ORG',
 			},
 			SK: {
-				keys: ['pageId'],
+				keys: ['tokenStatus', 'pageId'],
 				prefix: '#FBPG',
 			},
 		},
 	},
 });
+
+PageFacet.GSI1.query({ orgId: '47527' })
+	.greaterThan({
+		tokenStatus: TokenStatus.Active,
+		pageId: '24274',
+	})
+	.then((result) => {
+		console.log(result.records);
+	});
