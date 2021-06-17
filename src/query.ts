@@ -1,5 +1,6 @@
 import { decodeCursor, encodeCursor } from './cursor';
 import { Facet, FacetIndex } from './facet';
+import { FilterCondition } from './filter-condition';
 import { IndexKeyNameMap, PK, SK } from './keys';
 
 export interface PartitionQueryOptions<
@@ -27,7 +28,7 @@ export interface QueryResult<T> {
 	records: T[];
 }
 
-export interface QueryOptions {
+export interface QueryOptions<T> {
 	/**
 	 * The primary key of the first record that this operation will evaluate.
 	 * Use the value that was returned for `cursor` in the previous operation.
@@ -55,6 +56,8 @@ export interface QueryOptions {
 	 * which group to get.
 	 */
 	shard?: number;
+
+	filter?: FilterCondition<T>;
 }
 
 export class PartitionQuery<
@@ -97,7 +100,7 @@ export class PartitionQuery<
 	private async compare(
 		comparison: Comparison,
 		sort: Partial<T> | string,
-		{ cursor, limit, scanForward = true, shard }: QueryOptions,
+		{ cursor, limit, scanForward = true, shard }: QueryOptions<T>,
 	) {
 		const { dynamoDb, tableName } = this.#facet.connection;
 
@@ -164,32 +167,35 @@ export class PartitionQuery<
 
 	greaterThan(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions = {},
+		options: QueryOptions<T> = {},
 	) {
 		return this.compare(Comparison.Greater, sort as Partial<T>, options);
 	}
 
 	greaterThanOrEqual(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions = {},
+		options: QueryOptions<T> = {},
 	) {
 		return this.compare(Comparison.GreaterOrEqual, sort as Partial<T>, options);
 	}
 
-	lessThan(sort: Partial<Pick<T, GSISK>> | string, options: QueryOptions = {}) {
+	lessThan(
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T> = {},
+	) {
 		return this.compare(Comparison.Less, sort as Partial<T>, options);
 	}
 
 	lessThanOrEqual(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions = {},
+		options: QueryOptions<T> = {},
 	) {
 		return this.compare(Comparison.LessOrEqual, sort as Partial<T>, options);
 	}
 
 	async beginsWith(
 		sort: Partial<Pick<T, GSISK>> | string,
-		{ cursor, limit, scanForward = true, shard }: QueryOptions = {},
+		{ cursor, limit, scanForward = true, shard }: QueryOptions<T> = {},
 	) {
 		const { dynamoDb, tableName } = this.#facet.connection;
 

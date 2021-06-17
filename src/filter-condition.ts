@@ -6,19 +6,21 @@ export enum FilterComparison {
 	BeginsWith = 'begins_with',
 }
 
-export type CompareFilterCondition<T, K extends keyof T> = [
-	K,
+export const FilterBetween = 'between';
+
+export type CompareFilterCondition<T> = [
+	keyof T,
 	FilterComparison | `${FilterComparison}`,
-	string | number,
+	T[keyof T],
 ];
 
-export type BetweenFilterCondition<T, K extends keyof T> = [
-	K,
-	'between',
-	string | number,
-	string | number,
+export type BetweenFilterCondition<T> = [
+	keyof T,
+	typeof FilterBetween,
+	T[keyof T],
+	T[keyof T],
 ];
 
-export type FilterCondition<T, K extends keyof T> =
-	| CompareFilterCondition<T, K>
-	| BetweenFilterCondition<T, K>;
+export type FilterCondition<T> =
+	| CompareFilterCondition<T>
+	| BetweenFilterCondition<T>;

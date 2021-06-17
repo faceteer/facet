@@ -46,10 +46,13 @@ export const PageFacet = new Facet({
 });
 
 PageFacet.GSI1.query({ orgId: '47527' })
-	.greaterThan({
-		tokenStatus: TokenStatus.Active,
-		pageId: '24274',
-	})
+	.greaterThan(
+		{
+			tokenStatus: TokenStatus.Active,
+			pageId: '24274',
+		},
+		{ filter: ['accessToken', 'between', '2424', '7727'] },
+	)
 	.then((result) => {
 		console.log(result.records);
 	});
