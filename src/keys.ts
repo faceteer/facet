@@ -97,7 +97,7 @@ export function isIndex(indexName: string): indexName is Index {
 /**
  * How to build a composite key from an object
  */
-export interface KeyConfiguration<T> {
+export interface KeyConfiguration<T, U extends keyof T> {
 	/**
 	 * An array of object keys that will be used
 	 * to create the composite key.
@@ -105,7 +105,7 @@ export interface KeyConfiguration<T> {
 	 * If a key is specified that is optional, that
 	 * value will be excluded from the composite key
 	 */
-	keys: (keyof T)[];
+	keys: U[];
 	/**
 	 * What to prefix the composite key with.
 	 */
@@ -145,9 +145,13 @@ export const IndexKeyNameMap = {
  * Partition and sort key definitions for a
  * Global Secondary Index
  */
-export interface IndexKeyConfiguration<T> {
-	PK: KeyConfiguration<T>;
-	SK: KeyConfiguration<T>;
+export interface IndexKeyConfiguration<
+	T,
+	P extends keyof T,
+	K extends keyof T,
+> {
+	PK: KeyConfiguration<T, P>;
+	SK: KeyConfiguration<T, K>;
 }
 
 /**
@@ -155,16 +159,76 @@ export interface IndexKeyConfiguration<T> {
  * the partition and sort keys for Global
  * Secondary Indexes.
  */
-export type IndexKeyOptions<T> = Partial<
-	Record<Index, IndexKeyConfiguration<T>>
->;
-
+export interface IndexKeyOptions<
+	T,
+	GSI1PK extends keyof T = never,
+	GSI1SK extends keyof T = never,
+	GSI2PK extends keyof T = never,
+	GSI2SK extends keyof T = never,
+	GSI3PK extends keyof T = never,
+	GSI3SK extends keyof T = never,
+	GSI4PK extends keyof T = never,
+	GSI4SK extends keyof T = never,
+	GSI5PK extends keyof T = never,
+	GSI5SK extends keyof T = never,
+	GSI6PK extends keyof T = never,
+	GSI6SK extends keyof T = never,
+	GSI7PK extends keyof T = never,
+	GSI7SK extends keyof T = never,
+	GSI8PK extends keyof T = never,
+	GSI8SK extends keyof T = never,
+	GSI9PK extends keyof T = never,
+	GSI9SK extends keyof T = never,
+	GSI10PK extends keyof T = never,
+	GSI10SK extends keyof T = never,
+	GSI11PK extends keyof T = never,
+	GSI11SK extends keyof T = never,
+	GSI12PK extends keyof T = never,
+	GSI12SK extends keyof T = never,
+	GSI13PK extends keyof T = never,
+	GSI13SK extends keyof T = never,
+	GSI14PK extends keyof T = never,
+	GSI14SK extends keyof T = never,
+	GSI15PK extends keyof T = never,
+	GSI15SK extends keyof T = never,
+	GSI16PK extends keyof T = never,
+	GSI16SK extends keyof T = never,
+	GSI17PK extends keyof T = never,
+	GSI17SK extends keyof T = never,
+	GSI18PK extends keyof T = never,
+	GSI18SK extends keyof T = never,
+	GSI19PK extends keyof T = never,
+	GSI19SK extends keyof T = never,
+	GSI20PK extends keyof T = never,
+	GSI20SK extends keyof T = never,
+> {
+	GSI1?: IndexKeyConfiguration<T, GSI1PK, GSI1SK>;
+	GSI2?: IndexKeyConfiguration<T, GSI2PK, GSI2SK>;
+	GSI3?: IndexKeyConfiguration<T, GSI3PK, GSI3SK>;
+	GSI4?: IndexKeyConfiguration<T, GSI4PK, GSI4SK>;
+	GSI5?: IndexKeyConfiguration<T, GSI5PK, GSI5SK>;
+	GSI6?: IndexKeyConfiguration<T, GSI6PK, GSI6SK>;
+	GSI7?: IndexKeyConfiguration<T, GSI7PK, GSI7SK>;
+	GSI8?: IndexKeyConfiguration<T, GSI8PK, GSI8SK>;
+	GSI9?: IndexKeyConfiguration<T, GSI9PK, GSI9SK>;
+	GSI10?: IndexKeyConfiguration<T, GSI10PK, GSI10SK>;
+	GSI11?: IndexKeyConfiguration<T, GSI11PK, GSI11SK>;
+	GSI12?: IndexKeyConfiguration<T, GSI12PK, GSI12SK>;
+	GSI13?: IndexKeyConfiguration<T, GSI13PK, GSI13SK>;
+	GSI14?: IndexKeyConfiguration<T, GSI14PK, GSI14SK>;
+	GSI15?: IndexKeyConfiguration<T, GSI15PK, GSI15SK>;
+	GSI16?: IndexKeyConfiguration<T, GSI16PK, GSI16SK>;
+	GSI17?: IndexKeyConfiguration<T, GSI17PK, GSI17SK>;
+	GSI18?: IndexKeyConfiguration<T, GSI18PK, GSI18SK>;
+	GSI19?: IndexKeyConfiguration<T, GSI19PK, GSI19SK>;
+	GSI20?: IndexKeyConfiguration<T, GSI20PK, GSI20SK>;
+}
 /**
  * Build a composite primary or sort key based on the key
  * configuration and a model
  */
-export function buildKey<T>(
-	keyConfig: KeyConfiguration<T>,
+export function buildKey<T, U extends keyof T>(
+	keyConfig: KeyConfiguration<T, U>,
 	model: Partial<T>,
 	delimiter: string,
 	shard?: number,

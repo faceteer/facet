@@ -17,28 +17,115 @@ import cbor from 'cbor';
 export type Validator<T> = (input: unknown) => T;
 import zlib from 'zlib';
 import { getBatchItems, getSingleItem } from './get';
+import { PartitionQuery } from './query';
 
 export type RawFormat = 'json' | 'msgpack' | 'cbor';
 
-export interface FacetOptions<T> {
+export interface FacetOptions<
+	T,
+	PK extends keyof T,
+	SK extends keyof T,
+	GSI1PK extends keyof T = any,
+	GSI1SK extends keyof T = any,
+	GSI2PK extends keyof T = any,
+	GSI2SK extends keyof T = any,
+	GSI3PK extends keyof T = any,
+	GSI3SK extends keyof T = any,
+	GSI4PK extends keyof T = any,
+	GSI4SK extends keyof T = any,
+	GSI5PK extends keyof T = any,
+	GSI5SK extends keyof T = any,
+	GSI6PK extends keyof T = any,
+	GSI6SK extends keyof T = any,
+	GSI7PK extends keyof T = any,
+	GSI7SK extends keyof T = any,
+	GSI8PK extends keyof T = any,
+	GSI8SK extends keyof T = any,
+	GSI9PK extends keyof T = any,
+	GSI9SK extends keyof T = any,
+	GSI10PK extends keyof T = any,
+	GSI10SK extends keyof T = any,
+	GSI11PK extends keyof T = any,
+	GSI11SK extends keyof T = any,
+	GSI12PK extends keyof T = any,
+	GSI12SK extends keyof T = any,
+	GSI13PK extends keyof T = any,
+	GSI13SK extends keyof T = any,
+	GSI14PK extends keyof T = any,
+	GSI14SK extends keyof T = any,
+	GSI15PK extends keyof T = any,
+	GSI15SK extends keyof T = any,
+	GSI16PK extends keyof T = any,
+	GSI16SK extends keyof T = any,
+	GSI17PK extends keyof T = any,
+	GSI17SK extends keyof T = any,
+	GSI18PK extends keyof T = any,
+	GSI18SK extends keyof T = any,
+	GSI19PK extends keyof T = any,
+	GSI19SK extends keyof T = any,
+	GSI20PK extends keyof T = any,
+	GSI20SK extends keyof T = any,
+> {
 	/**
 	 * How to build the partition key
 	 * for this object in the table
 	 */
-	PK: KeyConfiguration<T>;
+	PK: KeyConfiguration<T, PK>;
 
 	/**
 	 * How to build the sort key
 	 * for this object in the table
 	 */
-	SK: KeyConfiguration<T>;
+	SK: KeyConfiguration<T, SK>;
 
 	/**
 	 * Optional configuration for how to build
 	 * the partition and sort keys for Global
 	 * Secondary Indexes.
 	 */
-	indexes?: IndexKeyOptions<T>;
+	indexes?: IndexKeyOptions<
+		T,
+		GSI1PK,
+		GSI1SK,
+		GSI2PK,
+		GSI2SK,
+		GSI3PK,
+		GSI3SK,
+		GSI4PK,
+		GSI4SK,
+		GSI5PK,
+		GSI5SK,
+		GSI6PK,
+		GSI6SK,
+		GSI7PK,
+		GSI7SK,
+		GSI8PK,
+		GSI8SK,
+		GSI9PK,
+		GSI9SK,
+		GSI10PK,
+		GSI10SK,
+		GSI11PK,
+		GSI11SK,
+		GSI12PK,
+		GSI12SK,
+		GSI13PK,
+		GSI13SK,
+		GSI14PK,
+		GSI14SK,
+		GSI15PK,
+		GSI15SK,
+		GSI16PK,
+		GSI16SK,
+		GSI17PK,
+		GSI17SK,
+		GSI18PK,
+		GSI18SK,
+		GSI19PK,
+		GSI19SK,
+		GSI20PK,
+		GSI20SK
+	>;
 	/**
 	 * A function that can take in any input and either
 	 * return a valid object of type `T` or throw if the
@@ -95,15 +182,59 @@ export interface FacetOptions<T> {
 	};
 }
 
-export class Facet<T> {
-	#PK: KeyConfiguration<T>;
-	#SK: KeyConfiguration<T>;
+export class Facet<
+	T,
+	PK extends keyof T,
+	SK extends keyof T,
+	GSI1PK extends keyof T = any,
+	GSI1SK extends keyof T = any,
+	GSI2PK extends keyof T = any,
+	GSI2SK extends keyof T = any,
+	GSI3PK extends keyof T = any,
+	GSI3SK extends keyof T = any,
+	GSI4PK extends keyof T = any,
+	GSI4SK extends keyof T = any,
+	GSI5PK extends keyof T = any,
+	GSI5SK extends keyof T = any,
+	GSI6PK extends keyof T = any,
+	GSI6SK extends keyof T = any,
+	GSI7PK extends keyof T = any,
+	GSI7SK extends keyof T = any,
+	GSI8PK extends keyof T = any,
+	GSI8SK extends keyof T = any,
+	GSI9PK extends keyof T = any,
+	GSI9SK extends keyof T = any,
+	GSI10PK extends keyof T = any,
+	GSI10SK extends keyof T = any,
+	GSI11PK extends keyof T = any,
+	GSI11SK extends keyof T = any,
+	GSI12PK extends keyof T = any,
+	GSI12SK extends keyof T = any,
+	GSI13PK extends keyof T = any,
+	GSI13SK extends keyof T = any,
+	GSI14PK extends keyof T = any,
+	GSI14SK extends keyof T = any,
+	GSI15PK extends keyof T = any,
+	GSI15SK extends keyof T = any,
+	GSI16PK extends keyof T = any,
+	GSI16SK extends keyof T = any,
+	GSI17PK extends keyof T = any,
+	GSI17SK extends keyof T = any,
+	GSI18PK extends keyof T = any,
+	GSI18SK extends keyof T = any,
+	GSI19PK extends keyof T = any,
+	GSI19SK extends keyof T = any,
+	GSI20PK extends keyof T = any,
+	GSI20SK extends keyof T = any,
+> {
+	#PK: KeyConfiguration<T, PK>;
+	#SK: KeyConfiguration<T, SK>;
 	#indexes: Index[] = [];
 	#validator: Validator<T>;
 	#raw?: RawFormat;
 	#compress: boolean;
 	#ttl?: keyof T;
-	#connection: { dynamoDb: DynamoDB; tableName: string };
+	readonly connection: { dynamoDb: DynamoDB; tableName: string };
 
 	readonly delimiter: string;
 
@@ -117,7 +248,51 @@ export class Facet<T> {
 		compress,
 		ttl,
 		connection,
-	}: FacetOptions<T>) {
+	}: FacetOptions<
+		T,
+		PK,
+		SK,
+		GSI1PK,
+		GSI1SK,
+		GSI2PK,
+		GSI2SK,
+		GSI3PK,
+		GSI3SK,
+		GSI4PK,
+		GSI4SK,
+		GSI5PK,
+		GSI5SK,
+		GSI6PK,
+		GSI6SK,
+		GSI7PK,
+		GSI7SK,
+		GSI8PK,
+		GSI8SK,
+		GSI9PK,
+		GSI9SK,
+		GSI10PK,
+		GSI10SK,
+		GSI11PK,
+		GSI11SK,
+		GSI12PK,
+		GSI12SK,
+		GSI13PK,
+		GSI13SK,
+		GSI14PK,
+		GSI14SK,
+		GSI15PK,
+		GSI15SK,
+		GSI16PK,
+		GSI16SK,
+		GSI17PK,
+		GSI17SK,
+		GSI18PK,
+		GSI18SK,
+		GSI19PK,
+		GSI19SK,
+		GSI20PK,
+		GSI20SK
+	>) {
 		this.#PK = PK;
 		this.#SK = SK;
 		this.#validator = validator;
@@ -125,7 +300,7 @@ export class Facet<T> {
 		this.#raw = raw;
 		this.#compress = !!compress;
 		this.#ttl = ttl;
-		this.#connection = connection;
+		this.connection = connection;
 		/**
 		 * Create the index properties for this model for
 		 * any indexes that were configured
@@ -134,7 +309,12 @@ export class Facet<T> {
 			if (isIndex(index) && indexKeyConfig) {
 				this.#indexes.push(index);
 				const privateProperty = IndexPrivatePropertyMap[index];
-				this[privateProperty] = new FacetIndex(index, this, indexKeyConfig);
+
+				this[privateProperty] = new FacetIndex(
+					index,
+					this as any,
+					indexKeyConfig,
+				) as any;
 			}
 		}
 		this.#indexes = Object.keys(indexes) as Index[];
@@ -263,185 +443,177 @@ export class Facet<T> {
 	 * key and sort key
 	 * @param query
 	 */
-	async get(query: Partial<T>[]): Promise<T[]>;
-	async get(query: Partial<T>): Promise<T | null>;
-	async get(query: Partial<T>[] | Partial<T>): Promise<T[] | T | null> {
+	async get(query: (Pick<T, PK | SK> & Partial<T>)[]): Promise<T[]>;
+	async get(query: Pick<T, PK | SK> & Partial<T>): Promise<T | null>;
+	async get(
+		query: (Pick<T, PK | SK> & Partial<T>)[] | (Pick<T, PK | SK> & Partial<T>),
+	): Promise<T[] | T | null> {
 		if (!Array.isArray(query)) {
-			return getSingleItem(
-				this,
-				query,
-				this.#connection.dynamoDb,
-				this.#connection.tableName,
-			);
+			return getSingleItem(this, query);
 		}
 		if (query.length === 0) {
 			return [];
 		}
 
-		return getBatchItems(
-			this,
-			query,
-			this.#connection.dynamoDb,
-			this.#connection.tableName,
-		);
+		return getBatchItems(this, query);
 	}
 
 	// Global Secondary Indexes
-	private readonly _GSI1?: FacetIndex<T>;
-	private readonly _GSI2?: FacetIndex<T>;
-	private readonly _GSI3?: FacetIndex<T>;
-	private readonly _GSI4?: FacetIndex<T>;
-	private readonly _GSI5?: FacetIndex<T>;
-	private readonly _GSI6?: FacetIndex<T>;
-	private readonly _GSI7?: FacetIndex<T>;
-	private readonly _GSI8?: FacetIndex<T>;
-	private readonly _GSI9?: FacetIndex<T>;
-	private readonly _GSI10?: FacetIndex<T>;
-	private readonly _GSI11?: FacetIndex<T>;
-	private readonly _GSI12?: FacetIndex<T>;
-	private readonly _GSI13?: FacetIndex<T>;
-	private readonly _GSI14?: FacetIndex<T>;
-	private readonly _GSI15?: FacetIndex<T>;
-	private readonly _GSI16?: FacetIndex<T>;
-	private readonly _GSI17?: FacetIndex<T>;
-	private readonly _GSI18?: FacetIndex<T>;
-	private readonly _GSI19?: FacetIndex<T>;
-	private readonly _GSI20?: FacetIndex<T>;
+	private readonly _GSI1?: FacetIndex<T, PK, SK, GSI1PK, GSI1SK>;
+	private readonly _GSI2?: FacetIndex<T, PK, SK, GSI2PK, GSI2SK>;
+	private readonly _GSI3?: FacetIndex<T, PK, SK, GSI3PK, GSI3SK>;
+	private readonly _GSI4?: FacetIndex<T, PK, SK, GSI4PK, GSI4SK>;
+	private readonly _GSI5?: FacetIndex<T, PK, SK, GSI5PK, GSI5SK>;
+	private readonly _GSI6?: FacetIndex<T, PK, SK, GSI6PK, GSI6SK>;
+	private readonly _GSI7?: FacetIndex<T, PK, SK, GSI7PK, GSI7SK>;
+	private readonly _GSI8?: FacetIndex<T, PK, SK, GSI8PK, GSI8SK>;
+	private readonly _GSI9?: FacetIndex<T, PK, SK, GSI9PK, GSI9SK>;
+	private readonly _GSI10?: FacetIndex<T, PK, SK, GSI10PK, GSI10SK>;
+	private readonly _GSI11?: FacetIndex<T, PK, SK, GSI11PK, GSI11SK>;
+	private readonly _GSI12?: FacetIndex<T, PK, SK, GSI12PK, GSI12SK>;
+	private readonly _GSI13?: FacetIndex<T, PK, SK, GSI13PK, GSI13SK>;
+	private readonly _GSI14?: FacetIndex<T, PK, SK, GSI14PK, GSI14SK>;
+	private readonly _GSI15?: FacetIndex<T, PK, SK, GSI15PK, GSI15SK>;
+	private readonly _GSI16?: FacetIndex<T, PK, SK, GSI16PK, GSI16SK>;
+	private readonly _GSI17?: FacetIndex<T, PK, SK, GSI17PK, GSI17SK>;
+	private readonly _GSI18?: FacetIndex<T, PK, SK, GSI18PK, GSI18SK>;
+	private readonly _GSI19?: FacetIndex<T, PK, SK, GSI19PK, GSI19SK>;
+	private readonly _GSI20?: FacetIndex<T, PK, SK, GSI20PK, GSI20SK>;
 
-	get GSI1(): FacetIndex<T> {
+	get GSI1(): FacetIndex<T, PK, SK, GSI1PK, GSI1SK> {
 		const facetIndex = this._GSI1;
 		if (!facetIndex) {
 			throw new Error(`There is no configuration defined for GSI1`);
 		}
 		return facetIndex;
 	}
-	get GSI2(): FacetIndex<T> {
+	get GSI2(): FacetIndex<T, PK, SK, GSI2PK, GSI2SK> {
 		const facetIndex = this._GSI2;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI2');
 		}
 		return facetIndex;
 	}
-	get GSI3(): FacetIndex<T> {
+	get GSI3(): FacetIndex<T, PK, SK, GSI3PK, GSI3SK> {
 		const facetIndex = this._GSI3;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI3');
 		}
 		return facetIndex;
 	}
-	get GSI4(): FacetIndex<T> {
+	get GSI4(): FacetIndex<T, PK, SK, GSI4PK, GSI4SK> {
 		const facetIndex = this._GSI4;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI4');
 		}
 		return facetIndex;
 	}
-	get GSI5(): FacetIndex<T> {
+	get GSI5(): FacetIndex<T, PK, SK, GSI5PK, GSI5SK> {
 		const facetIndex = this._GSI5;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI5');
 		}
 		return facetIndex;
 	}
-	get GSI6(): FacetIndex<T> {
+	get GSI6(): FacetIndex<T, PK, SK, GSI6PK, GSI6SK> {
 		const facetIndex = this._GSI6;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI6');
 		}
 		return facetIndex;
 	}
-	get GSI7(): FacetIndex<T> {
+	get GSI7(): FacetIndex<T, PK, SK, GSI7PK, GSI7SK> {
 		const facetIndex = this._GSI7;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI7');
 		}
 		return facetIndex;
 	}
-	get GSI8(): FacetIndex<T> {
+	get GSI8(): FacetIndex<T, PK, SK, GSI8PK, GSI8SK> {
 		const facetIndex = this._GSI8;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI8');
 		}
 		return facetIndex;
 	}
-	get GSI9(): FacetIndex<T> {
+	get GSI9(): FacetIndex<T, PK, SK, GSI9PK, GSI9SK> {
 		const facetIndex = this._GSI9;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI9');
 		}
 		return facetIndex;
 	}
-	get GSI10(): FacetIndex<T> {
+	get GSI10(): FacetIndex<T, PK, SK, GSI10PK, GSI10SK> {
 		const facetIndex = this._GSI10;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI10');
 		}
 		return facetIndex;
 	}
-	get GSI11(): FacetIndex<T> {
+	get GSI11(): FacetIndex<T, PK, SK, GSI11PK, GSI11SK> {
 		const facetIndex = this._GSI11;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI11');
 		}
 		return facetIndex;
 	}
-	get GSI12(): FacetIndex<T> {
+	get GSI12(): FacetIndex<T, PK, SK, GSI12PK, GSI12SK> {
 		const facetIndex = this._GSI12;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI12');
 		}
 		return facetIndex;
 	}
-	get GSI13(): FacetIndex<T> {
+	get GSI13(): FacetIndex<T, PK, SK, GSI13PK, GSI13SK> {
 		const facetIndex = this._GSI13;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI13');
 		}
 		return facetIndex;
 	}
-	get GSI14(): FacetIndex<T> {
+	get GSI14(): FacetIndex<T, PK, SK, GSI14PK, GSI14SK> {
 		const facetIndex = this._GSI14;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI14');
 		}
 		return facetIndex;
 	}
-	get GSI15(): FacetIndex<T> {
+	get GSI15(): FacetIndex<T, PK, SK, GSI15PK, GSI15SK> {
 		const facetIndex = this._GSI15;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI15');
 		}
 		return facetIndex;
 	}
-	get GSI16(): FacetIndex<T> {
+	get GSI16(): FacetIndex<T, PK, SK, GSI16PK, GSI16SK> {
 		const facetIndex = this._GSI16;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI16');
 		}
 		return facetIndex;
 	}
-	get GSI17(): FacetIndex<T> {
+	get GSI17(): FacetIndex<T, PK, SK, GSI17PK, GSI17SK> {
 		const facetIndex = this._GSI17;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI17');
 		}
 		return facetIndex;
 	}
-	get GSI18(): FacetIndex<T> {
+	get GSI18(): FacetIndex<T, PK, SK, GSI18PK, GSI18SK> {
 		const facetIndex = this._GSI18;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI18');
 		}
 		return facetIndex;
 	}
-	get GSI19(): FacetIndex<T> {
+	get GSI19(): FacetIndex<T, PK, SK, GSI19PK, GSI19SK> {
 		const facetIndex = this._GSI19;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI19');
 		}
 		return facetIndex;
 	}
-	get GSI20(): FacetIndex<T> {
+	get GSI20(): FacetIndex<T, PK, SK, GSI20PK, GSI20SK> {
 		const facetIndex = this._GSI20;
 		if (!facetIndex) {
 			throw new Error('There is no configuration defined for GSI20');
@@ -450,18 +622,24 @@ export class Facet<T> {
 	}
 }
 
-class FacetIndex<T> {
-	#index: Index;
-	#facet: Facet<T>;
-	#PK: KeyConfiguration<T>;
-	#SK: KeyConfiguration<T>;
+export class FacetIndex<
+	T,
+	PK extends keyof T,
+	SK extends keyof T,
+	GSIPK extends keyof T,
+	GSISK extends keyof T,
+> {
+	readonly name: Index;
+	#facet: Facet<T, PK, SK>;
+	#PK: KeyConfiguration<T, GSIPK>;
+	#SK: KeyConfiguration<T, GSISK>;
 
 	constructor(
 		index: Index,
-		facet: Facet<T>,
-		keyConfig: IndexKeyConfiguration<T>,
+		facet: Facet<T, PK, SK>,
+		keyConfig: IndexKeyConfiguration<T, GSIPK, GSISK>,
 	) {
-		this.#index = index;
+		this.name = index;
 		this.#facet = facet;
 		this.#PK = keyConfig.PK;
 		this.#SK = keyConfig.SK;
@@ -470,14 +648,26 @@ class FacetIndex<T> {
 	/**
 	 * Construct the partition key
 	 */
-	pk(model: T, shard?: number) {
+	pk(model: Partial<T>, shard?: number) {
 		return buildKey(this.#PK, model, this.#facet.delimiter, shard);
 	}
 
 	/**
 	 * Construct the sort key
 	 */
-	sk(model: T, shard?: number) {
+	sk(model: Partial<T>, shard?: number) {
 		return buildKey(this.#SK, model, this.#facet.delimiter, shard);
+	}
+
+	/**
+	 * Query a partition within the index
+	 */
+	query(partition: Partial<T>, shard?: number) {
+		return new PartitionQuery({
+			facet: this.#facet,
+			partitionIdentifier: partition,
+			index: this,
+			shard: shard,
+		});
 	}
 }
