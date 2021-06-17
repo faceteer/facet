@@ -1,6 +1,6 @@
 import { decodeCursor, encodeCursor } from './cursor';
 import { Facet, FacetIndex } from './facet';
-import { Filter } from './filter-condition';
+import { Filter } from './filter';
 import { IndexKeyNameMap, PK, SK } from './keys';
 
 export interface PartitionQueryOptions<
