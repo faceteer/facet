@@ -1,6 +1,6 @@
 import { decodeCursor, encodeCursor } from './cursor';
 import { Facet, FacetIndex } from './facet';
-import { FilterCondition } from './filter-condition';
+import { Filter } from './filter-condition';
 import { IndexKeyNameMap, PK, SK } from './keys';
 
 export interface PartitionQueryOptions<
@@ -57,7 +57,7 @@ export interface QueryOptions<T> {
 	 */
 	shard?: number;
 
-	filter?: FilterCondition<T>;
+	filter?: Filter<T>;
 }
 
 export class PartitionQuery<

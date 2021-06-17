@@ -8,19 +8,17 @@ export enum FilterComparison {
 
 export const FilterBetween = 'between';
 
-export type CompareFilterCondition<T> = [
+export type CompareFilter<T> = [
 	keyof T,
 	FilterComparison | `${FilterComparison}`,
 	T[keyof T],
 ];
 
-export type BetweenFilterCondition<T> = [
+export type BetweenFilter<T> = [
 	keyof T,
 	typeof FilterBetween,
 	T[keyof T],
 	T[keyof T],
 ];
 
-export type FilterCondition<T> =
-	| CompareFilterCondition<T>
-	| BetweenFilterCondition<T>;
+export type Filter<T> = CompareFilter<T> | BetweenFilter<T>;
