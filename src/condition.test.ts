@@ -84,4 +84,57 @@ describe('condition.ts', () => {
 			'#C_0': 'age',
 		});
 	});
+
+	test('Exists', () => {
+		const conditionExpression = buildConditionExpression<User>([
+			'isActive',
+			'exists',
+		]);
+
+		expect(conditionExpression.expression).toBe('attribute_exists (#C_0)');
+		expect(conditionExpression.values).toEqual({});
+
+		expect(conditionExpression.names).toEqual({
+			'#C_0': 'isActive',
+		});
+	});
+
+	test('Not Exists', () => {
+		const conditionExpression = buildConditionExpression<User>([
+			'isActive',
+			'not_exists',
+		]);
+
+		expect(conditionExpression.expression).toBe('attribute_not_exists (#C_0)');
+		expect(conditionExpression.values).toEqual({});
+
+		expect(conditionExpression.names).toEqual({
+			'#C_0': 'isActive',
+		});
+	});
+
+	test('NOT', () => {
+		const conditionExpression = buildConditionExpression<User>([
+			['age', '>=', 21],
+			'AND',
+			{ NOT: ['createdDate', 'begins_with', '2021'] },
+		]);
+
+		expect(conditionExpression.expression).toBe(
+			'(#C_0_0 >= :C_0_0) AND (NOT (begins_with (#C_1_0_0, :C_1_0_0)))',
+		);
+		expect(conditionExpression.values).toEqual({
+			':C_0_0': {
+				N: '21',
+			},
+			':C_1_0_0': {
+				S: '2021',
+			},
+		});
+
+		expect(conditionExpression.names).toEqual({
+			'#C_0_0': 'age',
+			'#C_1_0_0': 'createdDate',
+		});
+	});
 });

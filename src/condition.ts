@@ -39,12 +39,16 @@ export type Condition<T> =
 	| ContainsCondition<T>;
 
 export type LogicEvaluation<T> = [
-	Condition<T> | LogicEvaluation<T>,
+	ConditionExpression<T>,
 	'OR' | 'AND',
-	Condition<T> | LogicEvaluation<T>,
+	ConditionExpression<T>,
 ];
 
-export type ConditionExpression<T> = Condition<T> | LogicEvaluation<T>;
+export type ConditionExpression<T> =
+	| Condition<T>
+	| LogicEvaluation<T>
+	| NotExpression<T>;
+export type NotExpression<T> = { NOT: ConditionExpression<T> };
 
 export function buildConditionExpression<T>(
 	expression: ConditionExpression<T>,
@@ -70,6 +74,15 @@ export function buildConditionExpression<T>(
 		values: {},
 		expression: '',
 	};
+
+	if (!Array.isArray(expression)) {
+		const notExpression = buildConditionExpression(
+			expression.NOT,
+			nextPrefix(),
+		);
+		notExpression.expression = `NOT (${notExpression.expression})`;
+		return notExpression;
+	}
 
 	switch (expression[1]) {
 		case 'OR':
