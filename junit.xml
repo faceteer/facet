@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="1" failures="0" errors="0" time="0.497">
+  <testsuite name="condition.ts" errors="0" failures="0" skipped="0" timestamp="2021-07-09T22:35:31" time="0.463" tests="1">
+    <testcase classname="condition.ts Condition Builder" name="condition.ts Condition Builder" time="0.003">
+    </testcase>
+  </testsuite>
+</testsuites>

@@ -9,24 +9,24 @@ export interface CompiledExpression {
 
 export type Comparator = '=' | '<>' | '<' | '<=' | '>' | '>=';
 
-export type ComparatorCondition<T, U extends keyof T = never> = [
+export type ComparatorCondition<T, U extends keyof T = any> = [
 	U,
 	Comparator,
-	T[U],
+	string | number | Date,
 ];
-export type BetweenCondition<T, U extends keyof T = never> = [
+export type BetweenCondition<T, U extends keyof T = any> = [
 	U,
 	'between',
-	T[U],
-	T[U],
+	string | number | Date,
+	string | number | Date,
 ];
 export type ExistsCondition<T> = [keyof T, 'exists'];
 export type NotExistsCondition<T> = [keyof T, 'not_exists'];
 export type BeginsWithCondition<T> = [keyof T, 'begins_with', string];
-export type ContainsCondition<T, U extends keyof T = never> = [
+export type ContainsCondition<T, U extends keyof T = any> = [
 	U,
 	'contains',
-	T[U],
+	string | number | Date,
 ];
 export type SizeCondition<T> = [keyof T, 'size', Comparator, number];
 
