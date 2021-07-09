@@ -125,6 +125,17 @@ export function buildConditionExpression<T>(
 			compiledExpression.expression = `begins_with (${namePlaceholder}, ${valuePlaceholder})`;
 			return compiledExpression;
 		}
+		case 'contains': {
+			const placeholder = nextPrefix();
+			const namePlaceholder = `#${placeholder}`;
+			const valuePlaceholder = `:${placeholder}`;
+			compiledExpression.names[namePlaceholder] = `${expression[0]}`;
+			compiledExpression.values[valuePlaceholder] = Converter.input(
+				expression[2],
+			);
+			compiledExpression.expression = `contains (${namePlaceholder}, ${valuePlaceholder})`;
+			return compiledExpression;
+		}
 		case 'between': {
 			const placeholder = nextPrefix();
 			const namePlaceholder = `#${placeholder}`;

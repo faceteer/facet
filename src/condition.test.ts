@@ -4,6 +4,7 @@ interface User {
 	id: string;
 	age: number;
 	name: string;
+	favorites: string[];
 	createdDate: Date;
 	isActive?: boolean;
 }
@@ -61,6 +62,23 @@ describe('condition.ts', () => {
 
 		expect(conditionExpression.names).toEqual({
 			'#C_0': 'name',
+		});
+	});
+
+	test('Contains', () => {
+		const conditionExpression = buildConditionExpression<User>([
+			'favorites',
+			'contains',
+			'apples',
+		]);
+
+		expect(conditionExpression.expression).toBe('contains (#C_0, :C_0)');
+		expect(conditionExpression.values).toEqual({
+			':C_0': { S: 'apples' },
+		});
+
+		expect(conditionExpression.names).toEqual({
+			'#C_0': 'favorites',
 		});
 	});
 
