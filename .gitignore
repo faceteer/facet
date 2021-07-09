@@ -146,3 +146,5 @@ test/types/index.js
 
 # test tap report
 out.tap
+
+junit.xml

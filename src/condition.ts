@@ -10,12 +10,12 @@ export interface CompiledExpression {
 export type Comparator = '=' | '<>' | '<' | '<=' | '>' | '>=';
 
 export type ComparatorCondition<T, U extends keyof T = any> = [
-	U,
+	U | string,
 	Comparator,
 	string | number | Date,
 ];
 export type BetweenCondition<T, U extends keyof T = any> = [
-	U,
+	U | string,
 	'between',
 	string | number | Date,
 	string | number | Date,
@@ -24,7 +24,7 @@ export type ExistsCondition<T> = [keyof T, 'exists'];
 export type NotExistsCondition<T> = [keyof T, 'not_exists'];
 export type BeginsWithCondition<T> = [keyof T, 'begins_with', string];
 export type ContainsCondition<T, U extends keyof T = any> = [
-	U,
+	U | string,
 	'contains',
 	string | number | Date,
 ];
@@ -91,7 +91,7 @@ export function buildConditionExpression<T>(
 		case '<=':
 		case '>':
 		case '>=': {
-			const placeholder = `${nextPrefix()}_${expression[0]}`;
+			const placeholder = nextPrefix();
 			const namePlaceholder = `#${placeholder}`;
 			const valuePlaceholder = `:${placeholder}`;
 			compiledExpression.names[namePlaceholder] = expression[0];
@@ -102,7 +102,7 @@ export function buildConditionExpression<T>(
 			return compiledExpression;
 		}
 		case 'begins_with': {
-			const placeholder = `${nextPrefix()}_${expression[0]}`;
+			const placeholder = nextPrefix();
 			const namePlaceholder = `#${placeholder}`;
 			const valuePlaceholder = `:${placeholder}`;
 			compiledExpression.names[namePlaceholder] = `${expression[0]}`;
@@ -113,7 +113,7 @@ export function buildConditionExpression<T>(
 			return compiledExpression;
 		}
 		case 'between': {
-			const placeholder = `${nextPrefix()}_${expression[0]}`;
+			const placeholder = nextPrefix();
 			const namePlaceholder = `#${placeholder}`;
 			const leftValuePlaceholder = `:${placeholder}_L`;
 			const rightValuePlaceholder = `:${placeholder}_R`;
@@ -128,14 +128,14 @@ export function buildConditionExpression<T>(
 			return compiledExpression;
 		}
 		case 'exists': {
-			const placeholder = `${nextPrefix()}_${expression[0]}`;
+			const placeholder = nextPrefix();
 			const namePlaceholder = `#${placeholder}`;
 			compiledExpression.names[namePlaceholder] = `${expression[0]}`;
 			compiledExpression.expression = `attribute_exists (${namePlaceholder})`;
 			return compiledExpression;
 		}
 		case 'not_exists': {
-			const placeholder = `${nextPrefix()}_${expression[0]}`;
+			const placeholder = nextPrefix();
 			const namePlaceholder = `#${placeholder}`;
 			compiledExpression.names[namePlaceholder] = `${expression[0]}`;
 			compiledExpression.expression = `attribute_not_exists (${namePlaceholder})`;
