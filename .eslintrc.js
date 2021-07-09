@@ -8,6 +8,7 @@ module.exports = {
 		node: true,
 	},
 	rules: {
+		'no-undef': 'off',
 		'require-jsdoc': 'off',
 		'valid-jsdoc': 'off',
 		semi: 'off',

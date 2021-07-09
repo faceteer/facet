@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/faceteer/facet#readme",
   "devDependencies": {
+    "@types/jest": "^26.0.24",
     "@types/node": "^15.6.1",
     "@typescript-eslint/eslint-plugin": "^4.26.0",
     "@typescript-eslint/parser": "^4.26.0",
@@ -38,6 +39,7 @@
     "aws-sdk": ">=2"
   },
   "dependencies": {
+    "@faceteer/converter": "^1.0.1",
     "@msgpack/msgpack": "^2.7.0",
     "cbor": "^7.0.5",
     "crc-32": "^1.2.0"
