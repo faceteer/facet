@@ -173,4 +173,34 @@ describe('condition.ts', () => {
 			'#C_0': 'name',
 		});
 	});
+
+	test('IN', () => {
+		const conditionExpression = buildConditionExpression<User>([
+			'name',
+			'IN',
+			['Dave', 'Larry', 'Mike', 'Jane'],
+		]);
+
+		expect(conditionExpression.expression).toBe(
+			'#C_0 IN (:C_0I0, :C_0I1, :C_0I2, :C_0I3)',
+		);
+		expect(conditionExpression.values).toEqual({
+			':C_0I0': {
+				S: 'Dave',
+			},
+			':C_0I1': {
+				S: 'Larry',
+			},
+			':C_0I2': {
+				S: 'Mike',
+			},
+			':C_0I3': {
+				S: 'Jane',
+			},
+		});
+
+		expect(conditionExpression.names).toEqual({
+			'#C_0': 'name',
+		});
+	});
 });

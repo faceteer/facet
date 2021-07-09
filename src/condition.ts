@@ -9,13 +9,13 @@ export interface CompiledExpression {
 
 export type Comparator = '=' | '<>' | '<' | '<=' | '>' | '>=';
 
-export type ComparatorCondition<T, U extends keyof T = any> = [
-	U | string,
+export type ComparatorCondition<T> = [
+	keyof T | string,
 	Comparator,
 	string | number | Date,
 ];
-export type BetweenCondition<T, U extends keyof T = any> = [
-	U | string,
+export type BetweenCondition<T> = [
+	keyof T | string,
 	'between',
 	string | number | Date,
 	string | number | Date,
@@ -23,12 +23,13 @@ export type BetweenCondition<T, U extends keyof T = any> = [
 export type ExistsCondition<T> = [keyof T, 'exists'];
 export type NotExistsCondition<T> = [keyof T, 'not_exists'];
 export type BeginsWithCondition<T> = [keyof T, 'begins_with', string];
-export type ContainsCondition<T, U extends keyof T = any> = [
-	U | string,
+export type ContainsCondition<T> = [
+	keyof T | string,
 	'contains',
 	string | number | Date,
 ];
 export type SizeCondition<T> = [keyof T, 'size', Comparator, number];
+export type InCondition<T> = [keyof T, 'IN', (string | number | Date)[]];
 
 export type Condition<T> =
 	| ComparatorCondition<T>
@@ -37,7 +38,8 @@ export type Condition<T> =
 	| NotExistsCondition<T>
 	| BeginsWithCondition<T>
 	| ContainsCondition<T>
-	| SizeCondition<T>;
+	| SizeCondition<T>
+	| InCondition<T>;
 
 export type LogicEvaluation<T> = [
 	ConditionExpression<T>,
@@ -108,7 +110,7 @@ export function buildConditionExpression<T>(
 			const placeholder = nextPrefix();
 			const namePlaceholder = `#${placeholder}`;
 			const valuePlaceholder = `:${placeholder}`;
-			compiledExpression.names[namePlaceholder] = expression[0];
+			compiledExpression.names[namePlaceholder] = `${expression[0]}`;
 			compiledExpression.values[valuePlaceholder] = Converter.input(
 				expression[2],
 			);
@@ -142,7 +144,7 @@ export function buildConditionExpression<T>(
 			const namePlaceholder = `#${placeholder}`;
 			const leftValuePlaceholder = `:${placeholder}_L`;
 			const rightValuePlaceholder = `:${placeholder}_R`;
-			compiledExpression.names[namePlaceholder] = expression[0];
+			compiledExpression.names[namePlaceholder] = `${expression[0]}`;
 			compiledExpression.values[leftValuePlaceholder] = Converter.input(
 				expression[2],
 			);
@@ -175,6 +177,22 @@ export function buildConditionExpression<T>(
 				expression[3],
 			);
 			compiledExpression.expression = `size(${namePlaceholder}) ${expression[2]} ${valuePlaceholder})`;
+			return compiledExpression;
+		}
+		case 'IN': {
+			const placeholder = nextPrefix();
+			const namePlaceholder = `#${placeholder}`;
+			compiledExpression.names[namePlaceholder] = `${expression[0]}`;
+			const valuePlaceholders: string[] = [];
+			for (const [index, listItem] of expression[2].entries()) {
+				const valuePlaceholder = `:${placeholder}I${index}`;
+				compiledExpression.values[valuePlaceholder] = Converter.input(listItem);
+				valuePlaceholders.push(valuePlaceholder);
+			}
+
+			compiledExpression.expression = `${namePlaceholder} IN (${valuePlaceholders.join(
+				', ',
+			)})`;
 			return compiledExpression;
 		}
 
