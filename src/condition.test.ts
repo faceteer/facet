@@ -155,4 +155,22 @@ describe('condition.ts', () => {
 			'#C_1_0_0': 'createdDate',
 		});
 	});
+
+	test('Size', () => {
+		const conditionExpression = buildConditionExpression<User>([
+			'name',
+			'size',
+			'<=',
+			10,
+		]);
+
+		expect(conditionExpression.expression).toBe('size(#C_0) <= :C_0)');
+		expect(conditionExpression.values).toEqual({
+			':C_0': { N: '10' },
+		});
+
+		expect(conditionExpression.names).toEqual({
+			'#C_0': 'name',
+		});
+	});
 });

@@ -36,7 +36,8 @@ export type Condition<T> =
 	| ExistsCondition<T>
 	| NotExistsCondition<T>
 	| BeginsWithCondition<T>
-	| ContainsCondition<T>;
+	| ContainsCondition<T>
+	| SizeCondition<T>;
 
 export type LogicEvaluation<T> = [
 	ConditionExpression<T>,
@@ -163,6 +164,17 @@ export function buildConditionExpression<T>(
 			const namePlaceholder = `#${placeholder}`;
 			compiledExpression.names[namePlaceholder] = `${expression[0]}`;
 			compiledExpression.expression = `attribute_not_exists (${namePlaceholder})`;
+			return compiledExpression;
+		}
+		case 'size': {
+			const placeholder = nextPrefix();
+			const namePlaceholder = `#${placeholder}`;
+			const valuePlaceholder = `:${placeholder}`;
+			compiledExpression.names[namePlaceholder] = `${expression[0]}`;
+			compiledExpression.values[valuePlaceholder] = Converter.input(
+				expression[3],
+			);
+			compiledExpression.expression = `size(${namePlaceholder}) ${expression[2]} ${valuePlaceholder})`;
 			return compiledExpression;
 		}
 
