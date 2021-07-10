@@ -1,7 +1,8 @@
 import { decodeCursor, encodeCursor } from './cursor';
 import { Facet, FacetIndex } from './facet';
-import { Filter } from './filter';
+import * as expressionBuilder from '@faceteer/expression-builder';
 import { IndexKeyNameMap, PK, SK } from './keys';
+import type { QueryInput } from 'aws-sdk/clients/dynamodb';
 
 export interface PartitionQueryOptions<
 	T,
@@ -57,7 +58,7 @@ export interface QueryOptions<T> {
 	 */
 	shard?: number;
 
-	filter?: Filter<T>;
+	filter?: expressionBuilder.FilterConditionExpression<T>;
 }
 
 export class PartitionQuery<
@@ -100,7 +101,7 @@ export class PartitionQuery<
 	private async compare(
 		comparison: Comparison,
 		sort: Partial<T> | string,
-		{ cursor, limit, scanForward = true, shard }: QueryOptions<T>,
+		{ cursor, limit, scanForward = true, shard, filter }: QueryOptions<T>,
 	) {
 		const { dynamoDb, tableName } = this.#facet.connection;
 
@@ -123,28 +124,41 @@ export class PartitionQuery<
 
 		const lastEvaluatedKey = decodeCursor(cursor);
 
-		const results = await dynamoDb
-			.query({
-				TableName: tableName,
-				IndexName: this.#index?.name,
-				KeyConditionExpression: `#PK = :partition AND #SK ${comparison} :sort`,
-				ExpressionAttributeNames: {
-					'#PK': this.#PK,
-					'#SK': this.#SK,
+		const queryInput: QueryInput = {
+			TableName: tableName,
+			IndexName: this.#index?.name,
+			KeyConditionExpression: `#PK = :partition AND #SK ${comparison} :sort`,
+			ExpressionAttributeNames: {
+				'#PK': this.#PK,
+				'#SK': this.#SK,
+			},
+			ExpressionAttributeValues: {
+				':partition': {
+					S: this.#partition,
 				},
-				ExpressionAttributeValues: {
-					':partition': {
-						S: this.#partition,
-					},
-					':sort': {
-						S: sortKey,
-					},
+				':sort': {
+					S: sortKey,
 				},
-				Limit: limit,
-				ScanIndexForward: scanForward,
-				ExclusiveStartKey: lastEvaluatedKey,
-			})
-			.promise();
+			},
+			Limit: limit,
+			ScanIndexForward: scanForward,
+			ExclusiveStartKey: lastEvaluatedKey,
+		};
+
+		if (filter) {
+			const filterExpression = expressionBuilder.filter(filter);
+			queryInput.FilterExpression = filterExpression.expression;
+			Object.assign(
+				queryInput.ExpressionAttributeNames,
+				filterExpression.names,
+			);
+			Object.assign(
+				queryInput.ExpressionAttributeValues,
+				filterExpression.values,
+			);
+		}
+
+		const results = await dynamoDb.query(queryInput).promise();
 
 		/**
 		 * Gather any items that were returned
@@ -195,7 +209,7 @@ export class PartitionQuery<
 
 	async beginsWith(
 		sort: Partial<Pick<T, GSISK>> | string,
-		{ cursor, limit, scanForward = true, shard }: QueryOptions<T> = {},
+		{ cursor, limit, scanForward = true, shard, filter }: QueryOptions<T> = {},
 	) {
 		const { dynamoDb, tableName } = this.#facet.connection;
 
@@ -218,28 +232,41 @@ export class PartitionQuery<
 
 		const lastEvaluatedKey = decodeCursor(cursor);
 
-		const results = await dynamoDb
-			.query({
-				TableName: tableName,
-				IndexName: this.#index?.name,
-				KeyConditionExpression: '#PK = :partition AND begins_with(#SK, :sort)',
-				ExpressionAttributeNames: {
-					'#PK': this.#PK,
-					'#SK': this.#SK,
+		const queryInput: QueryInput = {
+			TableName: tableName,
+			IndexName: this.#index?.name,
+			KeyConditionExpression: '#PK = :partition AND begins_with(#SK, :sort)',
+			ExpressionAttributeNames: {
+				'#PK': this.#PK,
+				'#SK': this.#SK,
+			},
+			ExpressionAttributeValues: {
+				':partition': {
+					S: this.#partition,
 				},
-				ExpressionAttributeValues: {
-					':partition': {
-						S: this.#partition,
-					},
-					':sort': {
-						S: sortKey,
-					},
+				':sort': {
+					S: sortKey,
 				},
-				Limit: limit,
-				ScanIndexForward: scanForward,
-				ExclusiveStartKey: lastEvaluatedKey,
-			})
-			.promise();
+			},
+			Limit: limit,
+			ScanIndexForward: scanForward,
+			ExclusiveStartKey: lastEvaluatedKey,
+		};
+
+		if (filter) {
+			const filterExpression = expressionBuilder.filter(filter);
+			queryInput.FilterExpression = filterExpression.expression;
+			Object.assign(
+				queryInput.ExpressionAttributeNames,
+				filterExpression.names,
+			);
+			Object.assign(
+				queryInput.ExpressionAttributeValues,
+				filterExpression.values,
+			);
+		}
+
+		const results = await dynamoDb.query(queryInput).promise();
 
 		/**
 		 * Gather any items that were returned
