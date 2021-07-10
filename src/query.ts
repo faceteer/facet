@@ -18,6 +18,7 @@ export interface PartitionQueryOptions<
 }
 
 enum Comparison {
+	Equals = '=',
 	Greater = '>',
 	GreaterOrEqual = '>=',
 	Less = '<',
@@ -179,6 +180,25 @@ export class PartitionQuery<
 		return queryResult;
 	}
 
+	/**
+	 * Query for records where the sort key equals
+	 * the given sort key values
+	 * @param sort
+	 * @param options
+	 */
+	equals(
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T> = {},
+	) {
+		return this.compare(Comparison.Equals, sort as Partial<T>, options);
+	}
+
+	/**
+	 * Query for records where the sort key is greater than
+	 * the given sort key values
+	 * @param sort
+	 * @param options
+	 */
 	greaterThan(
 		sort: Partial<Pick<T, GSISK>> | string,
 		options: QueryOptions<T> = {},
@@ -186,6 +206,12 @@ export class PartitionQuery<
 		return this.compare(Comparison.Greater, sort as Partial<T>, options);
 	}
 
+	/**
+	 * Query for records where the sort key is greater than or equal to
+	 * the given sort key values
+	 * @param sort
+	 * @param options
+	 */
 	greaterThanOrEqual(
 		sort: Partial<Pick<T, GSISK>> | string,
 		options: QueryOptions<T> = {},
@@ -193,6 +219,12 @@ export class PartitionQuery<
 		return this.compare(Comparison.GreaterOrEqual, sort as Partial<T>, options);
 	}
 
+	/**
+	 * Query for records where the sort key is less than
+	 * the given sort key values
+	 * @param sort
+	 * @param options
+	 */
 	lessThan(
 		sort: Partial<Pick<T, GSISK>> | string,
 		options: QueryOptions<T> = {},
@@ -200,6 +232,12 @@ export class PartitionQuery<
 		return this.compare(Comparison.Less, sort as Partial<T>, options);
 	}
 
+	/**
+	 * Query for records where the sort key is less than or equal to
+	 * the given sort key values
+	 * @param sort
+	 * @param options
+	 */
 	lessThanOrEqual(
 		sort: Partial<Pick<T, GSISK>> | string,
 		options: QueryOptions<T> = {},
@@ -207,6 +245,22 @@ export class PartitionQuery<
 		return this.compare(Comparison.LessOrEqual, sort as Partial<T>, options);
 	}
 
+	/**
+	 * Query for all records where the sort key
+	 * starts with the facet prefix
+	 *
+	 * @param options
+	 */
+	async all(options: QueryOptions<T> = {}) {
+		return this.beginsWith({}, options);
+	}
+
+	/**
+	 * Query for records where the sort key begins with the given sort key values
+	 *
+	 * @param sort
+	 * @param options
+	 */
 	async beginsWith(
 		sort: Partial<Pick<T, GSISK>> | string,
 		{ cursor, limit, scanForward = true, shard, filter }: QueryOptions<T> = {},
@@ -246,6 +300,113 @@ export class PartitionQuery<
 				},
 				':sort': {
 					S: sortKey,
+				},
+			},
+			Limit: limit,
+			ScanIndexForward: scanForward,
+			ExclusiveStartKey: lastEvaluatedKey,
+		};
+
+		if (filter) {
+			const filterExpression = expressionBuilder.filter(filter);
+			queryInput.FilterExpression = filterExpression.expression;
+			Object.assign(
+				queryInput.ExpressionAttributeNames,
+				filterExpression.names,
+			);
+			Object.assign(
+				queryInput.ExpressionAttributeValues,
+				filterExpression.values,
+			);
+		}
+
+		const results = await dynamoDb.query(queryInput).promise();
+
+		/**
+		 * Gather any items that were returned
+		 */
+		if (results.Items) {
+			results.Items.forEach((item) => {
+				queryResult.records.push(this.#facet.out(item));
+			});
+		}
+
+		/**
+		 * Attach the cursor if needed
+		 */
+		if (results.LastEvaluatedKey) {
+			queryResult.cursor = encodeCursor(results.LastEvaluatedKey);
+		}
+
+		return queryResult;
+	}
+
+	/**
+	 * Query for records that are greater than or equal to the starting
+	 * sort key, and less than or equal to the ending sort key
+	 *
+	 * @param start
+	 * @param end
+	 * @param options
+	 */
+	async between(
+		start: Partial<Pick<T, GSISK>> | string,
+		end: Partial<Pick<T, GSISK>> | string,
+		{ cursor, limit, scanForward = true, shard, filter }: QueryOptions<T> = {},
+	) {
+		const { dynamoDb, tableName } = this.#facet.connection;
+
+		const queryResult: QueryResult<T> = {
+			records: [],
+		};
+
+		let startKey: string;
+		let endKey: string;
+
+		/**
+		 * If we were given a string we'll use it, otherwise we'll
+		 * create the sort key using the getKey function of the facet
+		 */
+		if (typeof start === 'string') {
+			startKey = start;
+		} else {
+			startKey = this.#index
+				? this.#index.sk(start as Partial<T>)
+				: this.#facet.sk(start as Partial<T>, shard);
+		}
+
+		/**
+		 * If we were given a string we'll use it, otherwise we'll
+		 * create the sort key using the getKey function of the facet
+		 */
+		if (typeof end === 'string') {
+			endKey = end;
+		} else {
+			endKey = this.#index
+				? this.#index.sk(end as Partial<T>)
+				: this.#facet.sk(end as Partial<T>, shard);
+		}
+
+		const lastEvaluatedKey = decodeCursor(cursor);
+
+		const queryInput: QueryInput = {
+			TableName: tableName,
+			IndexName: this.#index?.name,
+			KeyConditionExpression:
+				'#PK = :partition AND #SK BETWEEN :start AND :end',
+			ExpressionAttributeNames: {
+				'#PK': this.#PK,
+				'#SK': this.#SK,
+			},
+			ExpressionAttributeValues: {
+				':partition': {
+					S: this.#partition,
+				},
+				':start': {
+					S: startKey,
+				},
+				':end': {
+					S: endKey,
 				},
 			},
 			Limit: limit,
