@@ -1,6 +1,7 @@
 import type { DynamoDB } from 'aws-sdk';
 import type { Facet } from './facet';
 import { PK, SK } from './keys';
+import { wait } from './wait';
 
 export async function getSingleItem<T, PK extends keyof T, SK extends keyof T>(
 	facet: Facet<T, PK, SK>,
@@ -99,6 +100,12 @@ export async function getBatch<T, PK extends keyof T, SK extends keyof T>(
 
 		while (unprocessed.length > 0 && attempts < 10) {
 			attempts += 1;
+
+			/**
+			 * Wait a short bit before retrying
+			 */
+			await wait(10 * 2 ** attempts);
+
 			/**
 			 * Retry the unprocessed keys
 			 */

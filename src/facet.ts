@@ -1,5 +1,5 @@
 import type { DynamoDB } from 'aws-sdk';
-import { Converter } from 'aws-sdk/clients/dynamodb';
+import { Converter } from '@faceteer/converter';
 import {
 	buildKey,
 	Index,
@@ -18,6 +18,7 @@ export type Validator<T> = (input: unknown) => T;
 import zlib from 'zlib';
 import { getBatchItems, getSingleItem } from './get';
 import { PartitionQuery } from './query';
+import { putItems, PutOptions, PutResponse, putSingleItem } from './put';
 
 export type RawFormat = 'json' | 'msgpack' | 'cbor';
 
@@ -456,6 +457,27 @@ export class Facet<
 		}
 
 		return getBatchItems(this, query);
+	}
+
+	/**
+	 * Put a record into the Dynamo DB table
+	 * @param records
+	 */
+	async put(record: T, options?: PutOptions<T>): Promise<PutResponse<T>>;
+	/**
+	 * Put multiple records into the Dynamo DB table
+	 * @param records
+	 */
+	async put(records: T[]): Promise<PutResponse<T>>;
+	async put(
+		records: T[] | T,
+		options?: PutOptions<T>,
+	): Promise<PutResponse<T>> {
+		if (Array.isArray(records)) {
+			return putItems(this, records);
+		}
+
+		return putSingleItem(this, records, options);
 	}
 
 	// Global Secondary Indexes
