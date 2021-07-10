@@ -251,7 +251,7 @@ export class PartitionQuery<
 	 *
 	 * @param options
 	 */
-	async all(options: QueryOptions<T> = {}) {
+	async list(options: QueryOptions<T> = {}) {
 		return this.beginsWith({}, options);
 	}
 
