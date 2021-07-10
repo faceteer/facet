@@ -19,6 +19,7 @@ import zlib from 'zlib';
 import { getBatchItems, getSingleItem } from './get';
 import { PartitionQuery } from './query';
 import { putItems, PutOptions, PutResponse, putSingleItem } from './put';
+import { ConverterOptions } from '@faceteer/converter/converter-options';
 
 export type RawFormat = 'json' | 'msgpack' | 'cbor';
 
@@ -165,6 +166,8 @@ export interface FacetOptions<
 	 * Default `false`.
 	 */
 	compress?: boolean;
+
+	dateFormat?: ConverterOptions['dateFormat'];
 	/**
 	 * Connection information for Dynamo DB.
 	 *
@@ -235,6 +238,7 @@ export class Facet<
 	#raw?: RawFormat;
 	#compress: boolean;
 	#ttl?: keyof T;
+	#dateFormat?: ConverterOptions['dateFormat'];
 	readonly connection: { dynamoDb: DynamoDB; tableName: string };
 
 	readonly delimiter: string;
@@ -249,6 +253,7 @@ export class Facet<
 		compress,
 		ttl,
 		connection,
+		dateFormat,
 	}: FacetOptions<
 		T,
 		PK,
@@ -301,6 +306,7 @@ export class Facet<
 		this.#raw = raw;
 		this.#compress = !!compress;
 		this.#ttl = ttl;
+		this.#dateFormat = dateFormat;
 		this.connection = connection;
 		/**
 		 * Create the index properties for this model for
@@ -387,6 +393,22 @@ export class Facet<
 			facetKeys[indexKeyNames.SK] = this[index].sk(model);
 		}
 
+		/**
+		 * Attempt to convert the TTL attribute to a unix timestamp
+		 */
+		let ttlAttribute: T[keyof T] | undefined | number = this.#ttl
+			? model[this.#ttl]
+			: undefined;
+		if (ttlAttribute instanceof Date) {
+			ttlAttribute = Math.floor(ttlAttribute.getTime() / 1000);
+		} else if (typeof ttlAttribute === 'string') {
+			ttlAttribute = parseInt(ttlAttribute);
+		}
+
+		if (Number.isNaN(ttlAttribute)) {
+			ttlAttribute = undefined;
+		}
+
 		const dynamoDbRecord = {
 			...attributes,
 			...facetKeys,
@@ -396,6 +418,7 @@ export class Facet<
 		return Converter.marshall(dynamoDbRecord, {
 			convertEmptyValues: true,
 			wrapNumbers: true,
+			dateFormat: this.#dateFormat,
 		});
 	}
 
@@ -405,7 +428,7 @@ export class Facet<
 	out(record: DynamoDB.AttributeMap): T {
 		const parsedRecord = Converter.unmarshall(record);
 
-		let recordToValidate: unknown = parsedRecord;
+		let recordToValidate: any = parsedRecord;
 
 		/**
 		 * If the record is in a raw format we'll extract it
@@ -433,6 +456,21 @@ export class Facet<
 					break;
 				default:
 					break;
+			}
+		}
+
+		/**
+		 * Delete any constructed keys from the model before
+		 * validating and returning
+		 */
+		delete recordToValidate['PK'];
+		delete recordToValidate['SK'];
+		for (const index of this.#indexes) {
+			const indexKeyNames = IndexKeyNameMap[index];
+			delete recordToValidate[indexKeyNames.PK];
+			delete recordToValidate[indexKeyNames.SK];
+			if (this.#ttl) {
+				delete recordToValidate['ttl'];
 			}
 		}
 
@@ -478,6 +516,20 @@ export class Facet<
 		}
 
 		return putSingleItem(this, records, options);
+	}
+
+	/**
+	 * Query a partition on the Facet
+	 */
+	query(
+		partition: Pick<T, PK> & Partial<T>,
+		shard?: number,
+	): PartitionQuery<T, PK, SK> {
+		return new PartitionQuery({
+			facet: this,
+			partitionIdentifier: partition,
+			shard: shard,
+		});
 	}
 
 	// Global Secondary Indexes

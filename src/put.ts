@@ -59,7 +59,9 @@ export async function putSingleItem<T, PK extends keyof T, SK extends keyof T>(
 			putInput.ExpressionAttributeValues = expression.values;
 		}
 
-		const response = await facet.connection.dynamoDb.putItem().promise();
+		const response = await facet.connection.dynamoDb
+			.putItem(putInput)
+			.promise();
 
 		if (response.$response.error) {
 			return {

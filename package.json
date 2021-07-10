@@ -4,8 +4,17 @@
   "description": "",
   "main": "facet.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --runInBand --silent",
+    "build:clean": "tsc -b --clean",
+    "build": "tsc -b --clean && tsc -b",
+    "prepublishOnly": "npm run build"
   },
+  "engines": {
+    "node": ">=12.4.0"
+  },
+  "keywords": [
+    "DynamoDB"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/faceteer/facet.git"
@@ -43,7 +52,7 @@
     "aws-sdk": ">=2"
   },
   "dependencies": {
-    "@faceteer/converter": "^1.0.3",
+    "@faceteer/converter": "^1.0.4",
     "@faceteer/expression-builder": "^1.0.2",
     "@msgpack/msgpack": "^2.7.0",
     "cbor": "^7.0.5",

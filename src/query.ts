@@ -123,8 +123,6 @@ export class PartitionQuery<
 				: this.#facet.sk(sort, shard);
 		}
 
-		const lastEvaluatedKey = decodeCursor(cursor);
-
 		const queryInput: QueryInput = {
 			TableName: tableName,
 			IndexName: this.#index?.name,
@@ -143,8 +141,11 @@ export class PartitionQuery<
 			},
 			Limit: limit,
 			ScanIndexForward: scanForward,
-			ExclusiveStartKey: lastEvaluatedKey,
 		};
+
+		if (cursor) {
+			queryInput.ExclusiveStartKey = decodeCursor(cursor);
+		}
 
 		if (filter) {
 			const filterExpression = expressionBuilder.filter(filter);
@@ -284,8 +285,6 @@ export class PartitionQuery<
 				: this.#facet.sk(sort as Partial<T>, shard);
 		}
 
-		const lastEvaluatedKey = decodeCursor(cursor);
-
 		const queryInput: QueryInput = {
 			TableName: tableName,
 			IndexName: this.#index?.name,
@@ -304,8 +303,11 @@ export class PartitionQuery<
 			},
 			Limit: limit,
 			ScanIndexForward: scanForward,
-			ExclusiveStartKey: lastEvaluatedKey,
 		};
+
+		if (cursor) {
+			queryInput.ExclusiveStartKey = decodeCursor(cursor);
+		}
 
 		if (filter) {
 			const filterExpression = expressionBuilder.filter(filter);
@@ -387,8 +389,6 @@ export class PartitionQuery<
 				: this.#facet.sk(end as Partial<T>, shard);
 		}
 
-		const lastEvaluatedKey = decodeCursor(cursor);
-
 		const queryInput: QueryInput = {
 			TableName: tableName,
 			IndexName: this.#index?.name,
@@ -411,8 +411,11 @@ export class PartitionQuery<
 			},
 			Limit: limit,
 			ScanIndexForward: scanForward,
-			ExclusiveStartKey: lastEvaluatedKey,
 		};
+
+		if (cursor) {
+			queryInput.ExclusiveStartKey = decodeCursor(cursor);
+		}
 
 		if (filter) {
 			const filterExpression = expressionBuilder.filter(filter);
