@@ -2,7 +2,7 @@
   "name": "@faceteer/facet",
   "version": "1.0.0-beta.1",
   "description": "",
-  "main": "facet.js",
+  "main": "index.js",
   "scripts": {
     "test": "jest --runInBand --silent --coverage",
     "test:ci": "jest --ci --runInBand --silent --coverage && codecov",
@@ -15,6 +15,12 @@
   },
   "keywords": [
     "DynamoDB"
+  ],
+  "files": [
+    "lib/**/*.js",
+    "lib/**/*.d.ts",
+    "index.js",
+    "index.d.ts"
   ],
   "repository": {
     "type": "git",

@@ -148,3 +148,8 @@ test/types/index.js
 out.tap
 
 junit.xml
+
+lib/**/*.js
+lib/**/*.d.ts
+index.js
+index.d.ts
