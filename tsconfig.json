@@ -18,6 +18,7 @@
     "esModuleInterop": true,
     "removeComments": true,
     "declaration": true,
+    "isolatedModules": true,
     "types": ["jest", "node"]
   },
   "exclude": [
@@ -25,6 +26,7 @@
     "lib/__tests__",
     "lib/__mocks__",
     "dist",
-    "./node.d.ts"
+    "./node.d.ts",
+    "jest.config.ts"
   ]
 }
