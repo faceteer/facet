@@ -1,0 +1,1218 @@
+<!doctype html>
+<html class="default no-js">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title>Facet | @faceteer/facet</title>
+	<meta name="description" content="Documentation for @faceteer/facet">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="../assets/css/main.css">
+	<script async src="../assets/js/search.js" id="search-script"></script>
+</head>
+<body>
+<header>
+	<div class="tsd-page-toolbar">
+		<div class="container">
+			<div class="table-wrap">
+				<div class="table-cell" id="tsd-search" data-index="../assets/js/search.json" data-base="..">
+					<div class="field">
+						<label for="tsd-search-field" class="tsd-widget search no-caption">Search</label>
+						<input id="tsd-search-field" type="text" />
+					</div>
+					<ul class="results">
+						<li class="state loading">Preparing search index...</li>
+						<li class="state failure">The search index is not available</li>
+					</ul>
+					<a href="../index.html" class="title">@faceteer/facet</a>
+				</div>
+				<div class="table-cell" id="tsd-widgets">
+					<div id="tsd-filter">
+						<a href="#" class="tsd-widget options no-caption" data-toggle="options">Options</a>
+						<div class="tsd-filter-group">
+							<div class="tsd-select" id="tsd-filter-visibility">
+								<span class="tsd-select-label">All</span>
+								<ul class="tsd-select-list">
+									<li data-value="public">Public</li>
+									<li data-value="protected">Public/Protected</li>
+									<li data-value="private" class="selected">All</li>
+								</ul>
+							</div>
+							<input type="checkbox" id="tsd-filter-inherited" checked />
+							<label class="tsd-widget" for="tsd-filter-inherited">Inherited</label>
+							<input type="checkbox" id="tsd-filter-externals" checked />
+							<label class="tsd-widget" for="tsd-filter-externals">Externals</label>
+						</div>
+					</div>
+					<a href="#" class="tsd-widget menu no-caption" data-toggle="menu">Menu</a>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="tsd-page-title">
+		<div class="container">
+			<ul class="tsd-breadcrumb">
+				<li>
+					<a href="../modules.html">@faceteer/facet</a>
+				</li>
+				<li>
+					<a href="../modules/lib_facet.html">lib/facet</a>
+				</li>
+				<li>
+					<a href="lib_facet.facet.html">Facet</a>
+				</li>
+			</ul>
+			<h1>Class Facet&lt;T, PK, SK, GSI1PK, GSI1SK, GSI2PK, GSI2SK, GSI3PK, GSI3SK, GSI4PK, GSI4SK, GSI5PK, GSI5SK, GSI6PK, GSI6SK, GSI7PK, GSI7SK, GSI8PK, GSI8SK, GSI9PK, GSI9SK, GSI10PK, GSI10SK, GSI11PK, GSI11SK, GSI12PK, GSI12SK, GSI13PK, GSI13SK, GSI14PK, GSI14SK, GSI15PK, GSI15SK, GSI16PK, GSI16SK, GSI17PK, GSI17SK, GSI18PK, GSI18SK, GSI19PK, GSI19SK, GSI20PK, GSI20SK&gt;</h1>
+		</div>
+	</div>
+</header>
+<div class="container container-main">
+	<div class="row">
+		<div class="col-8 col-content">
+			<section class="tsd-panel tsd-type-parameters">
+				<h3>Type parameters</h3>
+				<ul class="tsd-type-parameters">
+					<li>
+						<h4>T</h4>
+					</li>
+					<li>
+						<h4>PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span></h4>
+					</li>
+					<li>
+						<h4>SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span></h4>
+					</li>
+					<li>
+						<h4>GSI1PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI1SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI2PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI2SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI3PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI3SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI4PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI4SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI5PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI5SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI6PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI6SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI7PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI7SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI8PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI8SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI9PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI9SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI10PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI10SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI11PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI11SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI12PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI12SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI13PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI13SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI14PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI14SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI15PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI15SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI16PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI16SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI17PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI17SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI18PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI18SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI19PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI19SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI20PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+					<li>
+						<h4>GSI20SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">keyof </span><span class="tsd-signature-type">T</span> = <span class="tsd-signature-type">any</span></h4>
+					</li>
+				</ul>
+			</section>
+			<section class="tsd-panel tsd-hierarchy">
+				<h3>Hierarchy</h3>
+				<ul class="tsd-hierarchy">
+					<li>
+						<span class="target">Facet</span>
+					</li>
+				</ul>
+			</section>
+			<section class="tsd-panel-group tsd-index-group">
+				<h2>Index</h2>
+				<section class="tsd-panel tsd-index-panel">
+					<div class="tsd-index-content">
+						<section class="tsd-index-section ">
+							<h3>Constructors</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-constructor tsd-parent-kind-class tsd-has-type-parameter"><a href="lib_facet.facet.html#constructor" class="tsd-kind-icon">constructor</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section ">
+							<h3>Properties</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-property tsd-parent-kind-class"><a href="lib_facet.facet.html#connection" class="tsd-kind-icon">connection</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class"><a href="lib_facet.facet.html#delimiter" class="tsd-kind-icon">delimiter</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section ">
+							<h3>Accessors</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi1" class="tsd-kind-icon">GSI1</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi10" class="tsd-kind-icon">GSI10</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi11" class="tsd-kind-icon">GSI11</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi12" class="tsd-kind-icon">GSI12</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi13" class="tsd-kind-icon">GSI13</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi14" class="tsd-kind-icon">GSI14</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi15" class="tsd-kind-icon">GSI15</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi16" class="tsd-kind-icon">GSI16</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi17" class="tsd-kind-icon">GSI17</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi18" class="tsd-kind-icon">GSI18</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi19" class="tsd-kind-icon">GSI19</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi2" class="tsd-kind-icon">GSI2</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi20" class="tsd-kind-icon">GSI20</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi3" class="tsd-kind-icon">GSI3</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi4" class="tsd-kind-icon">GSI4</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi5" class="tsd-kind-icon">GSI5</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi6" class="tsd-kind-icon">GSI6</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi7" class="tsd-kind-icon">GSI7</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi8" class="tsd-kind-icon">GSI8</a></li>
+								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="lib_facet.facet.html#gsi9" class="tsd-kind-icon">GSI9</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section ">
+							<h3>Methods</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="lib_facet.facet.html#get" class="tsd-kind-icon">get</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="lib_facet.facet.html#in" class="tsd-kind-icon">in</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="lib_facet.facet.html#out" class="tsd-kind-icon">out</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="lib_facet.facet.html#pk" class="tsd-kind-icon">pk</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="lib_facet.facet.html#put" class="tsd-kind-icon">put</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="lib_facet.facet.html#query" class="tsd-kind-icon">query</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="lib_facet.facet.html#sk" class="tsd-kind-icon">sk</a></li>
+							</ul>
+						</section>
+					</div>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group ">
+				<h2>Constructors</h2>
+				<section class="tsd-panel tsd-member tsd-kind-constructor tsd-parent-kind-class tsd-has-type-parameter">
+					<a name="constructor" class="tsd-anchor"></a>
+					<h3>constructor</h3>
+					<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class tsd-has-type-parameter">
+						<li class="tsd-signature tsd-kind-icon">new <wbr>Facet&lt;T, PK, SK, GSI1PK, GSI1SK, GSI2PK, GSI2SK, GSI3PK, GSI3SK, GSI4PK, GSI4SK, GSI5PK, GSI5SK, GSI6PK, GSI6SK, GSI7PK, GSI7SK, GSI8PK, GSI8SK, GSI9PK, GSI9SK, GSI10PK, GSI10SK, GSI11PK, GSI11SK, GSI12PK, GSI12SK, GSI13PK, GSI13SK, GSI14PK, GSI14SK, GSI15PK, GSI15SK, GSI16PK, GSI16SK, GSI17PK, GSI17SK, GSI18PK, GSI18SK, GSI19PK, GSI19SK, GSI20PK, GSI20SK&gt;<span class="tsd-signature-symbol">(</span>__namedParameters<span class="tsd-signature-symbol">: </span><a href="../interfaces/lib_facet.facetoptions.html" class="tsd-signature-type" data-tsd-kind="Interface">FacetOptions</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20SK</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facet.html" class="tsd-signature-type" data-tsd-kind="Class">Facet</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L244">lib/facet.ts:244</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-type-parameters-title">Type parameters</h4>
+							<ul class="tsd-type-parameters">
+								<li>
+									<h4>T</h4>
+								</li>
+								<li>
+									<h4>PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span></h4>
+								</li>
+								<li>
+									<h4>SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span></h4>
+								</li>
+								<li>
+									<h4>GSI1PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI1SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI2PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI2SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI3PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI3SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI4PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI4SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI5PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI5SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI6PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI6SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI7PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI7SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI8PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI8SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI9PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI9SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI10PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI10SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI11PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI11SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI12PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI12SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI13PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI13SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI14PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI14SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI15PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI15SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI16PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI16SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI17PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI17SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI18PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI18SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI19PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI19SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI20PK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+								<li>
+									<h4>GSI20SK<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span> = <span class="tsd-signature-type">any</span></h4>
+								</li>
+							</ul>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>__namedParameters: <a href="../interfaces/lib_facet.facetoptions.html" class="tsd-signature-type" data-tsd-kind="Interface">FacetOptions</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20SK</span><span class="tsd-signature-symbol">&gt;</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facet.html" class="tsd-signature-type" data-tsd-kind="Class">Facet</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group ">
+				<h2>Properties</h2>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
+					<a name="connection" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagReadonly">Readonly</span> connection</h3>
+					<div class="tsd-signature tsd-kind-icon">connection<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{ </span>dynamoDb<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">DynamoDB</span><span class="tsd-signature-symbol">; </span>tableName<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> }</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L242">lib/facet.ts:242</a></li>
+						</ul>
+					</aside>
+					<div class="tsd-type-declaration">
+						<h4>Type declaration</h4>
+						<ul class="tsd-parameters">
+							<li class="tsd-parameter">
+								<h5>dynamo<wbr>Db<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">DynamoDB</span></h5>
+							</li>
+							<li class="tsd-parameter">
+								<h5>table<wbr>Name<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span></h5>
+							</li>
+						</ul>
+					</div>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
+					<a name="delimiter" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagReadonly">Readonly</span> delimiter</h3>
+					<div class="tsd-signature tsd-kind-icon">delimiter<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L244">lib/facet.ts:244</a></li>
+						</ul>
+					</aside>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group ">
+				<h2>Accessors</h2>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi1" class="tsd-anchor"></a>
+					<h3>GSI1</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI1<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L557">lib/facet.ts:557</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI1SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi10" class="tsd-anchor"></a>
+					<h3>GSI10</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI10<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L620">lib/facet.ts:620</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI10SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi11" class="tsd-anchor"></a>
+					<h3>GSI11</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI11<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L627">lib/facet.ts:627</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI11SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi12" class="tsd-anchor"></a>
+					<h3>GSI12</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI12<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L634">lib/facet.ts:634</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI12SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi13" class="tsd-anchor"></a>
+					<h3>GSI13</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI13<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L641">lib/facet.ts:641</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI13SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi14" class="tsd-anchor"></a>
+					<h3>GSI14</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI14<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L648">lib/facet.ts:648</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI14SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi15" class="tsd-anchor"></a>
+					<h3>GSI15</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI15<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L655">lib/facet.ts:655</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI15SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi16" class="tsd-anchor"></a>
+					<h3>GSI16</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI16<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L662">lib/facet.ts:662</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI16SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi17" class="tsd-anchor"></a>
+					<h3>GSI17</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI17<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L669">lib/facet.ts:669</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI17SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi18" class="tsd-anchor"></a>
+					<h3>GSI18</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI18<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L676">lib/facet.ts:676</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI18SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi19" class="tsd-anchor"></a>
+					<h3>GSI19</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI19<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L683">lib/facet.ts:683</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI19SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi2" class="tsd-anchor"></a>
+					<h3>GSI2</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI2<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L564">lib/facet.ts:564</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI2SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi20" class="tsd-anchor"></a>
+					<h3>GSI20</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI20<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L690">lib/facet.ts:690</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI20SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi3" class="tsd-anchor"></a>
+					<h3>GSI3</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI3<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L571">lib/facet.ts:571</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI3SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi4" class="tsd-anchor"></a>
+					<h3>GSI4</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI4<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L578">lib/facet.ts:578</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI4SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi5" class="tsd-anchor"></a>
+					<h3>GSI5</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI5<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L585">lib/facet.ts:585</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI5SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi6" class="tsd-anchor"></a>
+					<h3>GSI6</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI6<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L592">lib/facet.ts:592</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI6SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi7" class="tsd-anchor"></a>
+					<h3>GSI7</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI7<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L599">lib/facet.ts:599</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI7SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi8" class="tsd-anchor"></a>
+					<h3>GSI8</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI8<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L606">lib/facet.ts:606</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI8SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-get-signature tsd-parent-kind-class">
+					<a name="gsi9" class="tsd-anchor"></a>
+					<h3>GSI9</h3>
+					<ul class="tsd-signatures tsd-kind-get-signature tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> GSI9<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9SK</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L613">lib/facet.ts:613</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="lib_facet.facetindex.html" class="tsd-signature-type" data-tsd-kind="Class">FacetIndex</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">GSI9SK</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group ">
+				<h2>Methods</h2>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="get" class="tsd-anchor"></a>
+					<h3>get</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">get<span class="tsd-signature-symbol">(</span>query<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">Pick</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-type">Partial</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">get<span class="tsd-signature-symbol">(</span>query<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Pick</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-type">Partial</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L485">lib/facet.ts:485</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Get records from the table by their exact partition
+									key and sort key</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>query: <span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">Pick</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-type">Partial</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span></h5>
+									<div class="tsd-comment tsd-typography">
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L486">lib/facet.ts:486</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>query: <span class="tsd-signature-type">Pick</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-type">Partial</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="in" class="tsd-anchor"></a>
+					<h3>in</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">in<span class="tsd-signature-symbol">(</span>model<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AttributeMap</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L348">lib/facet.ts:348</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Convert a model to a record that can be
+									stored directly in DynamoDB</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>model: <span class="tsd-signature-type">T</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">AttributeMap</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="out" class="tsd-anchor"></a>
+					<h3>out</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">out<span class="tsd-signature-symbol">(</span>record<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AttributeMap</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L428">lib/facet.ts:428</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Convert and validate a dynamo DB record</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>record: <span class="tsd-signature-type">AttributeMap</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">T</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="pk" class="tsd-anchor"></a>
+					<h3>pk</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">pk<span class="tsd-signature-symbol">(</span>model<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Partial</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span>, shard<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L333">lib/facet.ts:333</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Construct the partition key</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>model: <span class="tsd-signature-type">Partial</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h5>
+								</li>
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> shard: <span class="tsd-signature-type">number</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="put" class="tsd-anchor"></a>
+					<h3>put</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">put<span class="tsd-signature-symbol">(</span>record<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span>, options<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">PutOptions</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">PutResponse</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">put<span class="tsd-signature-symbol">(</span>records<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">PutResponse</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L504">lib/facet.ts:504</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Put a record into the Dynamo DB table</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>record: <span class="tsd-signature-type">T</span></h5>
+								</li>
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> options: <span class="tsd-signature-type">PutOptions</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">PutResponse</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L509">lib/facet.ts:509</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Put multiple records into the Dynamo DB table</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>records: <span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">[]</span></h5>
+									<div class="tsd-comment tsd-typography">
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">PutResponse</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="query" class="tsd-anchor"></a>
+					<h3>query</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">query<span class="tsd-signature-symbol">(</span>partition<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Pick</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-type">Partial</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span>, shard<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="lib_query.partitionquery.html" class="tsd-signature-type" data-tsd-kind="Class">PartitionQuery</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">never</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">never</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L524">lib/facet.ts:524</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Query a partition on the Facet</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>partition: <span class="tsd-signature-type">Pick</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-type">Partial</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h5>
+								</li>
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> shard: <span class="tsd-signature-type">number</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="lib_query.partitionquery.html" class="tsd-signature-type" data-tsd-kind="Class">PartitionQuery</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">PK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">SK</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">never</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">never</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="sk" class="tsd-anchor"></a>
+					<h3>sk</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">sk<span class="tsd-signature-symbol">(</span>model<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Partial</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span>, shard<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/faceteer/facet/blob/cb631fe/lib/facet.ts#L340">lib/facet.ts:340</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Construct the sort key</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>model: <span class="tsd-signature-type">Partial</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h5>
+								</li>
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> shard: <span class="tsd-signature-type">number</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
+						</li>
+					</ul>
+				</section>
+			</section>
+		</div>
+		<div class="col-4 col-menu menu-sticky-wrap menu-highlight">
+			<nav class="tsd-navigation primary">
+				<ul>
+					<li class=" ">
+						<a href="../modules.html">Modules</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="../modules/index.html">index</a>
+					</li>
+					<li class="current tsd-kind-module">
+						<a href="../modules/lib_facet.html">lib/facet</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="../modules/lib_query.html">lib/query</a>
+					</li>
+				</ul>
+			</nav>
+			<nav class="tsd-navigation secondary menu-sticky">
+				<ul class="before-current">
+				</ul>
+				<ul class="current">
+					<li class="current tsd-kind-class tsd-parent-kind-module tsd-has-type-parameter">
+						<a href="lib_facet.facet.html" class="tsd-kind-icon">Facet</a>
+						<ul>
+							<li class=" tsd-kind-constructor tsd-parent-kind-class tsd-has-type-parameter">
+								<a href="lib_facet.facet.html#constructor" class="tsd-kind-icon">constructor</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#connection" class="tsd-kind-icon">connection</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#delimiter" class="tsd-kind-icon">delimiter</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi1" class="tsd-kind-icon">GSI1</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi10" class="tsd-kind-icon">GSI10</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi11" class="tsd-kind-icon">GSI11</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi12" class="tsd-kind-icon">GSI12</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi13" class="tsd-kind-icon">GSI13</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi14" class="tsd-kind-icon">GSI14</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi15" class="tsd-kind-icon">GSI15</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi16" class="tsd-kind-icon">GSI16</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi17" class="tsd-kind-icon">GSI17</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi18" class="tsd-kind-icon">GSI18</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi19" class="tsd-kind-icon">GSI19</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi2" class="tsd-kind-icon">GSI2</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi20" class="tsd-kind-icon">GSI20</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi3" class="tsd-kind-icon">GSI3</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi4" class="tsd-kind-icon">GSI4</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi5" class="tsd-kind-icon">GSI5</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi6" class="tsd-kind-icon">GSI6</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi7" class="tsd-kind-icon">GSI7</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi8" class="tsd-kind-icon">GSI8</a>
+							</li>
+							<li class=" tsd-kind-get-signature tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#gsi9" class="tsd-kind-icon">GSI9</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#get" class="tsd-kind-icon">get</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#in" class="tsd-kind-icon">in</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#out" class="tsd-kind-icon">out</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#pk" class="tsd-kind-icon">pk</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#put" class="tsd-kind-icon">put</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#query" class="tsd-kind-icon">query</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="lib_facet.facet.html#sk" class="tsd-kind-icon">sk</a>
+							</li>
+						</ul>
+					</li>
+				</ul>
+				<ul class="after-current">
+					<li class=" tsd-kind-class tsd-parent-kind-module tsd-has-type-parameter">
+						<a href="lib_facet.facetindex.html" class="tsd-kind-icon">Facet<wbr>Index</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-module tsd-has-type-parameter">
+						<a href="../interfaces/lib_facet.facetoptions.html" class="tsd-kind-icon">Facet<wbr>Options</a>
+					</li>
+					<li class=" tsd-kind-type-alias tsd-parent-kind-module">
+						<a href="../modules/lib_facet.html#rawformat" class="tsd-kind-icon">Raw<wbr>Format</a>
+					</li>
+					<li class=" tsd-kind-type-alias tsd-parent-kind-module tsd-has-type-parameter">
+						<a href="../modules/lib_facet.html#validator" class="tsd-kind-icon">Validator</a>
+					</li>
+				</ul>
+			</nav>
+		</div>
+	</div>
+</div>
+<footer class="with-border-bottom">
+	<div class="container">
+		<h2>Legend</h2>
+		<div class="tsd-legend-group">
+			<ul class="tsd-legend">
+				<li class="tsd-kind-class tsd-has-type-parameter"><span class="tsd-kind-icon">Class with type parameter</span></li>
+				<li class="tsd-kind-property tsd-parent-kind-class"><span class="tsd-kind-icon">Property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class"><span class="tsd-kind-icon">Method</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-type-alias"><span class="tsd-kind-icon">Type alias</span></li>
+				<li class="tsd-kind-type-alias tsd-has-type-parameter"><span class="tsd-kind-icon">Type alias with type parameter</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-interface tsd-has-type-parameter"><span class="tsd-kind-icon">Interface with type parameter</span></li>
+			</ul>
+		</div>
+	</div>
+</footer>
+<div class="container tsd-generator">
+	<p>Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p>
+</div>
+<div class="overlay"></div>
+<script src="../assets/js/main.js"></script>
+</body>
+</html>
