@@ -46,11 +46,12 @@ jobs:
         run: npm install
 
       - name: Run Jest Tests
-        run: npm run test
+        run: npm run test:ci
         env:
           AWS_ACCESS_KEY_ID: ${{ matrix.node-version }}
           AWS_SECRET_ACCESS_KEY: ${{ matrix.node-version }}
           AWS_DEFAULT_REGION: "us-east-1"
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1

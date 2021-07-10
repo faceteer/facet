@@ -4,7 +4,8 @@
   "description": "",
   "main": "facet.js",
   "scripts": {
-    "test": "jest --runInBand --silent",
+    "test": "jest --runInBand --silent --coverage",
+    "test:ci": "jest --ci --runInBand --silent --coverage && codecov",
     "build:clean": "tsc -b --clean",
     "build": "tsc -b --clean && tsc -b",
     "prepublishOnly": "npm run build"
@@ -31,6 +32,7 @@
     "@typescript-eslint/eslint-plugin": "^4.26.0",
     "@typescript-eslint/parser": "^4.26.0",
     "aws-sdk": "^2.919.0",
+    "codecov": "^3.8.2",
     "eslint": "^7.27.0",
     "eslint-config-google": "^0.14.0",
     "eslint-config-prettier": "^8.3.0",
