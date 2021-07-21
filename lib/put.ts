@@ -5,7 +5,7 @@ import { Converter } from '@faceteer/converter';
 import expressionBuilder from '@faceteer/expression-builder';
 
 export interface PutOptions<T> {
-	condition?: expressionBuilder.ConditionExpression<T>;
+	condition?: expressionBuilder.CompiledExpression<T>;
 }
 
 /**
