@@ -168,6 +168,8 @@ export interface FacetOptions<
 	compress?: boolean;
 
 	dateFormat?: ConverterOptions['dateFormat'];
+
+	convertEmptyValues?: ConverterOptions['convertEmptyValues'];
 	/**
 	 * Connection information for Dynamo DB.
 	 *
@@ -239,6 +241,7 @@ export class Facet<
 	#compress: boolean;
 	#ttl?: keyof T;
 	#dateFormat?: ConverterOptions['dateFormat'];
+	#convertEmptyValues?: ConverterOptions['convertEmptyValues'];
 	readonly connection: { dynamoDb: DynamoDB; tableName: string };
 
 	readonly delimiter: string;
@@ -254,6 +257,7 @@ export class Facet<
 		ttl,
 		connection,
 		dateFormat,
+		convertEmptyValues,
 	}: FacetOptions<
 		T,
 		PK,
@@ -307,6 +311,7 @@ export class Facet<
 		this.#compress = !!compress;
 		this.#ttl = ttl;
 		this.#dateFormat = dateFormat;
+		this.#convertEmptyValues = convertEmptyValues;
 		this.connection = connection;
 		/**
 		 * Create the index properties for this model for
@@ -416,9 +421,9 @@ export class Facet<
 		};
 
 		return Converter.marshall(dynamoDbRecord, {
-			convertEmptyValues: true,
 			wrapNumbers: true,
 			dateFormat: this.#dateFormat,
+			convertEmptyValues: this.#convertEmptyValues,
 		});
 	}
 
