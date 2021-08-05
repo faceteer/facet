@@ -231,14 +231,14 @@ export function buildKey<T, U extends keyof T>(
 	keyConfig: KeyConfiguration<T, U>,
 	model: Partial<T>,
 	delimiter: string,
-	shard?: number,
+	shard?: number | null,
 ) {
 	const compositeKey: string[] = [keyConfig.prefix];
 
 	/**
 	 * Calculate the shard ID for a composite key
 	 */
-	if (keyConfig.shard) {
+	if (keyConfig.shard && shard !== null) {
 		/**
 		 * If the shard was passed in to the `buildKey` function
 		 * we're mostly likely building a key to query with.
