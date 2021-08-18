@@ -45,11 +45,12 @@ export async function deleteSingleItem<
 	T,
 	PK extends keyof T,
 	SK extends keyof T,
+	U = Pick<T, PK | SK> & Partial<T>,
 >(
 	facet: Facet<T, PK, SK>,
-	record: Partial<T>,
+	record: U,
 	options: DeleteOptions<T> = {},
-): Promise<DeleteResponse<T>> {
+): Promise<DeleteResponse<U>> {
 	try {
 		const deleteInput: DeleteItemInput = {
 			TableName: facet.connection.tableName,
@@ -110,12 +111,14 @@ export async function deleteSingleItem<
  * Delete records from the from Dynamo DB
  * @param records
  */
-export async function deleteItems<T, PK extends keyof T, SK extends keyof T>(
-	facet: Facet<T, PK, SK>,
-	records: T[],
-): Promise<DeleteResponse<T>> {
-	const recordsToBatch: T[] = [...records];
-	const deleteResponse: DeleteResponse<T> = {
+export async function deleteItems<
+	T,
+	PK extends keyof T,
+	SK extends keyof T,
+	U = Pick<T, PK | SK> & Partial<T>,
+>(facet: Facet<T, PK, SK>, records: U[]): Promise<DeleteResponse<U>> {
+	const recordsToBatch: U[] = [...records];
+	const deleteResponse: DeleteResponse<U> = {
 		failed: [],
 		hasFailures: false,
 		deleted: [],
@@ -124,7 +127,7 @@ export async function deleteItems<T, PK extends keyof T, SK extends keyof T>(
 	 * Dynamo DB only allows 25 items in a write batch
 	 * request so we will break this down into batches
 	 */
-	const batches: T[][] = [];
+	const batches: U[][] = [];
 
 	while (recordsToBatch.length >= 1) {
 		batches.push(recordsToBatch.splice(0, 25));
@@ -161,12 +164,14 @@ export async function deleteItems<T, PK extends keyof T, SK extends keyof T>(
  * records or less
  * @param batchToDelete
  */
-async function deleteBatch<T, PK extends keyof T, SK extends keyof T>(
-	facet: Facet<T, PK, SK>,
-	batchToDelete: Partial<T>[],
-): Promise<DeleteResponse<T>> {
+async function deleteBatch<
+	T,
+	PK extends keyof T,
+	SK extends keyof T,
+	U = Pick<T, PK | SK> & Partial<T>,
+>(facet: Facet<T, PK, SK>, batchToDelete: U[]): Promise<DeleteResponse<U>> {
 	const deleteRequests: Record<string, WriteRequest> = {};
-	const deleteResponse: DeleteResponse<T> = {
+	const deleteResponse: DeleteResponse<U> = {
 		failed: [],
 		hasFailures: false,
 		deleted: [],
@@ -176,7 +181,7 @@ async function deleteBatch<T, PK extends keyof T, SK extends keyof T>(
 	 * We keep track of the items by their key so
 	 * we can return any failed requests
 	 */
-	const itemsByKey: Record<string, Partial<T>> = {};
+	const itemsByKey: Record<string, U> = {};
 
 	/**
 	 * We can't have duplicate items in a batch so we extract
