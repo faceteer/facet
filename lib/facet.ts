@@ -20,6 +20,12 @@ import { getBatchItems, getSingleItem } from './get';
 import { PartitionQuery } from './query';
 import { putItems, PutOptions, PutResponse, putSingleItem } from './put';
 import { ConverterOptions } from '@faceteer/converter/converter-options';
+import {
+	deleteItems,
+	DeleteOptions,
+	DeleteResponse,
+	deleteSingleItem,
+} from './delete';
 
 export type RawFormat = 'json' | 'msgpack' | 'cbor';
 
@@ -500,6 +506,34 @@ export class Facet<
 		}
 
 		return getBatchItems(this, query);
+	}
+
+	/**
+	 * Put a record into the Dynamo DB table
+	 * @param records
+	 */
+	async delete(
+		record: Pick<T, PK | SK> & Partial<T>,
+		options?: DeleteOptions<Pick<T, PK | SK> & Partial<T>>,
+	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>>;
+	/**
+	 * Put multiple records into the Dynamo DB table
+	 * @param records
+	 */
+	async delete(
+		records: (Pick<T, PK | SK> & Partial<T>)[],
+	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>>;
+	async delete(
+		records:
+			| (Pick<T, PK | SK> & Partial<T>)[]
+			| (Pick<T, PK | SK> & Partial<T>),
+		options?: DeleteOptions<Pick<T, PK | SK> & Partial<T>>,
+	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>> {
+		if (Array.isArray(records)) {
+			return deleteItems(this, records);
+		}
+
+		return deleteSingleItem(this, records, options);
 	}
 
 	/**

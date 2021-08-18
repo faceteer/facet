@@ -173,6 +173,30 @@ describe('Facet', () => {
 
 		expect(noFailed.records.length).toBe(200);
 	});
+
+	test('Delete Pages', async () => {
+		const firstPage = await PageFacet.get({
+			pageId: mockPageIds[0],
+		});
+
+		if (!firstPage) {
+			throw Error('Unable to get the first page');
+		}
+
+		const deleteResult = await PageFacet.delete({
+			pageId: firstPage.pageId,
+		});
+
+		expect(deleteResult.deleted.length).toBe(1);
+
+		// expect(firstPage?.pageId).toBe(mockPageIds[0]);
+
+		// const allPages = await PageFacet.get(
+		// 	mockPageIds.map((pageId) => ({ pageId })),
+		// );
+
+		// expect(allPages.length).toBe(5);
+	});
 });
 
 function mockPages(count: number, overrides: Partial<Page> = {}): Page[] {
