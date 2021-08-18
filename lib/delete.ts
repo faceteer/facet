@@ -16,7 +16,7 @@ export interface DeleteFailure<T> {
 	/**
 	 * The record that failed to be deleted
 	 */
-	record: Partial<T>;
+	record: T;
 	/**
 	 * The error from trying to delete the item
 	 */
@@ -34,7 +34,7 @@ export interface DeleteResponse<T> {
 	/**
 	 * The records that were successfully deleted
 	 */
-	deleted: Partial<T>[];
+	deleted: T[];
 	/**
 	 * The records that failed to be deleted
 	 */
