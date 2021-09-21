@@ -356,7 +356,8 @@ export class Facet<
 	 * Convert a model to a record that can be
 	 * stored directly in DynamoDB
 	 */
-	in(model: T): DynamoDB.AttributeMap {
+	in(modelToValidate: T): DynamoDB.AttributeMap {
+		const model = this.#validator(modelToValidate);
 		let attributes: Partial<T> & {
 			_raw?: Uint8Array;
 			_json?: string;
