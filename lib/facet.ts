@@ -173,9 +173,23 @@ export interface FacetOptions<
 	 */
 	compress?: boolean;
 
+	/**
+	 * Tells converter to use `iso` or `unix` format
+	 */
 	dateFormat?: ConverterOptions['dateFormat'];
 
+	/**
+	 * Prevents DynamoDB from converting empty values such
+	 * as "" to `null` at a cost to storage optimization.
+	 */
 	convertEmptyValues?: ConverterOptions['convertEmptyValues'];
+
+	/**
+	 * Validates types before putting them into the database.
+	 * WARNING: This can weaken performance so use sparingly.
+	 */
+	validateInput?: boolean;
+
 	/**
 	 * Connection information for Dynamo DB.
 	 *
@@ -248,6 +262,7 @@ export class Facet<
 	#ttl?: keyof T;
 	#dateFormat?: ConverterOptions['dateFormat'];
 	#convertEmptyValues?: ConverterOptions['convertEmptyValues'];
+	#validateInput?: boolean;
 	readonly connection: { dynamoDb: DynamoDB; tableName: string };
 
 	readonly delimiter: string;
@@ -264,6 +279,7 @@ export class Facet<
 		connection,
 		dateFormat,
 		convertEmptyValues,
+		validateInput,
 	}: FacetOptions<
 		T,
 		PK,
@@ -318,6 +334,7 @@ export class Facet<
 		this.#ttl = ttl;
 		this.#dateFormat = dateFormat;
 		this.#convertEmptyValues = convertEmptyValues;
+		this.#validateInput = validateInput;
 		this.connection = connection;
 		/**
 		 * Create the index properties for this model for
@@ -356,8 +373,10 @@ export class Facet<
 	 * Convert a model to a record that can be
 	 * stored directly in DynamoDB
 	 */
-	in(modelToValidate: T): DynamoDB.AttributeMap {
-		const model = this.#validator(modelToValidate);
+	in(model: T): DynamoDB.AttributeMap {
+		if (this.#validateInput) {
+			model = this.#validator(model);
+		}
 		let attributes: Partial<T> & {
 			_raw?: Uint8Array;
 			_json?: string;
