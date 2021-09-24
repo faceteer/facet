@@ -2,10 +2,10 @@ import type { PutItemInput, WriteRequest } from 'aws-sdk/clients/dynamodb';
 import type { Facet } from './facet';
 import { wait } from './wait';
 import { Converter } from '@faceteer/converter';
-import expressionBuilder from '@faceteer/expression-builder';
+import { condition, ConditionExpression } from '@faceteer/expression-builder';
 
 export interface PutOptions<T> {
-	condition?: expressionBuilder.ConditionExpression<T>;
+	condition?: ConditionExpression<T>;
 }
 
 /**
@@ -53,7 +53,7 @@ export async function putSingleItem<T, PK extends keyof T, SK extends keyof T>(
 		};
 
 		if (options.condition) {
-			const expression = expressionBuilder.condition(options.condition);
+			const expression = condition(options.condition);
 			putInput.ConditionExpression = expression.expression;
 			putInput.ExpressionAttributeNames = expression.names;
 			putInput.ExpressionAttributeValues = expression.values;
