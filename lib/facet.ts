@@ -18,7 +18,13 @@ export type Validator<T> = (input: unknown) => T;
 import zlib from 'zlib';
 import { getBatchItems, getSingleItem } from './get';
 import { PartitionQuery } from './query';
-import { putItems, PutOptions, PutResponse, putSingleItem } from './put';
+import {
+	putItems,
+	PutOptions,
+	PutResponse,
+	putSingleItem,
+	PutSingleItemResponse,
+} from './put';
 import { ConverterOptions } from '@faceteer/converter/converter-options';
 import {
 	deleteItems,
@@ -560,7 +566,10 @@ export class Facet<
 	 * Put a record into the Dynamo DB table
 	 * @param records
 	 */
-	async put(record: T, options?: PutOptions<T>): Promise<PutResponse<T>>;
+	async put(
+		record: T,
+		options?: PutOptions<T>,
+	): Promise<PutSingleItemResponse<T>>;
 	/**
 	 * Put multiple records into the Dynamo DB table
 	 * @param records
@@ -569,7 +578,7 @@ export class Facet<
 	async put(
 		records: T[] | T,
 		options?: PutOptions<T>,
-	): Promise<PutResponse<T>> {
+	): Promise<PutResponse<T> | PutSingleItemResponse<T>> {
 		if (Array.isArray(records)) {
 			return putItems(this, records);
 		}

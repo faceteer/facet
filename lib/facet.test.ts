@@ -175,16 +175,17 @@ describe('Facet', () => {
 	});
 
 	test('Delete Pages', async () => {
-		const firstPage = await PageFacet.get({
-			pageId: mockPageIds[0],
-		});
+		const [pageToDelete] = mockPages(1);
+		const putPageResult = await PageFacet.put(pageToDelete);
 
-		if (!firstPage) {
-			throw Error('Unable to get the first page');
+		expect(putPageResult.wasSuccessful).toBeTruthy();
+
+		if (!putPageResult.wasSuccessful) {
+			throw Error('Unable to put the page to delete');
 		}
 
 		const deleteResult = await PageFacet.delete({
-			pageId: firstPage.pageId,
+			pageId: putPageResult.record.pageId,
 		});
 
 		expect(deleteResult.deleted.length).toBe(1);

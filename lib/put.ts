@@ -41,11 +41,23 @@ export interface PutResponse<T> {
 	failed: PutFailure<T>[];
 }
 
+/**
+ * Response when we put a single a single item
+ */
+export interface PutSingleItemResponse<T> {
+	/**
+	 * If the request had any failures
+	 */
+	wasSuccessful: boolean;
+	record: T;
+	error?: unknown;
+}
+
 export async function putSingleItem<T, PK extends keyof T, SK extends keyof T>(
 	facet: Facet<T, PK, SK>,
 	record: T,
 	options: PutOptions<T> = {},
-): Promise<PutResponse<T>> {
+): Promise<PutSingleItemResponse<T>> {
 	try {
 		const putInput: PutItemInput = {
 			Item: facet.in(record),
@@ -65,32 +77,21 @@ export async function putSingleItem<T, PK extends keyof T, SK extends keyof T>(
 
 		if (response.$response.error) {
 			return {
-				failed: [
-					{
-						error: response.$response.error,
-						record,
-					},
-				],
-				hasFailures: true,
-				put: [],
+				record,
+				wasSuccessful: false,
+				error: response.$response.error,
 			};
 		}
 
 		return {
-			failed: [],
-			hasFailures: false,
-			put: [record],
+			record: facet.out(putInput.Item),
+			wasSuccessful: true,
 		};
 	} catch (error) {
 		return {
-			failed: [
-				{
-					error: error,
-					record,
-				},
-			],
-			hasFailures: true,
-			put: [],
+			record,
+			wasSuccessful: false,
+			error: error,
 		};
 	}
 }
@@ -172,13 +173,14 @@ async function putBatch<T, PK extends keyof T, SK extends keyof T>(
 	 * the SK and PK to make sure the batch only has unique items
 	 */
 	for (const batchItem of batchToPut) {
+		const item = facet.in(batchItem);
 		const key = facet.pk(batchItem) + facet.sk(batchItem);
 		writeRequests[key] = {
 			PutRequest: {
-				Item: facet.in(batchItem),
+				Item: item,
 			},
 		};
-		itemsByKey[key] = batchItem;
+		itemsByKey[key] = facet.out(item);
 	}
 
 	const result = await facet.connection.dynamoDb
