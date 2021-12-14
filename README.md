@@ -2,6 +2,7 @@
 
 [![codecov](https://codecov.io/gh/faceteer/facet/branch/main/graph/badge.svg?token=ORKKZWL5N6)](https://codecov.io/gh/faceteer/facet)
 [![Test](https://github.com/faceteer/facet/actions/workflows/test.yml/badge.svg)](https://github.com/faceteer/facet/actions/workflows/test.yml)
+[![npm version](https://img.shields.io/npm/v/@faceteer/facet)](https://www.npmjs.com/package/@faceteer/facet)
 
 Faceteer is meant to make it easier to work with a single table DynamoDB architecture.
 
