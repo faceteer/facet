@@ -283,10 +283,11 @@ async function createTestTable(): Promise<void> {
 			})
 			.promise();
 	} catch (error) {
+		const resourceError = error as any;
 		/**
 		 * We'll reset the existing table if it already exists
 		 */
-		if (error.code === 'ResourceInUseException') {
+		if (resourceError.code === 'ResourceInUseException') {
 			await ddb
 				.deleteTable({
 					TableName: tableName,
