@@ -118,7 +118,7 @@ export class Facet<
 		if (this.#validateInput) {
 			model = this.#validator(model);
 		}
-		const attributes: Partial<T> = {};
+		const attributes: Partial<T> = { ...model };
 
 		/**
 		 * Create the partition keys and the sort keys
@@ -297,6 +297,7 @@ export class Facet<
 	}: AddIndexOptions<T, I, GSIPK, GSISK, A>): this &
 		FacetWithIndex<T, PK, SK, GSIPK, GSISK, I, A> {
 		const facetIndex = new FacetIndex(index, this, PK, SK);
+		this.#indexes.set(index, facetIndex);
 
 		Object.assign(this, {
 			[index]: facetIndex,
