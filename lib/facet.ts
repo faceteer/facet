@@ -25,6 +25,45 @@ import {
 } from './put';
 import { PartitionQuery } from './query';
 
+/**
+ * A `Validator` is a function that is used by Faceteer whenever
+ * it reads records from Dynamo DB.
+ *
+ * This function should return a valid object of type T if the
+ * input is valid, or it should throw if the input is invalid
+ *
+ * ## Example using AJV
+ * ```ts
+ * import AJV, { JSONSchemaType } from "ajv";
+ *
+ * export interface Team {
+ *   teamId: string;
+ *   teamName: string;
+ *   dateCreated: Date;
+ *   dateDeleted?: Date;
+ * }
+ *
+ * const schema: JSONSchemaType<Team> = {
+ *   type: "object",
+ *   additionalProperties: false,
+ *   properties: {
+ *     teamId: { type: "string" },
+ *     teamName: { type: "string" },
+ *     dateCreated: { type: "object", format: "date-time" },
+ *     dateDeleted: { type: "object", format: "date-time", nullable: true },
+ *   },
+ *   required: ["teamId", "teamName", "dateCreated"],
+ * };
+ * const validateTeam = ajv.compile(schema);
+ *
+ * export function teamValidator(input: unknown): Team {
+ *   if (validateTeam(input)) {
+ *     return input;
+ *   }
+ *   throw validateTeam.errors[0];
+ * }
+ * ```
+ */
 export type Validator<T> = (input: unknown) => T;
 
 export type FacetWithIndex<
@@ -38,6 +77,67 @@ export type FacetWithIndex<
 > = Record<I, FacetIndex<T, PK, SK, GSIPK, GSISK>> &
 	Record<A, FacetIndex<T, PK, SK, GSIPK, GSISK>>;
 
+/**
+ * # Facet
+ * A Facet is a utility that wraps Dynamo DB commands
+ * along with calculating properties that are used for
+ * indexing records in a Dynamo DB single-table design.
+ *
+ * To construct a facet you must specify how a partition key (`PK`)
+ * and a sort key (`SK`) should be constructed for the facet.
+ *
+ * The `PK` and `SK` are then generated using a specified prefix for the
+ * key along with any values of the properties specified.
+ *
+ * A {@link Validator} that can validate results from the database is also required
+ * to make sure that invalid records don't make their way into the application.
+ *
+ * ## Example
+ *
+ * ```ts
+ *const PostFacet = new Facet({
+ *  validator: postValidator,
+ *  PK: {
+ *    keys: ['pageId'],
+ *    prefix: Prefix.Page,
+ *  },
+ *  SK: {
+ *    keys: ['postId'],
+ *    prefix: Prefix.Post,
+ *  },
+ *  connection: {
+ *    dynamoDb: ddb,
+ *    tableName: tableName,
+ *  },
+ *  ttl: 'deleteAt',
+ *})
+ *  .addIndex({
+ *    index: Index.GSI1,
+ *    PK: {
+ *      keys: ['postStatus'],
+ *      shard: { count: 4, keys: ['postId'] },
+ *      prefix: Prefix.Status,
+ *    },
+ *    SK: {
+ *      keys: ['sendAt'],
+ *      prefix: Prefix.Status,
+ *    },
+ *    alias: 'byStatusSendAt',
+ *  })
+ *  .addIndex({
+ *    index: Index.GSI2,
+ *    PK: {
+ *      keys: ['pageId', 'postStatus'],
+ *      prefix: Prefix.Page,
+ *    },
+ *    SK: {
+ *      keys: ['postId'],
+ *      prefix: Prefix.Post,
+ *    },
+ *    alias: 'byPagePostStatus',
+ *  });
+ * ```
+ */
 export class Facet<
 	T,
 	PK extends keyof T = keyof T,
@@ -401,6 +501,14 @@ export interface FacetOptions<T, PK extends keyof T, SK extends keyof T> {
 	/**
 	 * How to build the partition key
 	 * for this facet in the table
+	 *
+	 * ## Example
+	 * ```
+	 * {
+	 *   keys: ['pageId'],
+	 *   prefix: Prefix.Page,
+	 * }
+	 * ```
 	 */
 	PK: KeyConfiguration<T, PK>;
 	/**
@@ -409,9 +517,7 @@ export interface FacetOptions<T, PK extends keyof T, SK extends keyof T> {
 	 */
 	SK: KeyConfiguration<T, SK>;
 	/**
-	 * A function that can take in any input and either
-	 * return a valid object of type `T` or throw if the
-	 * input is invalid
+	 * A {@link Validator} for records in this {@link Facet}
 	 */
 	validator: Validator<T>;
 
@@ -442,19 +548,19 @@ export interface FacetOptions<T, PK extends keyof T, SK extends keyof T> {
 
 	/**
 	 * Validates types before putting them into the database.
-	 * WARNING: This can weaken performance so use sparingly.
+	 *
+	 * **WARNING:** This can weaken performance so use sparingly.
 	 */
 	validateInput?: boolean;
 
 	/**
 	 * Connection information for Dynamo DB.
-	 *
-	 * Required to use any of the data methods
 	 */
 	connection: {
 		/**
 		 * A configured connection to Dynamo DB from
-		 * the aws-sdk
+		 * the aws-sdk. If this is not set Faceteer will
+		 * attempt to make it's own connection to Dynamo DB
 		 */
 		dynamoDb?: DynamoDB;
 		/**

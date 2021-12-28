@@ -1,4 +1,3 @@
-export * as Cursor from './lib/cursor';
 export type {
 	DeleteFailure,
 	DeleteOptions,
