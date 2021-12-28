@@ -85,7 +85,7 @@ export class PartitionQuery<
 		this.#index = index;
 
 		if (this.#index) {
-			const IndexKeys = IndexKeyNameMap[this.#index.name];
+			const IndexKeys = IndexKeyNameMap[this.#index.indexName];
 			this.#PK = IndexKeys.PK;
 			this.#SK = IndexKeys.SK;
 			this.#partition = this.#index.pk(partitionIdentifier, shard);
@@ -125,7 +125,7 @@ export class PartitionQuery<
 
 		const queryInput: QueryInput = {
 			TableName: tableName,
-			IndexName: this.#index?.name,
+			IndexName: this.#index?.indexName,
 			KeyConditionExpression: `#PK = :partition AND #SK ${comparison} :sort`,
 			ExpressionAttributeNames: {
 				'#PK': this.#PK,
@@ -252,8 +252,34 @@ export class PartitionQuery<
 	 *
 	 * @param options
 	 */
-	async list(options: QueryOptions<T> = {}) {
+	list(options: QueryOptions<T> = {}) {
 		return this.beginsWith({}, options);
+	}
+
+	/**
+	 * This is equivalent to running `list()` and picking
+	 * the first result.
+	 *
+	 * If no results are found this will return `null`
+	 * @param options
+	 */
+	async first({
+		filter,
+		scanForward,
+		shard,
+	}: Omit<QueryOptions<T>, 'cursor' | 'limit'> = {}): Promise<T | null> {
+		const listResults = await this.list({
+			filter,
+			limit: 1,
+			scanForward,
+			shard,
+		});
+
+		const [firstRecord] = listResults.records;
+		if (firstRecord) {
+			return firstRecord;
+		}
+		return null;
 	}
 
 	/**
@@ -287,7 +313,7 @@ export class PartitionQuery<
 
 		const queryInput: QueryInput = {
 			TableName: tableName,
-			IndexName: this.#index?.name,
+			IndexName: this.#index?.indexName,
 			KeyConditionExpression: '#PK = :partition AND begins_with(#SK, :sort)',
 			ExpressionAttributeNames: {
 				'#PK': this.#PK,
@@ -391,7 +417,7 @@ export class PartitionQuery<
 
 		const queryInput: QueryInput = {
 			TableName: tableName,
-			IndexName: this.#index?.name,
+			IndexName: this.#index?.indexName,
 			KeyConditionExpression:
 				'#PK = :partition AND #SK BETWEEN :start AND :end',
 			ExpressionAttributeNames: {
