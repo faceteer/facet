@@ -1,5 +1,6 @@
 import { DynamoDB } from 'aws-sdk';
 import { Facet } from './facet';
+import { Index } from './keys';
 import { wait } from './wait';
 
 const ddb = new DynamoDB({
@@ -77,30 +78,32 @@ const PostFacet = new Facet({
 		tableName: tableName,
 	},
 	ttl: 'deleteAt',
-	indexes: {
-		GSI1: {
-			PK: {
-				keys: ['postStatus'],
-				shard: { count: 4, keys: ['postId'] },
-				prefix: Prefix.Status,
-			},
-			SK: {
-				keys: ['sendAt'],
-				prefix: Prefix.Status,
-			},
+})
+	.addIndex({
+		index: Index.GSI1,
+		PK: {
+			keys: ['postStatus'],
+			shard: { count: 4, keys: ['postId'] },
+			prefix: Prefix.Status,
 		},
-		GSI2: {
-			PK: {
-				keys: ['pageId', 'postStatus'],
-				prefix: Prefix.Page,
-			},
-			SK: {
-				keys: ['postId'],
-				prefix: Prefix.Post,
-			},
+		SK: {
+			keys: ['sendAt'],
+			prefix: Prefix.Status,
 		},
-	},
-});
+		alias: 'byStatusSendAt',
+	})
+	.addIndex({
+		index: Index.GSI2,
+		PK: {
+			keys: ['pageId', 'postStatus'],
+			prefix: Prefix.Page,
+		},
+		SK: {
+			keys: ['postId'],
+			prefix: Prefix.Post,
+		},
+		alias: 'byPagePostStatus',
+	});
 
 const mockPageIds: string[] = [];
 
@@ -160,10 +163,12 @@ describe('Facet', () => {
 
 		expect(posts.records.length).toBe(300);
 
-		const queuedPosts = await PostFacet.GSI2.query({
-			pageId: mockPageIds[0],
-			postStatus: PostStatus.Queued,
-		}).list();
+		const queuedPosts = await PostFacet.byPagePostStatus
+			.query({
+				pageId: mockPageIds[0],
+				postStatus: PostStatus.Queued,
+			})
+			.list();
 
 		expect(queuedPosts.records.length).toBe(100);
 
