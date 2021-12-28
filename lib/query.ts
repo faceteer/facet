@@ -252,8 +252,34 @@ export class PartitionQuery<
 	 *
 	 * @param options
 	 */
-	async list(options: QueryOptions<T> = {}) {
+	list(options: QueryOptions<T> = {}) {
 		return this.beginsWith({}, options);
+	}
+
+	/**
+	 * This is equivalent to running `list()` and picking
+	 * the first result.
+	 *
+	 * If no results are found this will return `null`
+	 * @param options
+	 */
+	async first({
+		filter,
+		scanForward,
+		shard,
+	}: Omit<QueryOptions<T>, 'cursor' | 'limit'> = {}): Promise<T | null> {
+		const listResults = await this.list({
+			filter,
+			limit: 1,
+			scanForward,
+			shard,
+		});
+
+		const [firstRecord] = listResults.records;
+		if (firstRecord) {
+			return firstRecord;
+		}
+		return null;
 	}
 
 	/**
