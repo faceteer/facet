@@ -440,7 +440,7 @@ export const TaskFacet = new Facet({
     keys: ["dateDue"],
     prefix: "#TASK_DUE",
   },
-  alias: "byTeamDueDate",
+  alias: "GSITeamDueDate",
 });
 ```
 
@@ -471,13 +471,13 @@ export async function getPastDueTasks(teamId: string) {
 }
 ```
 
-We can also use the alias `byTeamDueDate` instead of `GSI1` for readability.
+We can also use the alias `GSITeamDueDate` instead of `GSI1` for readability.
 
 ```diff
 export async function getPastDueTasks(teamId: string) {
 	const today = new Date();
 -	const queryResult = await TaskFacet.GSI1.query({ teamId }).lessThan({
-+	const queryResult = await TaskFacet.byTeamDueDate.query({ teamId }).lessThan({
++	const queryResult = await TaskFacet.GSITeamDueDate.query({ teamId }).lessThan({
 		dateDue: today,
 	});
 	return {
@@ -525,7 +525,7 @@ export const TaskFacet = new Facet({
       keys: ["dateDue"],
       prefix: "#TASK_DUE",
     },
-    alias: "byTeamDueDate",
+    alias: "GSITeamDueDate",
   })
   .addIndex({
     index: Index.GSI2,
@@ -537,7 +537,7 @@ export const TaskFacet = new Facet({
       keys: ["dateCreated"],
       prefix: "#TASK_CREATED",
     },
-    alias: "byUserStatusCreated",
+    alias: "GSIUserStatusCreated",
   })
   .addIndex({
     index: Index.GSI3,
@@ -549,7 +549,7 @@ export const TaskFacet = new Facet({
       keys: ["dateDue"],
       prefix: "#TASK_DUE",
     },
-    alias: "byUserStatusDue",
+    alias: "GSIUserStatusDue",
   });
 ```
 

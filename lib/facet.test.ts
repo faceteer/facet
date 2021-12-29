@@ -90,7 +90,7 @@ const PostFacet = new Facet({
 			keys: ['sendAt'],
 			prefix: Prefix.Status,
 		},
-		alias: 'byStatusSendAt',
+		alias: 'GSIStatusSendAt',
 	})
 	.addIndex({
 		index: Index.GSI2,
@@ -102,7 +102,7 @@ const PostFacet = new Facet({
 			keys: ['postId'],
 			prefix: Prefix.Post,
 		},
-		alias: 'byPagePostStatus',
+		alias: 'GSIPagePostStatus',
 	});
 
 const mockPageIds: string[] = [];
@@ -163,12 +163,10 @@ describe('Facet', () => {
 
 		expect(posts.records.length).toBe(300);
 
-		const queuedPosts = await PostFacet.byPagePostStatus
-			.query({
-				pageId: mockPageIds[0],
-				postStatus: PostStatus.Queued,
-			})
-			.list();
+		const queuedPosts = await PostFacet.GSIPagePostStatus.query({
+			pageId: mockPageIds[0],
+			postStatus: PostStatus.Queued,
+		}).list();
 
 		expect(queuedPosts.records.length).toBe(100);
 
