@@ -1,4 +1,4 @@
-# Faceteer
+![Faceteer](https://imagedelivery.net/zms_mS5SEgxiPTJtX-M2fQ/e83e9689-bace-449d-86b4-cccb45d65700/public)
 
 [![codecov](https://codecov.io/gh/faceteer/facet/branch/main/graph/badge.svg?token=ORKKZWL5N6)](https://codecov.io/gh/faceteer/facet)
 [![Test](https://github.com/faceteer/facet/actions/workflows/test.yml/badge.svg)](https://github.com/faceteer/facet/actions/workflows/test.yml)
