@@ -66,7 +66,7 @@ import { PartitionQuery } from './query';
  */
 export type Validator<T> = (input: unknown) => T;
 
-export type FacetWithIndex<
+export type FacetIndexKeys<
 	T,
 	PK extends keyof T,
 	SK extends keyof T,
@@ -76,6 +76,8 @@ export type FacetWithIndex<
 	A extends string = never,
 > = Record<I, FacetIndex<T, PK, SK, GSIPK, GSISK>> &
 	Record<A, FacetIndex<T, PK, SK, GSIPK, GSISK>>;
+
+export type FacetWithIndex<F, K> = F & K;
 
 /**
  * # Facet
@@ -134,7 +136,7 @@ export type FacetWithIndex<
  *      keys: ['postId'],
  *      prefix: Prefix.Post,
  *    },
- *    alias: 'byPagePostStatus',
+ *    alias: 'GSIPagePostStatus',
  *  });
  * ```
  */
@@ -394,8 +396,10 @@ export class Facet<
 		SK,
 		index,
 		alias,
-	}: AddIndexOptions<T, I, GSIPK, GSISK, A>): this &
-		FacetWithIndex<T, PK, SK, GSIPK, GSISK, I, A> {
+	}: AddIndexOptions<T, I, GSIPK, GSISK, A>): FacetWithIndex<
+		this,
+		FacetIndexKeys<T, PK, SK, GSIPK, GSISK, I, A>
+	> {
 		const facetIndex = new FacetIndex(index, this, PK, SK);
 		this.#indexes.set(index, facetIndex);
 
@@ -421,8 +425,10 @@ export class Facet<
 		/**
 		 * We mutate this class as a function
 		 */
-		return this as unknown as this &
-			FacetWithIndex<T, PK, SK, GSIPK, GSISK, I, A>;
+		return this as unknown as FacetWithIndex<
+			this,
+			FacetIndexKeys<T, PK, SK, GSIPK, GSISK, I, A>
+		>;
 	}
 }
 
