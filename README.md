@@ -16,7 +16,7 @@ If you're not familiar with the Dynamo DB single table concepts, this video is a
 
 This document aims to be a gentle introduction to the framework and its features.
 
-We will be creating a
+We will be creating a mock "tasks" application.
 
 ### Install
 
@@ -36,10 +36,10 @@ Our application should support multiple teams, teams should have have multiple u
 
 The access patterns we need to support are:
 
-- _"Get a team by it's id"_
+- _"Get a team by its id"_
 - _"Get a user by their id"_
 - _"Get a user by their email address"_
-- _"Get a task by it's id"_
+- _"Get a task by its id"_
 - _"List users by team ordered by the date they were created"_
 - _"List tasks by team ordered by the date they were created"_
 - _"List tasks by team ordered by the date they are due"_
@@ -351,7 +351,7 @@ We have some restrictions to consider before using this approach though.
 1. Partition and sort keys are **IMMUTABLE** and cannot be changed.
 2. You **MUST** provide all properties that make up a partition and sort key when getting a record by it's ID.
 
-The first restriction is probably fine for this use case since it's unlikely that we'll ever change the users created date, but it is clunky to identify a user by when they were created.
+It is unlikely that a user's created date will change, so having it be part of the immutable partition key is fine. Having the created date as a part of the primary identifier for a user does seem odd though, and in general should be a smell that we're doing something wrong.
 
 The second restriction ends up being problematic for us here. It would be cumbersome to have to provide the date that a user was created every time you want to get that user by their ID.
 
@@ -440,7 +440,7 @@ export const TaskFacet = new Facet({
     keys: ["dateDue"],
     prefix: "#TASK_DUE",
   },
-  alias: "byTeamDueDate",
+  alias: "GSITeamDueDate",
 });
 ```
 
@@ -471,13 +471,13 @@ export async function getPastDueTasks(teamId: string) {
 }
 ```
 
-We can also use the alias `byTeamDueDate` instead of `GSI1` for readability.
+We can also use the alias `GSITeamDueDate` instead of `GSI1` for readability.
 
 ```diff
 export async function getPastDueTasks(teamId: string) {
 	const today = new Date();
 -	const queryResult = await TaskFacet.GSI1.query({ teamId }).lessThan({
-+	const queryResult = await TaskFacet.byTeamDueDate.query({ teamId }).lessThan({
++	const queryResult = await TaskFacet.GSITeamDueDate.query({ teamId }).lessThan({
 		dateDue: today,
 	});
 	return {
@@ -525,7 +525,7 @@ export const TaskFacet = new Facet({
       keys: ["dateDue"],
       prefix: "#TASK_DUE",
     },
-    alias: "byTeamDueDate",
+    alias: "GSITeamDueDate",
   })
   .addIndex({
     index: Index.GSI2,
@@ -537,7 +537,7 @@ export const TaskFacet = new Facet({
       keys: ["dateCreated"],
       prefix: "#TASK_CREATED",
     },
-    alias: "byUserStatusCreated",
+    alias: "GSIUserStatusCreated",
   })
   .addIndex({
     index: Index.GSI3,
@@ -549,7 +549,7 @@ export const TaskFacet = new Facet({
       keys: ["dateDue"],
       prefix: "#TASK_DUE",
     },
-    alias: "byUserStatusDue",
+    alias: "GSIUserStatusDue",
   });
 ```
 

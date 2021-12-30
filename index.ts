@@ -8,6 +8,7 @@ export type {
 	AddIndexOptions,
 	FacetIndex,
 	FacetOptions,
+	FacetIndexKeys,
 	FacetWithIndex,
 	Validator,
 } from './lib/facet';
