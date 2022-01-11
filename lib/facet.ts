@@ -1,6 +1,6 @@
 import { Converter } from '@faceteer/converter';
 import type { ConverterOptions } from '@faceteer/converter/converter-options';
-import { DynamoDB } from 'aws-sdk';
+import { DynamoDB, AttributeValue } from '@aws-sdk/client-dynamodb';
 import {
 	deleteItems,
 	DeleteOptions,
@@ -24,6 +24,10 @@ import {
 	PutSingleItemResponse,
 } from './put';
 import { PartitionQuery } from './query';
+
+export interface AttributeMap {
+	[key: string]: AttributeValue;
+}
 
 /**
  * A `Validator` is a function that is used by Faceteer whenever
@@ -167,7 +171,10 @@ export class Facet<
 	/**
 	 * The configured connection to Dynamo DB
 	 */
-	readonly connection: { dynamoDb: DynamoDB; tableName: string };
+	readonly connection: {
+		dynamoDb: DynamoDB;
+		tableName: string;
+	};
 
 	constructor({
 		PK,
@@ -216,7 +223,7 @@ export class Facet<
 	 * Convert a model to a record that can be
 	 * stored directly in DynamoDB
 	 */
-	in(model: T): DynamoDB.AttributeMap {
+	in(model: T): AttributeMap {
 		if (this.#validateInput) {
 			model = this.#validator(model);
 		}
@@ -263,13 +270,13 @@ export class Facet<
 			wrapNumbers: true,
 			dateFormat: this.#dateFormat,
 			convertEmptyValues: this.#convertEmptyValues,
-		});
+		}) as AttributeMap;
 	}
 
 	/**
 	 * Convert and validate a dynamo DB record
 	 */
-	out(record: DynamoDB.AttributeMap): T {
+	out(record: AttributeMap): T {
 		const parsedRecord = Converter.unmarshall(record);
 
 		const recordToValidate: any = parsedRecord;

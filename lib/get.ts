@@ -1,4 +1,7 @@
-import type { DynamoDB } from 'aws-sdk';
+import type {
+	KeysAndAttributes,
+	BatchGetItemOutput,
+} from '@aws-sdk/client-dynamodb';
 import type { Facet } from './facet';
 import { PK, SK } from './keys';
 import { wait } from './wait';
@@ -7,26 +10,17 @@ export async function getSingleItem<T, PK extends keyof T, SK extends keyof T>(
 	facet: Facet<T, PK, SK>,
 	query: Partial<T>,
 ) {
-	const result = await facet.connection.dynamoDb
-		.getItem({
-			TableName: facet.connection.tableName,
-			Key: {
-				[PK]: {
-					S: facet.pk(query),
-				},
-				[SK]: {
-					S: facet.sk(query),
-				},
+	const result = await facet.connection.dynamoDb.getItem({
+		TableName: facet.connection.tableName,
+		Key: {
+			[PK]: {
+				S: facet.pk(query),
 			},
-		})
-		.promise();
-
-	/**
-	 * Throw if we get an error
-	 */
-	if (result.$response.error) {
-		throw result.$response.error;
-	}
+			[SK]: {
+				S: facet.sk(query),
+			},
+		},
+	});
 
 	/**
 	 * If we got the record, return it
@@ -60,7 +54,7 @@ export async function getBatch<T, PK extends keyof T, SK extends keyof T>(
 	/**
 	 * Function to gather items from a batch response
 	 */
-	const gatherItems = (batchResponse?: DynamoDB.BatchGetResponseMap) => {
+	const gatherItems = (batchResponse?: BatchGetItemOutput['Responses']) => {
 		if (batchResponse && batchResponse[facet.connection.tableName]) {
 			const itemsFromResponse = batchResponse[facet.connection.tableName].map(
 				(item) => facet.out(item),
@@ -69,7 +63,7 @@ export async function getBatch<T, PK extends keyof T, SK extends keyof T>(
 		}
 	};
 
-	const keysToGet: DynamoDB.KeyList = queries.map((query) => {
+	const keysToGet: KeysAndAttributes['Keys'] = queries.map((query) => {
 		return {
 			[PK]: {
 				S: facet.pk(query),
@@ -96,7 +90,9 @@ export async function getBatch<T, PK extends keyof T, SK extends keyof T>(
 		 * We will keep putting unprocessed items into this array
 		 * until we don't have any unprocessed items left
 		 */
-		const unprocessed = [...UnprocessedKeys[facet.connection.tableName].Keys];
+		const unprocessed = [
+			...(UnprocessedKeys[facet.connection.tableName].Keys ?? []),
+		];
 
 		while (unprocessed.length > 0 && attempts < 10) {
 			attempts += 1;
@@ -122,7 +118,9 @@ export async function getBatch<T, PK extends keyof T, SK extends keyof T>(
 			 * add them back to the unprocessed array so we can retry them
 			 */
 			if (StillUnprocessed && StillUnprocessed[facet.connection.tableName]) {
-				unprocessed.push(...StillUnprocessed[facet.connection.tableName].Keys);
+				unprocessed.push(
+					...(StillUnprocessed[facet.connection.tableName].Keys ?? []),
+				);
 			}
 		}
 	}
@@ -171,16 +169,14 @@ export async function getBatchItems<T, PK extends keyof T, SK extends keyof T>(
  * @returns
  */
 async function getBatchKeys<T, PK extends keyof T, SK extends keyof T>(
-	keys: DynamoDB.KeyList,
+	keys: KeysAndAttributes['Keys'],
 	facet: Facet<T, PK, SK>,
 ) {
-	return facet.connection.dynamoDb
-		.batchGetItem({
-			RequestItems: {
-				[facet.connection.tableName]: {
-					Keys: keys,
-				},
+	return facet.connection.dynamoDb.batchGetItem({
+		RequestItems: {
+			[facet.connection.tableName]: {
+				Keys: keys,
 			},
-		})
-		.promise();
+		},
+	});
 }
