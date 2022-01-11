@@ -201,6 +201,28 @@ describe('Facet', () => {
 
 		// expect(allPages.length).toBe(5);
 	});
+
+	test('Conditional Puts', async () => {
+		const testPage: Page = {
+			accessToken: 'ZZZZZZZZZZZZ',
+			pageId: 'ZZZZZZZZZZZZ',
+			pageName: 'ZZZZZZZZZZZZ',
+			tokenStatus: TokenStatus.Failed,
+		};
+
+		await PageFacet.delete({ pageId: testPage.pageId });
+		const successfulPut = await PageFacet.put(testPage, {
+			condition: ['pageId', 'not_exists'],
+		});
+
+		expect(successfulPut.wasSuccessful).toBeTruthy();
+
+		const failedPut = await PageFacet.put(testPage, {
+			condition: ['pageId', 'not_exists'],
+		});
+
+		expect(failedPut.wasSuccessful).toBeFalsy();
+	});
 });
 
 function mockPages(count: number, overrides: Partial<Page> = {}): Page[] {
