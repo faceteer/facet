@@ -1,11 +1,15 @@
-import type { DynamoDB } from 'aws-sdk';
+import type { AttributeValue } from '@aws-sdk/client-dynamodb';
 import cbor from 'cbor';
 
-export function encodeCursor(lastKey: DynamoDB.Key): string {
+export function encodeCursor(lastKey: {
+	[key: string]: AttributeValue;
+}): string {
 	return cbor.encode(lastKey).toString('base64');
 }
 
-export function decodeCursor(cursor?: string): DynamoDB.Key {
+export function decodeCursor(cursor?: string): {
+	[key: string]: AttributeValue;
+} {
 	if (!cursor) {
 		return {};
 	}

@@ -1,4 +1,4 @@
-import type { PutItemInput, WriteRequest } from 'aws-sdk/clients/dynamodb';
+import type { PutItemInput, WriteRequest } from '@aws-sdk/client-dynamodb';
 import type { Facet } from './facet';
 import { wait } from './wait';
 import { Converter } from '@faceteer/converter';
@@ -59,8 +59,9 @@ export async function putSingleItem<T, PK extends keyof T, SK extends keyof T>(
 	options: PutOptions<T> = {},
 ): Promise<PutSingleItemResponse<T>> {
 	try {
+		const item = facet.in(record);
 		const putInput: PutItemInput = {
-			Item: facet.in(record),
+			Item: item,
 			TableName: facet.connection.tableName,
 		};
 
@@ -71,20 +72,10 @@ export async function putSingleItem<T, PK extends keyof T, SK extends keyof T>(
 			putInput.ExpressionAttributeValues = expression.values;
 		}
 
-		const response = await facet.connection.dynamoDb
-			.putItem(putInput)
-			.promise();
-
-		if (response.$response.error) {
-			return {
-				record,
-				wasSuccessful: false,
-				error: response.$response.error,
-			};
-		}
+		await facet.connection.dynamoDb.putItem(putInput);
 
 		return {
-			record: facet.out(putInput.Item),
+			record: facet.out(item),
 			wasSuccessful: true,
 		};
 	} catch (error) {
@@ -183,13 +174,11 @@ async function putBatch<T, PK extends keyof T, SK extends keyof T>(
 		itemsByKey[key] = facet.out(item);
 	}
 
-	const result = await facet.connection.dynamoDb
-		.batchWriteItem({
-			RequestItems: {
-				[facet.connection.tableName]: Object.values(writeRequests),
-			},
-		})
-		.promise();
+	const result = await facet.connection.dynamoDb.batchWriteItem({
+		RequestItems: {
+			[facet.connection.tableName]: Object.values(writeRequests),
+		},
+	});
 
 	/**
 	 * Attempt to put any unprocessed items into the database
@@ -211,13 +200,11 @@ async function putBatch<T, PK extends keyof T, SK extends keyof T>(
 			 */
 			await wait(10 * 2 ** retries);
 
-			const retryResult = await facet.connection.dynamoDb
-				.batchWriteItem({
-					RequestItems: {
-						[facet.connection.tableName]: unprocessed.splice(0),
-					},
-				})
-				.promise();
+			const retryResult = await facet.connection.dynamoDb.batchWriteItem({
+				RequestItems: {
+					[facet.connection.tableName]: unprocessed.splice(0),
+				},
+			});
 
 			if (
 				retryResult.UnprocessedItems &&
@@ -241,7 +228,7 @@ async function putBatch<T, PK extends keyof T, SK extends keyof T>(
 		for (const unprocessedRequest of result.UnprocessedItems[
 			facet.connection.tableName
 		]) {
-			if (unprocessedRequest.PutRequest) {
+			if (unprocessedRequest.PutRequest?.Item) {
 				// We use the PK and SK of the put request in order
 				// to rebuild the primary key and get the original item
 				const item = Converter.unmarshall(unprocessedRequest.PutRequest.Item);

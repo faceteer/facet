@@ -2,7 +2,7 @@ import { decodeCursor, encodeCursor } from './cursor';
 import { Facet, FacetIndex } from './facet';
 import * as expressionBuilder from '@faceteer/expression-builder';
 import { IndexKeyNameMap, PK, SK } from './keys';
-import type { QueryInput } from 'aws-sdk/clients/dynamodb';
+import type { QueryInput } from '@aws-sdk/client-dynamodb';
 
 export interface PartitionQueryOptions<
 	T,
@@ -160,7 +160,7 @@ export class PartitionQuery<
 			);
 		}
 
-		const results = await dynamoDb.query(queryInput).promise();
+		const results = await dynamoDb.query(queryInput);
 
 		/**
 		 * Gather any items that were returned
@@ -348,7 +348,7 @@ export class PartitionQuery<
 			);
 		}
 
-		const results = await dynamoDb.query(queryInput).promise();
+		const results = await dynamoDb.query(queryInput);
 
 		/**
 		 * Gather any items that were returned
@@ -456,7 +456,7 @@ export class PartitionQuery<
 			);
 		}
 
-		const results = await dynamoDb.query(queryInput).promise();
+		const results = await dynamoDb.query(queryInput);
 
 		/**
 		 * Gather any items that were returned

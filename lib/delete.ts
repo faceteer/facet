@@ -1,4 +1,4 @@
-import type { WriteRequest, DeleteItemInput } from 'aws-sdk/clients/dynamodb';
+import type { WriteRequest, DeleteItemInput } from '@aws-sdk/client-dynamodb';
 import type { Facet } from './facet';
 import { wait } from './wait';
 import { Converter } from '@faceteer/converter';
@@ -71,22 +71,7 @@ export async function deleteSingleItem<
 			deleteInput.ExpressionAttributeValues = expression.values;
 		}
 
-		const response = await facet.connection.dynamoDb
-			.deleteItem(deleteInput)
-			.promise();
-
-		if (response.$response.error) {
-			return {
-				failed: [
-					{
-						error: response.$response.error,
-						record,
-					},
-				],
-				hasFailures: true,
-				deleted: [],
-			};
-		}
+		await facet.connection.dynamoDb.deleteItem(deleteInput);
 
 		return {
 			failed: [],
@@ -204,13 +189,11 @@ async function deleteBatch<
 		itemsByKey[key] = batchItem;
 	}
 
-	const result = await facet.connection.dynamoDb
-		.batchWriteItem({
-			RequestItems: {
-				[facet.connection.tableName]: Object.values(deleteRequests),
-			},
-		})
-		.promise();
+	const result = await facet.connection.dynamoDb.batchWriteItem({
+		RequestItems: {
+			[facet.connection.tableName]: Object.values(deleteRequests),
+		},
+	});
 
 	/**
 	 * Attempt to put any unprocessed items into the database
@@ -232,13 +215,11 @@ async function deleteBatch<
 			 */
 			await wait(10 * 2 ** retries);
 
-			const retryResult = await facet.connection.dynamoDb
-				.batchWriteItem({
-					RequestItems: {
-						[facet.connection.tableName]: unprocessed.splice(0),
-					},
-				})
-				.promise();
+			const retryResult = await facet.connection.dynamoDb.batchWriteItem({
+				RequestItems: {
+					[facet.connection.tableName]: unprocessed.splice(0),
+				},
+			});
 
 			if (
 				retryResult.UnprocessedItems &&
@@ -262,7 +243,7 @@ async function deleteBatch<
 		for (const unprocessedRequest of result.UnprocessedItems[
 			facet.connection.tableName
 		]) {
-			if (unprocessedRequest.PutRequest) {
+			if (unprocessedRequest.PutRequest?.Item) {
 				// We use the PK and SK of the delete request in order
 				// to rebuild the primary key and get the original item
 				const item = Converter.unmarshall(unprocessedRequest.PutRequest.Item);
