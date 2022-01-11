@@ -1,4 +1,4 @@
-import { DynamoDB } from 'aws-sdk';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { Facet } from './facet';
 import { Index } from './keys';
 import { wait } from './wait';
@@ -245,57 +245,53 @@ async function createTestTable(): Promise<void> {
 	let active = false;
 
 	try {
-		await ddb
-			.createTable({
-				TableName: tableName,
-				AttributeDefinitions: [
-					{ AttributeName: 'PK', AttributeType: 'S' },
-					{ AttributeName: 'SK', AttributeType: 'S' },
-					{ AttributeName: 'GSI1PK', AttributeType: 'S' },
-					{ AttributeName: 'GSI1SK', AttributeType: 'S' },
-					{ AttributeName: 'GSI2PK', AttributeType: 'S' },
-					{ AttributeName: 'GSI2SK', AttributeType: 'S' },
-				],
-				KeySchema: [
-					{ AttributeName: 'PK', KeyType: 'HASH' },
-					{ AttributeName: 'SK', KeyType: 'RANGE' },
-				],
-				BillingMode: 'PAY_PER_REQUEST',
-				GlobalSecondaryIndexes: [
-					{
-						IndexName: 'GSI1',
-						KeySchema: [
-							{ AttributeName: 'GSI1PK', KeyType: 'HASH' },
-							{ AttributeName: 'GSI1SK', KeyType: 'RANGE' },
-						],
-						Projection: {
-							ProjectionType: 'ALL',
-						},
+		await ddb.createTable({
+			TableName: tableName,
+			AttributeDefinitions: [
+				{ AttributeName: 'PK', AttributeType: 'S' },
+				{ AttributeName: 'SK', AttributeType: 'S' },
+				{ AttributeName: 'GSI1PK', AttributeType: 'S' },
+				{ AttributeName: 'GSI1SK', AttributeType: 'S' },
+				{ AttributeName: 'GSI2PK', AttributeType: 'S' },
+				{ AttributeName: 'GSI2SK', AttributeType: 'S' },
+			],
+			KeySchema: [
+				{ AttributeName: 'PK', KeyType: 'HASH' },
+				{ AttributeName: 'SK', KeyType: 'RANGE' },
+			],
+			BillingMode: 'PAY_PER_REQUEST',
+			GlobalSecondaryIndexes: [
+				{
+					IndexName: 'GSI1',
+					KeySchema: [
+						{ AttributeName: 'GSI1PK', KeyType: 'HASH' },
+						{ AttributeName: 'GSI1SK', KeyType: 'RANGE' },
+					],
+					Projection: {
+						ProjectionType: 'ALL',
 					},
-					{
-						IndexName: 'GSI2',
-						KeySchema: [
-							{ AttributeName: 'GSI2PK', KeyType: 'HASH' },
-							{ AttributeName: 'GSI2SK', KeyType: 'RANGE' },
-						],
-						Projection: {
-							ProjectionType: 'ALL',
-						},
+				},
+				{
+					IndexName: 'GSI2',
+					KeySchema: [
+						{ AttributeName: 'GSI2PK', KeyType: 'HASH' },
+						{ AttributeName: 'GSI2SK', KeyType: 'RANGE' },
+					],
+					Projection: {
+						ProjectionType: 'ALL',
 					},
-				],
-			})
-			.promise();
+				},
+			],
+		});
 	} catch (error) {
 		const resourceError = error as any;
 		/**
 		 * We'll reset the existing table if it already exists
 		 */
 		if (resourceError.code === 'ResourceInUseException') {
-			await ddb
-				.deleteTable({
-					TableName: tableName,
-				})
-				.promise();
+			await ddb.deleteTable({
+				TableName: tableName,
+			});
 
 			await createTestTable();
 		}
@@ -305,11 +301,9 @@ async function createTestTable(): Promise<void> {
 	 * Wait for the table to be ready
 	 */
 	while (!active) {
-		const status = await ddb
-			.describeTable({
-				TableName: tableName,
-			})
-			.promise();
+		const status = await ddb.describeTable({
+			TableName: tableName,
+		});
 
 		await wait(100);
 		if (status.Table?.TableStatus === 'ACTIVE') {
