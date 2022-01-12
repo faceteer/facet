@@ -68,8 +68,12 @@ export async function putSingleItem<T, PK extends keyof T, SK extends keyof T>(
 		if (options.condition) {
 			const expression = condition(options.condition);
 			putInput.ConditionExpression = expression.expression;
-			putInput.ExpressionAttributeNames = expression.names;
-			putInput.ExpressionAttributeValues = expression.values;
+			if (Object.keys(expression.names).length > 0) {
+				putInput.ExpressionAttributeNames = expression.names;
+			}
+			if (Object.keys(expression.values).length > 0) {
+				putInput.ExpressionAttributeValues = expression.values;
+			}
 		}
 
 		await facet.connection.dynamoDb.putItem(putInput);
