@@ -63,7 +63,7 @@
   "dependencies": {
     "@faceteer/converter": "^2.0.3",
     "@faceteer/expression-builder": "^2.0.1",
-    "cbor": "^7.0.5",
+    "cbor": "^8.1.0",
     "crc-32": "^1.2.0"
   }
 }
