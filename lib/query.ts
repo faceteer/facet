@@ -30,7 +30,7 @@ export interface QueryResult<T> {
 	records: T[];
 }
 
-export interface QueryOptions<T> {
+export interface QueryOptions<T, PK extends keyof T, SK extends keyof T> {
 	/**
 	 * The primary key of the first record that this operation will evaluate.
 	 * Use the value that was returned for `cursor` in the previous operation.
@@ -59,7 +59,7 @@ export interface QueryOptions<T> {
 	 */
 	shard?: number;
 
-	filter?: expressionBuilder.FilterConditionExpression<T>;
+	filter?: expressionBuilder.FilterConditionExpression<Omit<T, PK | SK>>;
 }
 
 export class PartitionQuery<
@@ -189,7 +189,7 @@ export class PartitionQuery<
 	 */
 	equals(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions<T> = {},
+		options: QueryOptions<T, PK, SK> = {},
 	) {
 		return this.compare(Comparison.Equals, sort as Partial<T>, options);
 	}
@@ -202,7 +202,7 @@ export class PartitionQuery<
 	 */
 	greaterThan(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions<T> = {},
+		options: QueryOptions<T, PK, SK> = {},
 	) {
 		return this.compare(Comparison.Greater, sort as Partial<T>, options);
 	}
@@ -228,7 +228,7 @@ export class PartitionQuery<
 	 */
 	lessThan(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions<T> = {},
+		options: QueryOptions<T, PK, SK> = {},
 	) {
 		return this.compare(Comparison.Less, sort as Partial<T>, options);
 	}
@@ -241,7 +241,7 @@ export class PartitionQuery<
 	 */
 	lessThanOrEqual(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions<T> = {},
+		options: QueryOptions<T, PK, SK> = {},
 	) {
 		return this.compare(Comparison.LessOrEqual, sort as Partial<T>, options);
 	}
@@ -252,7 +252,7 @@ export class PartitionQuery<
 	 *
 	 * @param options
 	 */
-	list(options: QueryOptions<T> = {}) {
+	list(options: QueryOptions<T, PK, SK> = {}) {
 		return this.beginsWith({}, options);
 	}
 
@@ -267,7 +267,10 @@ export class PartitionQuery<
 		filter,
 		scanForward,
 		shard,
-	}: Omit<QueryOptions<T>, 'cursor' | 'limit'> = {}): Promise<T | null> {
+	}: Omit<
+		QueryOptions<T, PK, SK>,
+		'cursor' | 'limit'
+	> = {}): Promise<T | null> {
 		const listResults = await this.list({
 			filter,
 			limit: 1,
@@ -290,7 +293,13 @@ export class PartitionQuery<
 	 */
 	async beginsWith(
 		sort: Partial<Pick<T, GSISK>> | string,
-		{ cursor, limit, scanForward = true, shard, filter }: QueryOptions<T> = {},
+		{
+			cursor,
+			limit,
+			scanForward = true,
+			shard,
+			filter,
+		}: QueryOptions<T, PK, SK> = {},
 	) {
 		const { dynamoDb, tableName } = this.#facet.connection;
 
