@@ -102,7 +102,13 @@ export class PartitionQuery<
 	private async compare(
 		comparison: Comparison,
 		sort: Partial<T> | string,
-		{ cursor, limit, scanForward = true, shard, filter }: QueryOptions<T>,
+		{
+			cursor,
+			limit,
+			scanForward = true,
+			shard,
+			filter,
+		}: QueryOptions<T, PK, SK>,
 	) {
 		const { dynamoDb, tableName } = this.#facet.connection;
 
@@ -215,7 +221,7 @@ export class PartitionQuery<
 	 */
 	greaterThanOrEqual(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions<T> = {},
+		options: QueryOptions<T, PK, SK> = {},
 	) {
 		return this.compare(Comparison.GreaterOrEqual, sort as Partial<T>, options);
 	}
@@ -389,7 +395,13 @@ export class PartitionQuery<
 	async between(
 		start: Partial<Pick<T, GSISK>> | string,
 		end: Partial<Pick<T, GSISK>> | string,
-		{ cursor, limit, scanForward = true, shard, filter }: QueryOptions<T> = {},
+		{
+			cursor,
+			limit,
+			scanForward = true,
+			shard,
+			filter,
+		}: QueryOptions<T, PK, SK> = {},
 	) {
 		const { dynamoDb, tableName } = this.#facet.connection;
 

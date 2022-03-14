@@ -177,6 +177,23 @@ describe('Facet', () => {
 		expect(noFailed.records.length).toBe(200);
 	});
 
+	test('Paginate', async () => {
+		const pagePostPartition = PostFacet.query({ pageId: mockPageIds[0] });
+		const firstPage = await pagePostPartition.list({
+			limit: 10,
+		});
+
+		expect(firstPage.records.length).toBe(10);
+		expect(firstPage.cursor).toBeDefined();
+
+		const nextPage = await pagePostPartition.list({
+			cursor: firstPage.cursor,
+			limit: 10,
+		});
+
+		expect(nextPage.records.length).toBe(10);
+	});
+
 	test('Delete Pages', async () => {
 		const [pageToDelete] = mockPages(1);
 		const putPageResult = await PageFacet.put(pageToDelete);
@@ -192,14 +209,6 @@ describe('Facet', () => {
 		});
 
 		expect(deleteResult.deleted.length).toBe(1);
-
-		// expect(firstPage?.pageId).toBe(mockPageIds[0]);
-
-		// const allPages = await PageFacet.get(
-		// 	mockPageIds.map((pageId) => ({ pageId })),
-		// );
-
-		// expect(allPages.length).toBe(5);
 	});
 
 	test('Conditional Puts', async () => {
