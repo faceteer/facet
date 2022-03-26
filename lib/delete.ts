@@ -1,5 +1,5 @@
 import type { WriteRequest, DeleteItemInput } from '@aws-sdk/client-dynamodb';
-import type { Facet } from './facet';
+import type { Facet, Keys } from './facet';
 import { wait } from './wait';
 import { Converter } from '@faceteer/converter';
 import expressionBuilder from '@faceteer/expression-builder';
@@ -43,8 +43,8 @@ export interface DeleteResponse<T> {
 
 export async function deleteSingleItem<
 	T,
-	PK extends keyof T,
-	SK extends keyof T,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
 	U = Pick<T, PK | SK> & Partial<T>,
 >(
 	facet: Facet<T, PK, SK>,
@@ -98,8 +98,8 @@ export async function deleteSingleItem<
  */
 export async function deleteItems<
 	T,
-	PK extends keyof T,
-	SK extends keyof T,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
 	U = Pick<T, PK | SK> & Partial<T>,
 >(facet: Facet<T, PK, SK>, records: U[]): Promise<DeleteResponse<U>> {
 	const recordsToBatch: U[] = [...records];
@@ -151,8 +151,8 @@ export async function deleteItems<
  */
 async function deleteBatch<
 	T,
-	PK extends keyof T,
-	SK extends keyof T,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
 	U = Pick<T, PK | SK> & Partial<T>,
 >(facet: Facet<T, PK, SK>, batchToDelete: U[]): Promise<DeleteResponse<U>> {
 	const deleteRequests: Record<string, WriteRequest> = {};

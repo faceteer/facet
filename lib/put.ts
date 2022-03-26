@@ -1,5 +1,5 @@
 import type { PutItemInput, WriteRequest } from '@aws-sdk/client-dynamodb';
-import type { Facet } from './facet';
+import type { Facet, Keys } from './facet';
 import { wait } from './wait';
 import { Converter } from '@faceteer/converter';
 import { condition, ConditionExpression } from '@faceteer/expression-builder';
@@ -53,7 +53,7 @@ export interface PutSingleItemResponse<T> {
 	error?: unknown;
 }
 
-export async function putSingleItem<T, PK extends keyof T, SK extends keyof T>(
+export async function putSingleItem<T, PK extends Keys<T>, SK extends Keys<T>>(
 	facet: Facet<T, PK, SK>,
 	record: T,
 	options: PutOptions<T> = {},
@@ -95,7 +95,7 @@ export async function putSingleItem<T, PK extends keyof T, SK extends keyof T>(
  * Put records into the Dynamo DB table
  * @param records
  */
-export async function putItems<T, PK extends keyof T, SK extends keyof T>(
+export async function putItems<T, PK extends Keys<T>, SK extends Keys<T>>(
 	facet: Facet<T, PK, SK>,
 	records: T[],
 ): Promise<PutResponse<T>> {
@@ -146,7 +146,7 @@ export async function putItems<T, PK extends keyof T, SK extends keyof T>(
  * records or less
  * @param batchToPut
  */
-async function putBatch<T, PK extends keyof T, SK extends keyof T>(
+async function putBatch<T, PK extends Keys<T>, SK extends Keys<T>>(
 	facet: Facet<T, PK, SK>,
 	batchToPut: T[],
 ): Promise<PutResponse<T>> {
