@@ -29,7 +29,7 @@ export interface AttributeMap {
 	[key: string]: AttributeValue;
 }
 
-export type Keys<T> = T extends T ? Keys<T> : never;
+export type Keys<T> = T extends T ? keyof T : never;
 
 /**
  * A `Validator` is a function that is used by Faceteer whenever
