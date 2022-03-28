@@ -1,15 +1,15 @@
 import { decodeCursor, encodeCursor } from './cursor';
 import { Facet, FacetIndex } from './facet';
 import * as expressionBuilder from '@faceteer/expression-builder';
-import { IndexKeyNameMap, PK, SK } from './keys';
+import { IndexKeyNameMap, PK, SK, Keys } from './keys';
 import type { QueryInput } from '@aws-sdk/client-dynamodb';
 
 export interface PartitionQueryOptions<
 	T,
-	PK extends keyof T,
-	SK extends keyof T,
-	GSIPK extends keyof T,
-	GSISK extends keyof T,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
+	GSIPK extends Keys<T>,
+	GSISK extends Keys<T>,
 > {
 	facet: Facet<T, PK, SK>;
 	partitionIdentifier: Partial<T>;
@@ -64,10 +64,10 @@ export interface QueryOptions<T, PK extends keyof T, SK extends keyof T> {
 
 export class PartitionQuery<
 	T,
-	PK extends keyof T,
-	SK extends keyof T,
-	GSIPK extends keyof T = never,
-	GSISK extends keyof T = never,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
+	GSIPK extends Keys<T> = never,
+	GSISK extends Keys<T> = never,
 > {
 	#facet: Facet<T, PK, SK>;
 	#index?: FacetIndex<T, PK, SK, GSIPK, GSISK>;

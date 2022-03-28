@@ -15,6 +15,7 @@ import {
 	KeyConfiguration,
 	PK,
 	SK,
+	Keys,
 } from './keys';
 import {
 	putItems,
@@ -72,10 +73,10 @@ export type Validator<T> = (input: unknown) => T;
 
 export type FacetIndexKeys<
 	T,
-	PK extends keyof T,
-	SK extends keyof T,
-	GSIPK extends keyof T,
-	GSISK extends keyof T,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
+	GSIPK extends Keys<T>,
+	GSISK extends Keys<T>,
 	I extends Index,
 	A extends string = never,
 > = Record<I, FacetIndex<T, PK, SK, GSIPK, GSISK>> &
@@ -146,8 +147,8 @@ export type FacetWithIndex<F, K> = F & K;
  */
 export class Facet<
 	T,
-	PK extends keyof T = keyof T,
-	SK extends keyof T = keyof T,
+	PK extends Keys<T> = Keys<T>,
+	SK extends Keys<T> = Keys<T>,
 > {
 	#PK: KeyConfiguration<T, PK>;
 	#SK: KeyConfiguration<T, SK>;
@@ -167,7 +168,7 @@ export class Facet<
 	/**
 	 * The property thats used for the TTL column in Dynamo DB
 	 */
-	readonly ttl?: keyof T;
+	readonly ttl?: Keys<T>;
 	/**
 	 * The configured connection to Dynamo DB
 	 */
@@ -395,8 +396,8 @@ export class Facet<
 	 */
 	addIndex<
 		I extends Index,
-		GSIPK extends keyof T,
-		GSISK extends keyof T,
+		GSIPK extends Keys<T>,
+		GSISK extends Keys<T>,
 		A extends string,
 	>({
 		PK,
@@ -442,8 +443,8 @@ export class Facet<
 export interface AddIndexOptions<
 	T,
 	I extends Index,
-	GSIPK extends keyof T,
-	GSISK extends keyof T,
+	GSIPK extends Keys<T>,
+	GSISK extends Keys<T>,
 	A extends string,
 > {
 	index: I;
@@ -454,10 +455,10 @@ export interface AddIndexOptions<
 
 export class FacetIndex<
 	T,
-	PK extends keyof T = keyof T,
-	SK extends keyof T = keyof T,
-	GSIPK extends keyof T = keyof T,
-	GSISK extends keyof T = keyof T,
+	PK extends Keys<T> = Keys<T>,
+	SK extends Keys<T> = Keys<T>,
+	GSIPK extends Keys<T> = Keys<T>,
+	GSISK extends Keys<T> = Keys<T>,
 > {
 	#facet: Facet<T, PK, SK>;
 	#PK: KeyConfiguration<T, GSIPK>;
@@ -510,7 +511,7 @@ export class FacetIndex<
 /**
  * Options for configuring a Faceteer Facet
  */
-export interface FacetOptions<T, PK extends keyof T, SK extends keyof T> {
+export interface FacetOptions<T, PK extends Keys<T>, SK extends Keys<T>> {
 	/**
 	 * How to build the partition key
 	 * for this facet in the table
@@ -546,7 +547,7 @@ export interface FacetOptions<T, PK extends keyof T, SK extends keyof T> {
 	 * An optional key that should be used as the TTL key
 	 * in Dynamo DB
 	 */
-	ttl?: keyof T;
+	ttl?: Keys<T>;
 
 	/**
 	 * Tells converter to use `iso` or `unix` format

@@ -1,10 +1,12 @@
 import { crcShard } from './hash/crc-shard';
 
+export type Keys<T> = T extends T ? keyof T : never;
+
 /**
  * How to shard a key into multiple groups
  */
 export interface ShardConfiguration<T> {
-	keys: (keyof T)[];
+	keys: Keys<T>[];
 	count: number;
 }
 
@@ -97,7 +99,7 @@ export function isIndex(indexName: string): indexName is Index {
 /**
  * How to build a composite key from an object
  */
-export interface KeyConfiguration<T, U extends keyof T> {
+export interface KeyConfiguration<T, U extends Keys<T>> {
 	/**
 	 * An array of object keys that will be used
 	 * to create the composite key.
@@ -147,8 +149,8 @@ export const IndexKeyNameMap = {
  */
 export interface IndexKeyConfiguration<
 	T,
-	P extends keyof T,
-	K extends keyof T,
+	P extends Keys<T>,
+	K extends Keys<T>,
 > {
 	PK: KeyConfiguration<T, P>;
 	SK: KeyConfiguration<T, K>;
@@ -161,46 +163,46 @@ export interface IndexKeyConfiguration<
  */
 export interface IndexKeyOptions<
 	T,
-	GSI1PK extends keyof T = never,
-	GSI1SK extends keyof T = never,
-	GSI2PK extends keyof T = never,
-	GSI2SK extends keyof T = never,
-	GSI3PK extends keyof T = never,
-	GSI3SK extends keyof T = never,
-	GSI4PK extends keyof T = never,
-	GSI4SK extends keyof T = never,
-	GSI5PK extends keyof T = never,
-	GSI5SK extends keyof T = never,
-	GSI6PK extends keyof T = never,
-	GSI6SK extends keyof T = never,
-	GSI7PK extends keyof T = never,
-	GSI7SK extends keyof T = never,
-	GSI8PK extends keyof T = never,
-	GSI8SK extends keyof T = never,
-	GSI9PK extends keyof T = never,
-	GSI9SK extends keyof T = never,
-	GSI10PK extends keyof T = never,
-	GSI10SK extends keyof T = never,
-	GSI11PK extends keyof T = never,
-	GSI11SK extends keyof T = never,
-	GSI12PK extends keyof T = never,
-	GSI12SK extends keyof T = never,
-	GSI13PK extends keyof T = never,
-	GSI13SK extends keyof T = never,
-	GSI14PK extends keyof T = never,
-	GSI14SK extends keyof T = never,
-	GSI15PK extends keyof T = never,
-	GSI15SK extends keyof T = never,
-	GSI16PK extends keyof T = never,
-	GSI16SK extends keyof T = never,
-	GSI17PK extends keyof T = never,
-	GSI17SK extends keyof T = never,
-	GSI18PK extends keyof T = never,
-	GSI18SK extends keyof T = never,
-	GSI19PK extends keyof T = never,
-	GSI19SK extends keyof T = never,
-	GSI20PK extends keyof T = never,
-	GSI20SK extends keyof T = never,
+	GSI1PK extends Keys<T> = never,
+	GSI1SK extends Keys<T> = never,
+	GSI2PK extends Keys<T> = never,
+	GSI2SK extends Keys<T> = never,
+	GSI3PK extends Keys<T> = never,
+	GSI3SK extends Keys<T> = never,
+	GSI4PK extends Keys<T> = never,
+	GSI4SK extends Keys<T> = never,
+	GSI5PK extends Keys<T> = never,
+	GSI5SK extends Keys<T> = never,
+	GSI6PK extends Keys<T> = never,
+	GSI6SK extends Keys<T> = never,
+	GSI7PK extends Keys<T> = never,
+	GSI7SK extends Keys<T> = never,
+	GSI8PK extends Keys<T> = never,
+	GSI8SK extends Keys<T> = never,
+	GSI9PK extends Keys<T> = never,
+	GSI9SK extends Keys<T> = never,
+	GSI10PK extends Keys<T> = never,
+	GSI10SK extends Keys<T> = never,
+	GSI11PK extends Keys<T> = never,
+	GSI11SK extends Keys<T> = never,
+	GSI12PK extends Keys<T> = never,
+	GSI12SK extends Keys<T> = never,
+	GSI13PK extends Keys<T> = never,
+	GSI13SK extends Keys<T> = never,
+	GSI14PK extends Keys<T> = never,
+	GSI14SK extends Keys<T> = never,
+	GSI15PK extends Keys<T> = never,
+	GSI15SK extends Keys<T> = never,
+	GSI16PK extends Keys<T> = never,
+	GSI16SK extends Keys<T> = never,
+	GSI17PK extends Keys<T> = never,
+	GSI17SK extends Keys<T> = never,
+	GSI18PK extends Keys<T> = never,
+	GSI18SK extends Keys<T> = never,
+	GSI19PK extends Keys<T> = never,
+	GSI19SK extends Keys<T> = never,
+	GSI20PK extends Keys<T> = never,
+	GSI20SK extends Keys<T> = never,
 > {
 	GSI1?: IndexKeyConfiguration<T, GSI1PK, GSI1SK>;
 	GSI2?: IndexKeyConfiguration<T, GSI2PK, GSI2SK>;
@@ -227,7 +229,7 @@ export interface IndexKeyOptions<
  * Build a composite primary or sort key based on the key
  * configuration and a model
  */
-export function buildKey<T, U extends keyof T>(
+export function buildKey<T, U extends Keys<T>>(
 	keyConfig: KeyConfiguration<T, U>,
 	model: Partial<T>,
 	delimiter: string,
