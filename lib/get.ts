@@ -2,8 +2,8 @@ import type {
 	KeysAndAttributes,
 	BatchGetItemOutput,
 } from '@aws-sdk/client-dynamodb';
-import type { Facet, Keys } from './facet';
-import { PK, SK } from './keys';
+import type { Facet } from './facet';
+import { PK, SK, Keys } from './keys';
 import { wait } from './wait';
 
 export async function getSingleItem<T, PK extends Keys<T>, SK extends Keys<T>>(

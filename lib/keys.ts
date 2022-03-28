@@ -1,5 +1,6 @@
-import type { Keys } from './facet';
 import { crcShard } from './hash/crc-shard';
+
+export type Keys<T> = T extends T ? keyof T : never;
 
 /**
  * How to shard a key into multiple groups

@@ -15,6 +15,7 @@ import {
 	KeyConfiguration,
 	PK,
 	SK,
+	Keys,
 } from './keys';
 import {
 	putItems,
@@ -28,8 +29,6 @@ import { PartitionQuery } from './query';
 export interface AttributeMap {
 	[key: string]: AttributeValue;
 }
-
-export type Keys<T> = T extends T ? keyof T : never;
 
 /**
  * A `Validator` is a function that is used by Faceteer whenever

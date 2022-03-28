@@ -1,5 +1,6 @@
 import type { PutItemInput, WriteRequest } from '@aws-sdk/client-dynamodb';
-import type { Facet, Keys } from './facet';
+import type { Facet } from './facet';
+import type { Keys } from './keys';
 import { wait } from './wait';
 import { Converter } from '@faceteer/converter';
 import { condition, ConditionExpression } from '@faceteer/expression-builder';

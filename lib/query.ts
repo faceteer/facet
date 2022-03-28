@@ -1,7 +1,7 @@
 import { decodeCursor, encodeCursor } from './cursor';
-import { Facet, FacetIndex, Keys } from './facet';
+import { Facet, FacetIndex } from './facet';
 import * as expressionBuilder from '@faceteer/expression-builder';
-import { IndexKeyNameMap, PK, SK } from './keys';
+import { IndexKeyNameMap, PK, SK, Keys } from './keys';
 import type { QueryInput } from '@aws-sdk/client-dynamodb';
 
 export interface PartitionQueryOptions<

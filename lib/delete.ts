@@ -1,9 +1,9 @@
 import type { WriteRequest, DeleteItemInput } from '@aws-sdk/client-dynamodb';
-import type { Facet, Keys } from './facet';
+import type { Facet } from './facet';
 import { wait } from './wait';
 import { Converter } from '@faceteer/converter';
 import expressionBuilder from '@faceteer/expression-builder';
-import { PK, SK } from './keys';
+import { PK, SK, Keys } from './keys';
 
 export interface DeleteOptions<T> {
 	condition?: expressionBuilder.ConditionExpression<T>;
