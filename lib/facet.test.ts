@@ -157,6 +157,8 @@ describe('Facet', () => {
 		});
 
 		expect(firstPage?.pageId).toBe(mockPageIds[0]);
+		// @ts-ignore
+		expect(firstPage?.facet).toBe(Name.Page);
 
 		const allPages = await PageFacet.get(
 			mockPageIds.map((pageId) => ({ pageId })),
