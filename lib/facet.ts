@@ -295,6 +295,7 @@ export class Facet<
 		 * Delete any constructed keys from the model before
 		 * validating and returning
 		 */
+		delete recordToValidate['facet'];
 		delete recordToValidate['PK'];
 		delete recordToValidate['SK'];
 		for (const index of this.#indexes.keys()) {
