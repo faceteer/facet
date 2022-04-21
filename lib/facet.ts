@@ -103,6 +103,7 @@ export type FacetWithIndex<F, K> = F & K;
  *
  * ```ts
  *const PostFacet = new Facet({
+ *  name: FacetName.Post,
  *  validator: postValidator,
  *  PK: {
  *    keys: ['pageId'],
@@ -176,8 +177,13 @@ export class Facet<
 		dynamoDb: DynamoDB;
 		tableName: string;
 	};
+	/**
+	 * The name of the facet that is stored under `facet` for every record.
+	 */
+	readonly name: string;
 
 	constructor({
+		name,
 		PK,
 		SK,
 		connection,
@@ -188,6 +194,8 @@ export class Facet<
 		ttl,
 		validateInput = false,
 	}: FacetOptions<T, PK, SK>) {
+		this.name = name;
+		this.#PK = PK;
 		this.#PK = PK;
 		this.#SK = SK;
 		this.#validator = validator;
@@ -264,6 +272,7 @@ export class Facet<
 		const dynamoDbRecord = {
 			...attributes,
 			...facetKeys,
+			facet: this.name,
 			ttl: this.ttl ? model[this.ttl] : undefined,
 		};
 
@@ -512,6 +521,11 @@ export class FacetIndex<
  * Options for configuring a Faceteer Facet
  */
 export interface FacetOptions<T, PK extends Keys<T>, SK extends Keys<T>> {
+	/**
+	 * The name of the facet that is stored under `facet` for every record.
+	 */
+	name: string;
+
 	/**
 	 * How to build the partition key
 	 * for this facet in the table
