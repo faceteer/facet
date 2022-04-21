@@ -28,6 +28,11 @@ enum Prefix {
 	Status = '#STATUS',
 }
 
+enum Name {
+	Page = 'PAGE',
+	Post = 'POST',
+}
+
 interface Page {
 	pageId: string;
 	pageName: string;
@@ -44,6 +49,7 @@ interface Post {
 }
 
 const PageFacet = new Facet({
+	name: Name.Page,
 	PK: {
 		keys: ['pageId'],
 		prefix: Prefix.Org,
@@ -62,6 +68,7 @@ const PageFacet = new Facet({
 });
 
 const PostFacet = new Facet({
+	name: Name.Post,
 	validator: (input: unknown): Post => {
 		return input as Post;
 	},

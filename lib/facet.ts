@@ -103,7 +103,7 @@ export type FacetWithIndex<F, K> = F & K;
  *
  * ```ts
  *const PostFacet = new Facet({
- *  name: FacetName.Post,
+ *  name: Name.Post,
  *  validator: postValidator,
  *  PK: {
  *    keys: ['pageId'],
