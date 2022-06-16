@@ -28,6 +28,11 @@ enum Prefix {
 	Status = '#STATUS',
 }
 
+enum Name {
+	Page = 'PAGE',
+	Post = 'POST',
+}
+
 interface Page {
 	pageId: string;
 	pageName: string;
@@ -44,6 +49,7 @@ interface Post {
 }
 
 const PageFacet = new Facet({
+	name: Name.Page,
 	PK: {
 		keys: ['pageId'],
 		prefix: Prefix.Org,
@@ -62,6 +68,7 @@ const PageFacet = new Facet({
 });
 
 const PostFacet = new Facet({
+	name: Name.Post,
 	validator: (input: unknown): Post => {
 		return input as Post;
 	},
@@ -150,6 +157,9 @@ describe('Facet', () => {
 		});
 
 		expect(firstPage?.pageId).toBe(mockPageIds[0]);
+		expect(firstPage).not.toHaveProperty('facet');
+		expect(firstPage).not.toHaveProperty('PK');
+		expect(firstPage).not.toHaveProperty('SK');
 
 		const allPages = await PageFacet.get(
 			mockPageIds.map((pageId) => ({ pageId })),
