@@ -44,6 +44,7 @@ interface Post {
 	pageId: string;
 	postId: string;
 	postStatus: PostStatus;
+	postTitle?: string;
 	sendAt?: Date;
 	deleteAt?: number;
 }
@@ -110,6 +111,18 @@ const PostFacet = new Facet({
 			prefix: Prefix.Post,
 		},
 		alias: 'GSIPagePostStatus',
+	})
+	.addIndex({
+		index: Index.GSI3,
+		PK: {
+			keys: ['pageId'],
+			prefix: Prefix.Page,
+		},
+		SK: {
+			keys: ['postTitle'],
+			prefix: Prefix.Post,
+		},
+		alias: 'GSIPostByTitle',
 	});
 
 const mockPageIds: string[] = [];
@@ -241,6 +254,74 @@ describe('Facet', () => {
 		expect(expectedMissingPages.length).toEqual(0);
 	});
 
+	test('Test Conditional Queries', async () => {
+		const [page] = mockPages(1);
+		const posts = [
+			...mockPosts(10, {
+				pageId: page.pageId,
+				postStatus: PostStatus.Draft,
+				postTitle: 'aa',
+			}),
+			...mockPosts(10, {
+				pageId: page.pageId,
+				postStatus: PostStatus.Failed,
+				postTitle: 'ad',
+			}),
+			...mockPosts(10, {
+				pageId: page.pageId,
+				postStatus: PostStatus.Queued,
+				postTitle: 'bb',
+			}),
+		];
+
+		await PageFacet.put(page);
+
+		await PostFacet.put(posts);
+
+		// `ad` pages
+		const middlePosts = await PostFacet.GSIPostByTitle.query(page).between(
+			{ postTitle: 'ab' },
+			{ postTitle: 'ae' },
+		);
+		expect(middlePosts.records.length).toBe(10);
+
+		// `ad` and `aa` pages.
+		const firstPostsInclusive = await PostFacet.GSIPostByTitle.query(
+			page,
+		).lessThanOrEqual({ postTitle: 'ad' });
+		expect(firstPostsInclusive.records.length).toBe(20);
+
+		// `aa` pages
+		const firstPostsExclusive = await PostFacet.GSIPostByTitle.query(
+			page,
+		).lessThan({ postTitle: 'ad' });
+		expect(firstPostsExclusive.records.length).toBe(10);
+		for (const post of firstPostsExclusive.records) {
+			expect(post.postTitle).toEqual('aa');
+		}
+
+		// `ad` and `bb` pages.
+		const lastPostsInclusive = await PostFacet.GSIPostByTitle.query(
+			page,
+		).greaterThanOrEqual({ postTitle: 'ad' });
+		expect(lastPostsInclusive.records.length).toBe(20);
+
+		//  `bb` pages
+		const lastPostsExclusive = await PostFacet.GSIPostByTitle.query(
+			page,
+		).greaterThan({ postTitle: 'ad' });
+		expect(lastPostsExclusive.records.length).toBe(10);
+		for (const post of lastPostsExclusive.records) {
+			expect(post.postTitle).toEqual('bb');
+		}
+
+		// Posts that start with `a`
+		const aPosts = await PostFacet.GSIPostByTitle.query(page).beginsWith({
+			postTitle: 'a',
+		});
+		expect(aPosts.records.length).toBe(20);
+	});
+
 	test('Conditional Puts', async () => {
 		const testPage: Page = {
 			accessToken: 'ZZZZZZZZZZZZ',
@@ -315,6 +396,8 @@ async function createTestTable(): Promise<void> {
 				{ AttributeName: 'GSI1SK', AttributeType: 'S' },
 				{ AttributeName: 'GSI2PK', AttributeType: 'S' },
 				{ AttributeName: 'GSI2SK', AttributeType: 'S' },
+				{ AttributeName: 'GSI3PK', AttributeType: 'S' },
+				{ AttributeName: 'GSI3SK', AttributeType: 'S' },
 			],
 			KeySchema: [
 				{ AttributeName: 'PK', KeyType: 'HASH' },
@@ -337,6 +420,16 @@ async function createTestTable(): Promise<void> {
 					KeySchema: [
 						{ AttributeName: 'GSI2PK', KeyType: 'HASH' },
 						{ AttributeName: 'GSI2SK', KeyType: 'RANGE' },
+					],
+					Projection: {
+						ProjectionType: 'ALL',
+					},
+				},
+				{
+					IndexName: 'GSI3',
+					KeySchema: [
+						{ AttributeName: 'GSI3PK', KeyType: 'HASH' },
+						{ AttributeName: 'GSI3SK', KeyType: 'RANGE' },
 					],
 					Projection: {
 						ProjectionType: 'ALL',
