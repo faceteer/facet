@@ -221,6 +221,26 @@ describe('Facet', () => {
 		expect(deleteResult.deleted.length).toBe(1);
 	});
 
+	test('Delete Multiple Pages', async () => {
+		const pagesToDelete = mockPages(101);
+
+		const { put: putPages } = await PageFacet.put(pagesToDelete);
+
+		expect(putPages.length).toEqual(101);
+
+		const pageIdsToDelete = pagesToDelete.map((page) => ({
+			pageId: page.pageId,
+		}));
+
+		const deleteResult = await PageFacet.delete(pageIdsToDelete);
+
+		expect(deleteResult.deleted.length).toEqual(101);
+
+		const expectedMissingPages = await PageFacet.get(pageIdsToDelete);
+
+		expect(expectedMissingPages.length).toEqual(0);
+	});
+
 	test('Conditional Puts', async () => {
 		const testPage: Page = {
 			accessToken: 'ZZZZZZZZZZZZ',
