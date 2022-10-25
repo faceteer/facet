@@ -22,7 +22,7 @@ jobs:
           - 8000:8000
     strategy:
       matrix:
-        node-version: [12.x, 14.x, 16.x]
+        node-version: [14.x, 16.x, 18.x]
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -54,7 +54,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ matrix.node-version }}
           AWS_SECRET_ACCESS_KEY: ${{ matrix.node-version }}
           AWS_DEFAULT_REGION: "us-east-1"
-          CODECOV_TOKEN: ${{ matrix.node-version == '16.x' && secrets.CODECOV_TOKEN || '' }}
+          CODECOV_TOKEN: ${{ matrix.node-version == '18.x' && secrets.CODECOV_TOKEN || '' }}
 
       - name: Publish Unit Test Results
         uses: mikepenz/action-junit-report@v3
