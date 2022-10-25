@@ -67,3 +67,5 @@ jobs:
         if: always()
         with:
           report_paths: ./junit.xml
+          check_name: Test Results (${{ matrix.node-version }})
+          detailed_summary: true
