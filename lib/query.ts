@@ -157,11 +157,11 @@ export class PartitionQuery<
 			const filterExpression = expressionBuilder.filter(filter);
 			queryInput.FilterExpression = filterExpression.expression;
 			Object.assign(
-				queryInput.ExpressionAttributeNames,
+				queryInput.ExpressionAttributeNames ?? {},
 				filterExpression.names,
 			);
 			Object.assign(
-				queryInput.ExpressionAttributeValues,
+				queryInput.ExpressionAttributeValues ?? {},
 				filterExpression.values,
 			);
 		}
@@ -354,11 +354,11 @@ export class PartitionQuery<
 			const filterExpression = expressionBuilder.filter(filter);
 			queryInput.FilterExpression = filterExpression.expression;
 			Object.assign(
-				queryInput.ExpressionAttributeNames,
+				queryInput.ExpressionAttributeNames ?? {},
 				filterExpression.names,
 			);
 			Object.assign(
-				queryInput.ExpressionAttributeValues,
+				queryInput.ExpressionAttributeValues ?? {},
 				filterExpression.values,
 			);
 		}
@@ -468,11 +468,11 @@ export class PartitionQuery<
 			const filterExpression = expressionBuilder.filter(filter);
 			queryInput.FilterExpression = filterExpression.expression;
 			Object.assign(
-				queryInput.ExpressionAttributeNames,
+				queryInput.ExpressionAttributeNames ?? {},
 				filterExpression.names,
 			);
 			Object.assign(
-				queryInput.ExpressionAttributeValues,
+				queryInput.ExpressionAttributeValues ?? {},
 				filterExpression.values,
 			);
 		}
