@@ -331,7 +331,16 @@ export class Facet<
 	}
 
 	/**
-	 * Put a record into the Dynamo DB table
+	 * Get multiple records from the table by their exact partition
+	 * and sort keys.
+	 * @param query
+	 */
+	async getBatch(query: (Pick<T, PK | SK> & Partial<T>)[]): Promise<T[]> {
+		return this.get(query);
+	}
+
+	/**
+	 * Delete a record from the Dynamo DB table
 	 * @param records
 	 */
 	async delete(
@@ -339,7 +348,7 @@ export class Facet<
 		options?: DeleteOptions<Pick<T, PK | SK> & Partial<T>>,
 	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>>;
 	/**
-	 * Put multiple records into the Dynamo DB table
+	 * Delete multiple records from the Dynamo DB table
 	 * @param records
 	 */
 	async delete(
@@ -356,6 +365,16 @@ export class Facet<
 		}
 
 		return deleteSingleItem(this, records, options);
+	}
+
+	/**
+	 * Delete multiple records from the Dynamo DB table
+	 * @param records
+	 */
+	async deleteBatch(
+		records: (Pick<T, PK | SK> & Partial<T>)[],
+	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>> {
+		return this.delete(records);
 	}
 
 	/**
@@ -380,6 +399,14 @@ export class Facet<
 		}
 
 		return putSingleItem(this, records, options);
+	}
+
+	/**
+	 * Put multiple records into the Dynamo DB table
+	 * @param records
+	 */
+	async putBatch(records: T[]): Promise<PutResponse<T>> {
+		return this.put(records);
 	}
 
 	/**
