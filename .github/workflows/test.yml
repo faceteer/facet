@@ -22,25 +22,17 @@ jobs:
           - 8000:8000
     strategy:
       matrix:
-        node-version: [12.x, 14.x, 16.x]
+        node-version: [20.x, 22.x, 24.x]
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-
-      - name: Cache Npm
-        uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-${{ matrix.node-version }}
 
       - name: Install
         run: npm install
@@ -51,10 +43,17 @@ jobs:
       - name: Run Jest Tests
         run: npm run test:ci
         env:
-          AWS_ACCESS_KEY_ID: ${{ matrix.node-version }}
-          AWS_SECRET_ACCESS_KEY: ${{ matrix.node-version }}
-          AWS_DEFAULT_REGION: "us-east-1"
-          CODECOV_TOKEN: ${{ matrix.node-version == '16.x' && secrets.CODECOV_TOKEN || '' }}
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: 'us-east-1'
+
+      - name: Upload coverage to Codecov
+        if: matrix.node-version == '24.x'
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage/lcov.info
+          fail_ci_if_error: false
 
       - name: Publish Unit Test Results
         uses: mikepenz/action-junit-report@v3

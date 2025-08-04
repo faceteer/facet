@@ -3,9 +3,7 @@ export default {
 	testEnvironment: 'node',
 	reporters: ['default', 'jest-junit'],
 	testPathIgnorePatterns: ['^.+\\.js$'],
-	globals: {
-		'ts-jest': {
-			isolatedModules: true,
-		},
+	transform: {
+		'^.+\\.ts$': ['ts-jest'],
 	},
 };
