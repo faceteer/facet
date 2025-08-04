@@ -45,7 +45,7 @@ export async function deleteSingleItem<
 	T,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
-	U = Pick<T, PK | SK> & Partial<T>,
+	U extends Partial<T> = Pick<T, PK | SK> & Partial<T>,
 >(
 	facet: Facet<T, PK, SK>,
 	record: U,
@@ -100,7 +100,7 @@ export async function deleteItems<
 	T,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
-	U = Pick<T, PK | SK> & Partial<T>,
+	U extends Partial<T> = Pick<T, PK | SK> & Partial<T>,
 >(facet: Facet<T, PK, SK>, records: U[]): Promise<DeleteResponse<U>> {
 	const recordsToBatch: U[] = [...records];
 	const deleteResponse: DeleteResponse<U> = {
@@ -153,7 +153,7 @@ async function deleteBatch<
 	T,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
-	U = Pick<T, PK | SK> & Partial<T>,
+	U extends Partial<T> = Pick<T, PK | SK> & Partial<T>,
 >(facet: Facet<T, PK, SK>, batchToDelete: U[]): Promise<DeleteResponse<U>> {
 	const deleteRequests: Record<string, WriteRequest> = {};
 	const deleteResponse: DeleteResponse<U> = {
