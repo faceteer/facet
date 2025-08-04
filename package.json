@@ -5,7 +5,7 @@
 	"main": "index.js",
 	"scripts": {
 		"test": "jest --runInBand --silent --coverage",
-		"test:ci": "jest --ci --runInBand --silent --coverage && codecov",
+		"test:ci": "jest --ci --runInBand --silent --coverage",
 		"build:clean": "tsc -b --clean",
 		"build": "tsc -b --clean && tsc -b",
 		"prepublishOnly": "npm run build"
@@ -38,7 +38,6 @@
 		"@types/node": "^20.0.0",
 		"@typescript-eslint/eslint-plugin": "^6.0.0",
 		"@typescript-eslint/parser": "^6.0.0",
-		"codecov": "^3.8.2",
 		"eslint": "^8.0.0",
 		"eslint-config-google": "^0.14.0",
 		"eslint-config-prettier": "^9.0.0",
