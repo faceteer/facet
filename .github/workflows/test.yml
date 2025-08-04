@@ -43,8 +43,8 @@ jobs:
       - name: Run Jest Tests
         run: npm run test:ci
         env:
-          AWS_ACCESS_KEY_ID: ${{ matrix.node-version }}
-          AWS_SECRET_ACCESS_KEY: ${{ matrix.node-version }}
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
           AWS_DEFAULT_REGION: 'us-east-1'
           CODECOV_TOKEN: ${{ matrix.node-version == '24.x' && secrets.CODECOV_TOKEN || '' }}
 
