@@ -1,9 +1,12 @@
-import type { PutItemInput, WriteRequest } from '@aws-sdk/client-dynamodb';
+import type { PutItemInput } from '@aws-sdk/client-dynamodb';
 import type { Facet } from './facet';
 import type { Keys } from './keys';
-import { wait } from './wait';
 import { Converter } from '@faceteer/converter';
 import { condition, ConditionExpression } from '@faceteer/expression-builder';
+import {
+	batchWriteWithRetry,
+	type BatchWriteAdapter,
+} from './batch-write';
 
 export interface PutOptions<T> {
 	condition?: ConditionExpression<T>;
@@ -116,22 +119,24 @@ export async function putItems<T, PK extends Keys<T>, SK extends Keys<T>>(
 		batches.push(recordsToBatch.splice(0, 25));
 	}
 
-	const batchPromises = batches.map((batch) => putBatch(facet, batch));
-	const putResults = await Promise.allSettled(batchPromises);
-	for (const [index, result] of putResults.entries()) {
+	const adapter = putAdapter(facet);
+	const batchResults = await Promise.allSettled(
+		batches.map((batch) =>
+			batchWriteWithRetry(facet.connection, batch, adapter),
+		),
+	);
+	for (const [index, result] of batchResults.entries()) {
 		if (result.status === 'rejected') {
 			const failedBatch = batches[index];
 			putResponse.failed.push(
-				...failedBatch.map((failedItem) => {
-					return {
-						record: failedItem,
-						error: result.reason,
-					};
-				}),
+				...failedBatch.map((failedItem) => ({
+					record: failedItem,
+					error: result.reason,
+				})),
 			);
 		} else {
+			putResponse.put.push(...result.value.ok);
 			putResponse.failed.push(...result.value.failed);
-			putResponse.put.push(...result.value.put);
 		}
 	}
 
@@ -140,118 +145,27 @@ export async function putItems<T, PK extends Keys<T>, SK extends Keys<T>>(
 	return putResponse;
 }
 
-/**
- * Put a batch of records into Dynamo DB.
- *
- * This function expects the batch to be 25
- * records or less
- * @param batchToPut
- */
-async function putBatch<T, PK extends Keys<T>, SK extends Keys<T>>(
+function putAdapter<T, PK extends Keys<T>, SK extends Keys<T>>(
 	facet: Facet<T, PK, SK>,
-	batchToPut: T[],
-): Promise<PutResponse<T>> {
-	const writeRequests: Record<string, WriteRequest> = {};
-	const putResponse: PutResponse<T> = {
-		failed: [],
-		hasFailures: false,
-		put: [],
-	};
-
-	/**
-	 * We keep track of the items by their key so
-	 * we can return any failed requests
-	 */
-	const itemsByKey: Record<string, T> = {};
-
-	/**
-	 * We can't have duplicate items in a batch so we extract
-	 * the SK and PK to make sure the batch only has unique items
-	 */
-	for (const batchItem of batchToPut) {
-		const item = facet.in(batchItem);
-		const key = facet.pk(batchItem) + facet.sk(batchItem);
-		writeRequests[key] = {
-			PutRequest: {
-				Item: item,
-			},
-		};
-		itemsByKey[key] = facet.out(item);
-	}
-
-	const result = await facet.connection.dynamoDb.batchWriteItem({
-		RequestItems: {
-			[facet.connection.tableName]: Object.values(writeRequests),
+): BatchWriteAdapter<T, T> {
+	return {
+		prepare(record) {
+			const item = facet.in(record);
+			return {
+				request: { PutRequest: { Item: item } },
+				key: facet.pk(record) + facet.sk(record),
+				output: facet.out(item),
+			};
 		},
-	});
-
-	/**
-	 * Attempt to put any unprocessed items into the database
-	 */
-	if (
-		result.UnprocessedItems &&
-		result.UnprocessedItems[facet.connection.tableName]
-	) {
-		const unprocessed = [
-			...result.UnprocessedItems[facet.connection.tableName],
-		];
-		let retries = 0;
-
-		while (unprocessed.length > 0 && retries < 5) {
-			retries += 1;
-
-			/**
-			 * Wait a short bit before retrying
-			 */
-			await wait(10 * 2 ** retries);
-
-			const retryResult = await facet.connection.dynamoDb.batchWriteItem({
-				RequestItems: {
-					[facet.connection.tableName]: unprocessed.splice(0),
-				},
-			});
-
-			if (
-				retryResult.UnprocessedItems &&
-				retryResult.UnprocessedItems[facet.connection.tableName]
-			) {
-				unprocessed.push(
-					...retryResult.UnprocessedItems[facet.connection.tableName],
-				);
+		keyForRequest(request) {
+			if (!request.PutRequest?.Item) {
+				return undefined;
 			}
-		}
-	}
-
-	/**
-	 * If we still have unprocessed items it means that we weren't able
-	 * to successfully retry them.
-	 */
-	if (
-		result.UnprocessedItems &&
-		result.UnprocessedItems[facet.connection.tableName]
-	) {
-		for (const unprocessedRequest of result.UnprocessedItems[
-			facet.connection.tableName
-		]) {
-			if (unprocessedRequest.PutRequest?.Item) {
-				// We use the PK and SK of the put request in order
-				// to rebuild the primary key and get the original item
-				const item = Converter.unmarshall(unprocessedRequest.PutRequest.Item);
-				const failedItem = itemsByKey[item.PK + item.SK];
-				if (failedItem) {
-					putResponse.failed.push({
-						error: new Error('Item was not processed'),
-						record: failedItem,
-					});
-					// We delete the item from itemsByKey since we use
-					// that to generate the successful items later
-					delete itemsByKey[item.PK + item.SK];
-				}
+			const item = Converter.unmarshall(request.PutRequest.Item);
+			if (typeof item.PK !== 'string' || typeof item.SK !== 'string') {
+				return undefined;
 			}
-		}
-	}
-
-	putResponse.put = [...Object.values(itemsByKey)];
-	putResponse.hasFailures = putResponse.failed.length > 0;
-	return putResponse;
+			return item.PK + item.SK;
+		},
+	};
 }
