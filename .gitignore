@@ -144,6 +144,9 @@ profile*
 examples/typescript-server.js
 test/types/index.js
 
+# scratch directory for experimentation
+_scratch
+
 # test tap report
 out.tap
 
