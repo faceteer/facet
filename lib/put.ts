@@ -1,5 +1,5 @@
 import type { PutItemInput } from '@aws-sdk/client-dynamodb';
-import type { Facet } from './facet';
+import type { Facet, WithoutReservedAttributes } from './facet';
 import type { Keys } from './keys';
 import { Converter } from '@faceteer/converter';
 import type { ConditionExpression } from '@faceteer/expression-builder';
@@ -58,7 +58,11 @@ export interface PutSingleItemResponse<T> {
 	error?: unknown;
 }
 
-export async function putSingleItem<T, PK extends Keys<T>, SK extends Keys<T>>(
+export async function putSingleItem<
+	T extends WithoutReservedAttributes,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
+>(
 	facet: Facet<T, PK, SK>,
 	record: T,
 	options: PutOptions<T> = {},
@@ -93,7 +97,11 @@ export async function putSingleItem<T, PK extends Keys<T>, SK extends Keys<T>>(
  * Put records into the Dynamo DB table
  * @param records
  */
-export async function putItems<T, PK extends Keys<T>, SK extends Keys<T>>(
+export async function putItems<
+	T extends WithoutReservedAttributes,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
+>(
 	facet: Facet<T, PK, SK>,
 	records: T[],
 ): Promise<PutResponse<T>> {
@@ -139,9 +147,11 @@ export async function putItems<T, PK extends Keys<T>, SK extends Keys<T>>(
 	return putResponse;
 }
 
-function putAdapter<T, PK extends Keys<T>, SK extends Keys<T>>(
-	facet: Facet<T, PK, SK>,
-): BatchWriteAdapter<T, T> {
+function putAdapter<
+	T extends WithoutReservedAttributes,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
+>(facet: Facet<T, PK, SK>): BatchWriteAdapter<T, T> {
 	return {
 		prepare(record) {
 			const item = facet.in(record);

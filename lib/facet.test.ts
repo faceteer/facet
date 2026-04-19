@@ -322,6 +322,54 @@ describe('Facet', () => {
 		expect(aPosts.records.length).toBe(20);
 	});
 
+	test('reserved attribute names fail the type-level constraint', () => {
+		// Type-only assertions — the build (which type-checks tests under
+		// tsconfig.test.json) is the real check. At runtime this is a no-op.
+		// @ts-expect-error — PK is a reserved attribute name
+		type _PkModel = Facet<{ PK: string; id: string }>;
+		// @ts-expect-error — ttl is a reserved attribute name
+		type _TtlModel = Facet<{ ttl: number; id: string }>;
+		// @ts-expect-error — GSI1PK matches the reserved GSI{number}PK pattern
+		type _GsiModel = Facet<{ GSI1PK: string; id: string }>;
+
+		// Silence the unused-locals rule without emitting runtime code.
+		expect<0>(0 satisfies 0).toBe(0);
+	});
+
+	test('in() throws when the model contains a reserved attribute', async () => {
+		interface Thing {
+			thingId: string;
+			payload: string;
+		}
+		const ThingFacet = new Facet<Thing, 'thingId'>({
+			name: 'Thing',
+			validator: (input) => input as Thing,
+			PK: { keys: ['thingId'], prefix: 'T' },
+			SK: { keys: [], prefix: 'T' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+
+		// Bypass the type-level guard the way a dynamic caller would —
+		// the runtime assertion is a backstop for that case.
+		const withPk = { thingId: 'x', payload: 'ok', PK: 'stolen' };
+		const withTtl = { thingId: 'x', payload: 'ok', ttl: 42 };
+		const withFacet = { thingId: 'x', payload: 'ok', facet: 'hijack' };
+		const withGsi = { thingId: 'x', payload: 'ok', GSI1PK: 'stolen' };
+
+		expect(() => ThingFacet.in(withPk as unknown as Thing)).toThrow(
+			/reserved attribute "PK"/,
+		);
+		expect(() => ThingFacet.in(withTtl as unknown as Thing)).toThrow(
+			/reserved attribute "ttl"/,
+		);
+		expect(() => ThingFacet.in(withFacet as unknown as Thing)).toThrow(
+			/reserved attribute "facet"/,
+		);
+		expect(() => ThingFacet.in(withGsi as unknown as Thing)).toThrow(
+			/reserved attribute "GSI1PK"/,
+		);
+	});
+
 	test('addIndex rejects re-registering a GSI slot', async () => {
 		interface Thing {
 			thingId: string;

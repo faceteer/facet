@@ -1,11 +1,11 @@
 import { decodeCursor, encodeCursor } from './cursor';
-import { Facet, FacetIndex } from './facet';
+import { Facet, FacetIndex, WithoutReservedAttributes } from './facet';
 import * as expressionBuilder from '@faceteer/expression-builder';
 import { IndexKeyNameMap, PK, SK, Keys } from './keys';
 import type { QueryInput } from '@aws-sdk/client-dynamodb';
 
 export interface PartitionQueryOptions<
-	T,
+	T extends WithoutReservedAttributes,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	GSIPK extends Keys<T>,
@@ -63,7 +63,7 @@ export interface QueryOptions<T, PK extends keyof T, SK extends keyof T> {
 }
 
 export class PartitionQuery<
-	T,
+	T extends WithoutReservedAttributes,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	GSIPK extends Keys<T> = never,

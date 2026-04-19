@@ -71,8 +71,30 @@ export interface AttributeMap {
  */
 export type Validator<T> = (input: unknown) => T;
 
+/**
+ * Attribute names that Facet writes synthetically on every record.
+ * A model field with any of these names would silently collide with
+ * the synthetic value — see {@link Facet.in}.
+ */
+export type ReservedAttributeName =
+	| 'PK'
+	| 'SK'
+	| 'facet'
+	| 'ttl'
+	| `GSI${number}PK`
+	| `GSI${number}SK`;
+
+/**
+ * Constraint used on `T` to forbid reserved attribute names at the
+ * type level. Any field typed `never` cannot hold a value, so a model
+ * that declares a reserved name fails the bound.
+ */
+export type WithoutReservedAttributes = {
+	[K in ReservedAttributeName]?: never;
+};
+
 export type FacetIndexKeys<
-	T,
+	T extends WithoutReservedAttributes,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	GSIPK extends Keys<T>,
@@ -83,6 +105,24 @@ export type FacetIndexKeys<
 	Record<A, FacetIndex<T, PK, SK, GSIPK, GSISK>>;
 
 export type FacetWithIndex<F, K> = F & K;
+
+const RESERVED_ATTRIBUTE_SET: ReadonlySet<string> = new Set([
+	'PK',
+	'SK',
+	'facet',
+	'ttl',
+]);
+const RESERVED_GSI_PATTERN = /^GSI\d+(?:PK|SK)$/;
+
+function assertNoReservedAttributes(model: object): void {
+	for (const key of Object.keys(model)) {
+		if (RESERVED_ATTRIBUTE_SET.has(key) || RESERVED_GSI_PATTERN.test(key)) {
+			throw new Error(
+				`Model contains reserved attribute "${key}"; Facet uses this name for a synthetic key.`,
+			);
+		}
+	}
+}
 
 /**
  * # Facet
@@ -147,7 +187,7 @@ export type FacetWithIndex<F, K> = F & K;
  * ```
  */
 export class Facet<
-	T,
+	T extends WithoutReservedAttributes,
 	PK extends Keys<T> = Keys<T>,
 	SK extends Keys<T> = Keys<T>,
 > {
@@ -236,6 +276,7 @@ export class Facet<
 		if (this.#validateInput) {
 			model = this.#validator(model);
 		}
+		assertNoReservedAttributes(model as object);
 		const attributes: Partial<T> = { ...model };
 
 		/**
@@ -262,7 +303,7 @@ export class Facet<
 		 */
 		let ttlAttribute: number | undefined;
 		if (this.ttl) {
-			const raw = model[this.ttl];
+			const raw: unknown = model[this.ttl];
 			if (raw instanceof Date) {
 				ttlAttribute = Math.floor(raw.getTime() / 1000);
 			} else if (typeof raw === 'number') {
@@ -458,7 +499,7 @@ export class Facet<
 }
 
 export interface AddIndexOptions<
-	T,
+	T extends WithoutReservedAttributes,
 	I extends Index,
 	GSIPK extends Keys<T>,
 	GSISK extends Keys<T>,
@@ -471,7 +512,7 @@ export interface AddIndexOptions<
 }
 
 export class FacetIndex<
-	T,
+	T extends WithoutReservedAttributes,
 	PK extends Keys<T> = Keys<T>,
 	SK extends Keys<T> = Keys<T>,
 	GSIPK extends Keys<T> = Keys<T>,
@@ -528,7 +569,11 @@ export class FacetIndex<
 /**
  * Options for configuring a Faceteer Facet
  */
-export interface FacetOptions<T, PK extends Keys<T>, SK extends Keys<T>> {
+export interface FacetOptions<
+	T extends WithoutReservedAttributes,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
+> {
 	/**
 	 * The name of the facet that is stored under `facet` for every record.
 	 */

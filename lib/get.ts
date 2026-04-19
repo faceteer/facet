@@ -2,14 +2,15 @@ import type {
 	KeysAndAttributes,
 	BatchGetItemOutput,
 } from '@aws-sdk/client-dynamodb';
-import type { Facet } from './facet';
+import type { Facet, WithoutReservedAttributes } from './facet';
 import { PK, SK, Keys } from './keys';
 import { wait } from './wait';
 
-export async function getSingleItem<T, PK extends Keys<T>, SK extends Keys<T>>(
-	facet: Facet<T, PK, SK>,
-	query: Partial<T>,
-) {
+export async function getSingleItem<
+	T extends WithoutReservedAttributes,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
+>(facet: Facet<T, PK, SK>, query: Partial<T>) {
 	const result = await facet.connection.dynamoDb.getItem({
 		TableName: facet.connection.tableName,
 		Key: {
@@ -42,10 +43,11 @@ export async function getSingleItem<T, PK extends Keys<T>, SK extends Keys<T>>(
  * the batches only have a maximum of 100 items
  * @param queries
  */
-export async function getBatch<T, PK extends Keys<T>, SK extends Keys<T>>(
-	facet: Facet<T, PK, SK>,
-	queries: Partial<T>[],
-): Promise<T[]> {
+export async function getBatch<
+	T extends WithoutReservedAttributes,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
+>(facet: Facet<T, PK, SK>, queries: Partial<T>[]): Promise<T[]> {
 	/**
 	 * An array of all the items we found
 	 */
@@ -135,10 +137,11 @@ export async function getBatch<T, PK extends Keys<T>, SK extends Keys<T>>(
  * batches of 100 if needed
  * @param queries
  */
-export async function getBatchItems<T, PK extends Keys<T>, SK extends Keys<T>>(
-	facet: Facet<T, PK, SK>,
-	queries: Partial<T>[],
-): Promise<T[]> {
+export async function getBatchItems<
+	T extends WithoutReservedAttributes,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
+>(facet: Facet<T, PK, SK>, queries: Partial<T>[]): Promise<T[]> {
 	const queriesToBatch = [...queries];
 	/**
 	 * Dynamo DB only allows 100 items in a batch request
@@ -168,10 +171,11 @@ export async function getBatchItems<T, PK extends Keys<T>, SK extends Keys<T>>(
  * @param keys
  * @returns
  */
-async function getBatchKeys<T, PK extends Keys<T>, SK extends Keys<T>>(
-	keys: KeysAndAttributes['Keys'],
-	facet: Facet<T, PK, SK>,
-) {
+async function getBatchKeys<
+	T extends WithoutReservedAttributes,
+	PK extends Keys<T>,
+	SK extends Keys<T>,
+>(keys: KeysAndAttributes['Keys'], facet: Facet<T, PK, SK>) {
 	return facet.connection.dynamoDb.batchGetItem({
 		RequestItems: {
 			[facet.connection.tableName]: {

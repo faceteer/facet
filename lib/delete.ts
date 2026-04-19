@@ -1,5 +1,5 @@
 import type { DeleteItemInput } from '@aws-sdk/client-dynamodb';
-import type { Facet } from './facet';
+import type { Facet, WithoutReservedAttributes } from './facet';
 import type { ConditionExpression } from '@faceteer/expression-builder';
 import { PK, SK, Keys } from './keys';
 import {
@@ -45,7 +45,7 @@ export interface DeleteResponse<T> {
 }
 
 export async function deleteSingleItem<
-	T,
+	T extends WithoutReservedAttributes,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	U extends Partial<T> = Pick<T, PK | SK> & Partial<T>,
@@ -97,7 +97,7 @@ export async function deleteSingleItem<
  * @param records
  */
 export async function deleteItems<
-	T,
+	T extends WithoutReservedAttributes,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	U extends Partial<T> = Pick<T, PK | SK> & Partial<T>,
@@ -145,7 +145,7 @@ export async function deleteItems<
 }
 
 function deleteAdapter<
-	T,
+	T extends WithoutReservedAttributes,
 	PartitionKey extends Keys<T>,
 	SortKey extends Keys<T>,
 	U extends Partial<T>,
