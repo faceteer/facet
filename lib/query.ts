@@ -188,10 +188,21 @@ export class PartitionQuery<
 	}
 
 	/**
-	 * Query for records where the sort key equals
-	 * the given sort key values
-	 * @param sort
-	 * @param options
+	 * Fetch records whose sort key equals the given value.
+	 *
+	 * @param sort - Object of sort-key field values used to build the
+	 * composite key, or a raw string if you need to bypass key construction.
+	 * @param options - Optional {@link QueryOptions} — filter, limit,
+	 * cursor, scanForward, shard.
+	 * @returns {@link QueryResult} with `records` and an optional `cursor`
+	 * if more pages are available.
+	 *
+	 * @example
+	 * ```ts
+	 * const { records } = await PostFacet.GSIStatusSendAt
+	 *   .query({ postStatus: 'queued' })
+	 *   .equals({ sendAt: new Date('2024-01-01') });
+	 * ```
 	 */
 	equals(
 		sort: Partial<Pick<T, GSISK>> | string,
@@ -201,10 +212,11 @@ export class PartitionQuery<
 	}
 
 	/**
-	 * Query for records where the sort key is greater than
-	 * the given sort key values
-	 * @param sort
-	 * @param options
+	 * Fetch records whose sort key is strictly greater than the given value.
+	 *
+	 * @param sort - Object of sort-key field values, or a raw string.
+	 * @param options - Optional {@link QueryOptions}.
+	 * @returns {@link QueryResult}.
 	 */
 	greaterThan(
 		sort: Partial<Pick<T, GSISK>> | string,
@@ -214,10 +226,11 @@ export class PartitionQuery<
 	}
 
 	/**
-	 * Query for records where the sort key is greater than or equal to
-	 * the given sort key values
-	 * @param sort
-	 * @param options
+	 * Fetch records whose sort key is greater than or equal to the given value.
+	 *
+	 * @param sort - Object of sort-key field values, or a raw string.
+	 * @param options - Optional {@link QueryOptions}.
+	 * @returns {@link QueryResult}.
 	 */
 	greaterThanOrEqual(
 		sort: Partial<Pick<T, GSISK>> | string,
@@ -227,10 +240,11 @@ export class PartitionQuery<
 	}
 
 	/**
-	 * Query for records where the sort key is less than
-	 * the given sort key values
-	 * @param sort
-	 * @param options
+	 * Fetch records whose sort key is strictly less than the given value.
+	 *
+	 * @param sort - Object of sort-key field values, or a raw string.
+	 * @param options - Optional {@link QueryOptions}.
+	 * @returns {@link QueryResult}.
 	 */
 	lessThan(
 		sort: Partial<Pick<T, GSISK>> | string,
@@ -240,10 +254,11 @@ export class PartitionQuery<
 	}
 
 	/**
-	 * Query for records where the sort key is less than or equal to
-	 * the given sort key values
-	 * @param sort
-	 * @param options
+	 * Fetch records whose sort key is less than or equal to the given value.
+	 *
+	 * @param sort - Object of sort-key field values, or a raw string.
+	 * @param options - Optional {@link QueryOptions}.
+	 * @returns {@link QueryResult}.
 	 */
 	lessThanOrEqual(
 		sort: Partial<Pick<T, GSISK>> | string,
@@ -253,21 +268,44 @@ export class PartitionQuery<
 	}
 
 	/**
-	 * Query for all records where the sort key
-	 * starts with the facet prefix
+	 * List every record in the partition (sort key starts with the facet's
+	 * sort-key prefix).
 	 *
-	 * @param options
+	 * Equivalent to `beginsWith({})` — it uses the prefix alone, so every
+	 * record this facet writes into the partition matches.
+	 *
+	 * @param options - Optional {@link QueryOptions} — filter, limit, cursor.
+	 * @returns {@link QueryResult}.
+	 *
+	 * @example
+	 * ```ts
+	 * const { records, cursor } = await PostFacet
+	 *   .query({ pageId: 'p1' })
+	 *   .list({ limit: 50 });
+	 * ```
 	 */
 	list(options: QueryOptions<T, PK, SK> = {}) {
 		return this.beginsWith({}, options);
 	}
 
 	/**
-	 * This is equivalent to running `list()` and picking
-	 * the first result.
+	 * Fetch the first record in the partition (or `null` if empty).
 	 *
-	 * If no results are found this will return `null`
-	 * @param options
+	 * Internally runs `list({ limit: 1 })` and unwraps the first row.
+	 * Useful for "does any record exist for this partition?" checks and
+	 * for cheap "earliest/latest" lookups when combined with `scanForward`.
+	 *
+	 * @param options - Subset of {@link QueryOptions}; `cursor` and
+	 * `limit` are not meaningful here and are omitted.
+	 * @returns The first record in the partition or `null`.
+	 *
+	 * @example
+	 * ```ts
+	 * // Most recent post (sort descending, take first)
+	 * const latest = await PostFacet.GSIStatusSendAt
+	 *   .query({ postStatus: 'sent' })
+	 *   .first({ scanForward: false });
+	 * ```
 	 */
 	async first({
 		filter,
@@ -292,10 +330,25 @@ export class PartitionQuery<
 	}
 
 	/**
-	 * Query for records where the sort key begins with the given sort key values
+	 * Fetch records whose sort key begins with the given value.
 	 *
-	 * @param sort
-	 * @param options
+	 * Passing a partial object like `{ status: 'draft' }` only populates
+	 * the sort-key fields you provide — the remaining fields are omitted
+	 * from the composite key, so the generated prefix matches every
+	 * record that shares the leading portion.
+	 *
+	 * @param sort - Object of sort-key field values, or a raw string
+	 * prefix if you need to bypass key construction.
+	 * @param options - Optional {@link QueryOptions}.
+	 * @returns {@link QueryResult}.
+	 *
+	 * @example
+	 * ```ts
+	 * // Every post whose postTitle starts with "aa"
+	 * const aa = await PostFacet.GSIPostByTitle
+	 *   .query({ pageId: 'p1' })
+	 *   .beginsWith({ postTitle: 'aa' });
+	 * ```
 	 */
 	async beginsWith(
 		sort: Partial<Pick<T, GSISK>> | string,
@@ -385,12 +438,26 @@ export class PartitionQuery<
 	}
 
 	/**
-	 * Query for records that are greater than or equal to the starting
-	 * sort key, and less than or equal to the ending sort key
+	 * Fetch records whose sort key is between `start` and `end`, inclusive
+	 * on both ends.
 	 *
-	 * @param start
-	 * @param end
-	 * @param options
+	 * Composite sort keys are compared lexicographically in their
+	 * string-joined form. For date-valued sort keys that ISO-encode, a
+	 * calendar range "between Jan 1 and Feb 28" works as expected.
+	 *
+	 * @param start - Object of sort-key field values for the lower bound,
+	 * or a raw string.
+	 * @param end - Object of sort-key field values for the upper bound,
+	 * or a raw string.
+	 * @param options - Optional {@link QueryOptions}.
+	 * @returns {@link QueryResult}.
+	 *
+	 * @example
+	 * ```ts
+	 * const range = await PostFacet.GSIPostByTitle
+	 *   .query({ pageId: 'p1' })
+	 *   .between({ postTitle: 'ab' }, { postTitle: 'ae' });
+	 * ```
 	 */
 	async between(
 		start: Partial<Pick<T, GSISK>> | string,

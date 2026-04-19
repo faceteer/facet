@@ -602,6 +602,144 @@ Faceteer supports up to twenty indexes (`Index.GSI1` through `Index.GSI20`), mat
 - [x] _"List tasks by user and by status ordered by the date they were created"_
 - [x] _"List tasks by user and by status ordered by the date they are due"_
 
+### Composite sort keys
+
+Sort keys in Faceteer are composite strings built from a prefix and the fields you list in `SK.keys`. A facet configured with `SK: { keys: ['status', 'timestamp'], prefix: '#ESTIME' }` writes sort keys like `#ESTIME_queued_2024-01-01T00:00:00.000Z`.
+
+DynamoDB stores and compares those sort keys as plain strings. `equals`, `beginsWith`, and `between` all operate on the composite string, not on the individual fields you passed in. That is usually what you want:
+
+```ts
+// Every record in the partition whose composite SK starts with '#ESTIME_queued_'.
+await EmailFacet.byStatus
+  .query({ userId })
+  .beginsWith({ status: 'queued' });
+```
+
+`greaterThan`, `greaterThanOrEqual`, `lessThan`, and `lessThanOrEqual` also compare the entire composite string. They do not scope to a single value of the leading field. This trips people up:
+
+```ts
+// Anti-pattern. Bleeds across status values.
+await EmailFacet.byStatus
+  .query({ userId })
+  .greaterThan({ status: 'queued', timestamp: '2024-01-01' });
+```
+
+DynamoDB asks for every record where `#ESTIME_queued_2024-01-01 < SK`. That includes records with `status = 'queued'` and a later timestamp, and also every record whose status sorts alphabetically after `queued`, such as `sent` or `spam`. The operator has no way to know you meant "queued only".
+
+Two ways to range correctly over a trailing field:
+
+1. Use `between` with both bounds pinned to the same leading value. Both strings share the `#ESTIME_queued_` prefix, so the range cannot cross into another status.
+
+   ```ts
+   await EmailFacet.byStatus
+     .query({ userId })
+     .between(
+       { status: 'queued', timestamp: '2024-01-01' },
+       { status: 'queued', timestamp: '2024-02-28' },
+     );
+   ```
+
+   For an open upper bound, use a sentinel that sorts after every real value, for example `'\uffff'`.
+
+2. Design the index so the scoping field is in the partition key. This is what the tasks example's `GSIUserStatusCreated` index does:
+
+   ```ts
+   // PK carries the scoping field; SK is free for a clean range.
+   PK: { keys: ['assignedUserId', 'status'], prefix: '#USER_STATUS' },
+   SK: { keys: ['dateCreated'],              prefix: '#TASK_CREATED' },
+   ```
+
+   With that shape, every query is implicitly scoped to one status, and `greaterThan({ dateCreated })` means exactly what it looks like it means.
+
+**Decision rule.** If the field is only ever queried for one value at a time, put it in the partition key. If you want one query that spans values of the field and orders by a secondary attribute, put it as the leading entry of a composite sort key and scope with `beginsWith` or equal-bound `between`. If the field is only for ordering, leave it out of the keys and pick a different sort field.
+
+### Query pattern reference
+
+A direct lookup for common access patterns. Each assumes the facet has an index shaped appropriately for that pattern.
+
+**"Every record in a partition, in sort-key order"**
+
+```ts
+await Facet.query({ partitionFields }).list();
+```
+
+**"Every record whose leading SK field equals a value"**
+
+```ts
+await Facet.query({ partitionFields }).beginsWith({ leadingField: value });
+```
+
+**"Range over a trailing SK field, scoped to one value of the leading SK field"**
+
+```ts
+await Facet.query({ partitionFields }).between(
+  { leadingField: value, trailingField: start },
+  { leadingField: value, trailingField: end },
+);
+```
+
+**"Every record with a given field value, ordered by another field"**
+
+Use an index with the scoping field in the PK and the ordering field in the SK.
+
+```ts
+// Index shape
+PK: { keys: [...partitionFields, 'scopingField'], prefix: '#SCOPE' },
+SK: { keys: ['orderingField'],                    prefix: '#ORDER' },
+
+// Call
+await Facet.byScopedOrder
+  .query({ ...partitionFields, scopingField: value })
+  .list();
+```
+
+**"Most recent record"**
+
+```ts
+await Facet.query({ partitionFields }).first({ scanForward: false });
+```
+
+**"The N newest records"**
+
+```ts
+await Facet.query({ partitionFields }).list({
+  limit: N,
+  scanForward: false,
+});
+```
+
+**"Records in a partition, filtered by a non-key attribute"**
+
+```ts
+await Facet.query({ partitionFields }).list({
+  filter: ['someField', '=', value],
+});
+```
+
+`filter` runs server-side after the key condition. It reduces what you see, not the read capacity you pay for.
+
+**"Does any record exist in this partition?"**
+
+```ts
+const exists = (await Facet.query({ partitionFields }).first()) !== null;
+```
+
+**"Iterate every record in a partition"**
+
+```ts
+let cursor: string | undefined;
+do {
+  const page = await Facet.query({ partitionFields }).list({
+    limit: 100,
+    cursor,
+  });
+  for (const record of page.records) {
+    // handle record
+  }
+  cursor = page.cursor;
+} while (cursor);
+```
+
 ### Pagination
 
 DynamoDB returns at most **1 MB** of evaluated data per page. When more data is available, the service returns a `LastEvaluatedKey`; Faceteer surfaces it as an opaque `cursor` string (CBOR, then base64). Treat the cursor as a token — don't try to parse it, and don't persist it beyond the current session: the encoding is tied to this library's version and the DynamoDB SDK's `AttributeValue` shape.
@@ -691,6 +829,7 @@ Only for single-item deletes: `facet.delete(record, { condition: [...] })`. `con
 - **Know your access patterns before you design the key.** Faceteer isn't built for ad-hoc queries. Every GSI costs writes, so pick the smallest set of indexes that covers the patterns you actually have.
 - **Overload indexes with prefixes.** Two facets can share `GSI1` as long as their SK prefixes differ — that's the whole point of the `prefix` field on each `KeyConfiguration`. Differentiate by prefix, query by prefix.
 - **Prefer key conditions over `filter`.** `equals`, `beginsWith`, and `between` prune reads on the server. `filter` runs server-side too but *after* the read is billed — it shrinks the response, not the cost.
+- **Avoid `greaterThan` and `lessThan` on composite sort keys.** They compare the full composite string, so a query like `greaterThan({ status: 'queued', timestamp: X })` bleeds into records whose status sorts after `queued`. Scope with `beginsWith`, or with `between` where both bounds pin the same leading value. See the "Composite sort keys" section above.
 - **Shard hot partitions.** When one PK value attracts disproportionate traffic, add a `shard: { count, keys }` config. Keep `count` small to start (2, 4, 8); every shard is an extra query on read, so more shards is not free.
 - **Use TTL for ephemeral data.** Sessions, OTPs, cache entries, and soft-delete markers all benefit. Remember AWS purges asynchronously — expired items can linger in query results for a while.
 - **Keep indexes sparse.** Faceteer only writes values of primitive / `Date` fields into composite keys, so leaving an indexed field `undefined` keeps that record out of the index entirely. Use this to make cheap "only open orders" or "only active users" indexes.

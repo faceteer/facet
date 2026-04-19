@@ -482,22 +482,107 @@ class FacetImpl<
 	}
 
 	/**
-	 * Get records from the table by their exact partition
-	 * key and sort key
-	 * @param query
+	 * Fetch a single record by its exact partition and sort key.
+	 *
+	 * The `query` object must contain the model fields that compose this
+	 * facet's `PK` and `SK`. Other fields may be supplied but are ignored —
+	 * only the key fields are used to build the Dynamo DB `GetItem` request.
+	 * The result is run through the configured `validator` before being
+	 * returned; if the record is missing the promise resolves to `null`.
+	 *
+	 * @param query - Object providing the PK and SK field values.
+	 * @returns The record if found, or `null`.
+	 *
+	 * @example
+	 * ```ts
+	 * const post = await PostFacet.get({ pageId: 'p1', postId: 'abc' });
+	 * if (post) console.log(post.postTitle);
+	 * ```
 	 */
-	async get<K extends keyof T>(
-		this: [PV] extends [PickValidator<T>] ? this : never,
-		query: (Pick<T, PK | SK> & Partial<T>)[],
-		options: GetOptions<T, K> & { select: readonly [K, ...K[]] },
-	): Promise<Pick<T, K | PK | SK>[]>;
+	async get(query: Pick<T, PK | SK> & Partial<T>): Promise<T | null>;
+	/**
+	 * Batch-fetch records by their exact partition and sort keys.
+	 *
+	 * Splits the input into `BatchGetItem` batches of 100 (Dynamo DB's
+	 * hard limit), issues them in parallel, and retries
+	 * `UnprocessedKeys` with exponential backoff up to 10 attempts.
+	 * Records that never come back after retries are silently dropped,
+	 * so the returned array may be shorter than `queries`.
+	 *
+	 * @param queries - Array of objects each providing the PK and SK field values.
+	 * @returns The records that were found, in unspecified order.
+	 *
+	 * @example
+	 * ```ts
+	 * const posts = await PostFacet.get([
+	 *   { pageId: 'p1', postId: 'a' },
+	 *   { pageId: 'p1', postId: 'b' },
+	 * ]);
+	 * ```
+	 */
+	async get(queries: (Pick<T, PK | SK> & Partial<T>)[]): Promise<T[]>;
+	/**
+	 * Fetch a single record and project only the requested attributes.
+	 *
+	 * Issues a Dynamo DB `GetItem` with a `ProjectionExpression` built from
+	 * `options.select` plus the facet's PK and SK field names (always
+	 * auto-included). The result is validated by the facet's
+	 * `pickValidator` — the full `validator` is skipped because the record
+	 * is intentionally partial.
+	 *
+	 * @remarks
+	 * This overload is only callable on facets constructed with a
+	 * `pickValidator`. Calling it on a facet without one is a type error
+	 * (the `this:` constraint on the signature resolves to `never`).
+	 *
+	 * @param query - Object providing the PK and SK field values.
+	 * @param options - Must include `select`; other {@link GetOptions} fields are forwarded.
+	 * @returns A `Pick<T, K | PK | SK>` if found, or `null`. The PK/SK
+	 * fields are always present in the result even if omitted from `select`.
+	 *
+	 * @example
+	 * ```ts
+	 * const slim = await PostFacet.get(
+	 *   { pageId: 'p1', postId: 'abc' },
+	 *   { select: ['postTitle', 'postStatus'] },
+	 * );
+	 * // slim has type: { postTitle; postStatus; pageId; postId } | null
+	 * ```
+	 */
 	async get<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
 		query: Pick<T, PK | SK> & Partial<T>,
 		options: GetOptions<T, K> & { select: readonly [K, ...K[]] },
 	): Promise<Pick<T, K | PK | SK> | null>;
-	async get(query: (Pick<T, PK | SK> & Partial<T>)[]): Promise<T[]>;
-	async get(query: Pick<T, PK | SK> & Partial<T>): Promise<T | null>;
+	/**
+	 * Batch-fetch records and project only the requested attributes.
+	 *
+	 * Same batching, retry, and drop semantics as the non-projected array
+	 * overload; the projection is applied per-batch via
+	 * `BatchGetItem.RequestItems[table].ProjectionExpression`. Each record
+	 * is run through the facet's `pickValidator`.
+	 *
+	 * @remarks
+	 * Only callable on facets constructed with a `pickValidator`.
+	 *
+	 * @param queries - Array of objects each providing the PK and SK field values.
+	 * @param options - Must include `select`; other {@link GetOptions} fields are forwarded.
+	 * @returns The projected records that were found. PK/SK fields are
+	 * always present even if omitted from `select`.
+	 *
+	 * @example
+	 * ```ts
+	 * const slim = await PostFacet.get(
+	 *   [{ pageId: 'p1', postId: 'a' }, { pageId: 'p1', postId: 'b' }],
+	 *   { select: ['postTitle'] },
+	 * );
+	 * ```
+	 */
+	async get<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		queries: (Pick<T, PK | SK> & Partial<T>)[],
+		options: GetOptions<T, K> & { select: readonly [K, ...K[]] },
+	): Promise<Pick<T, K | PK | SK>[]>;
 	async get<K extends keyof T>(
 		query: (Pick<T, PK | SK> & Partial<T>)[] | (Pick<T, PK | SK> & Partial<T>),
 		options: GetOptions<T, K> = {},
@@ -515,16 +600,58 @@ class FacetImpl<
 	}
 
 	/**
-	 * Put a record into the Dynamo DB table
-	 * @param records
+	 * Delete a single record by its exact partition and sort key.
+	 *
+	 * The `record` must contain the model fields that compose this facet's
+	 * `PK` and `SK`; other fields are ignored. An optional
+	 * {@link DeleteOptions.condition} expression is compiled into a
+	 * Dynamo DB `ConditionExpression` — if the stored record doesn't
+	 * satisfy it, the delete is reported as a failure rather than
+	 * throwing.
+	 *
+	 * @param record - Object providing the PK and SK field values.
+	 * @param options - Optional {@link DeleteOptions}, e.g. a `condition`.
+	 * @returns A {@link DeleteResponse} with `deleted` / `failed` arrays
+	 * and a `hasFailures` flag. Individual failures do not reject the
+	 * returned promise.
+	 *
+	 * @example
+	 * ```ts
+	 * const result = await PostFacet.delete(
+	 *   { pageId: 'p1', postId: 'abc' },
+	 *   { condition: ['postStatus', '=', 'draft'] },
+	 * );
+	 * if (result.hasFailures) console.error(result.failed);
+	 * ```
 	 */
 	async delete(
 		record: Pick<T, PK | SK> & Partial<T>,
 		options?: DeleteOptions<Pick<T, PK | SK> & Partial<T>>,
 	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>>;
 	/**
-	 * Put multiple records into the Dynamo DB table
-	 * @param records
+	 * Batch-delete records by their exact partition and sort keys.
+	 *
+	 * Splits the input into `BatchWriteItem` batches of 25 (Dynamo DB's
+	 * hard limit), issues them in parallel, and retries `UnprocessedItems`
+	 * up to 5 times with exponential backoff. Any records that still fail
+	 * after retries land in the response's `failed` array — they do not
+	 * reject the promise.
+	 *
+	 * @remarks
+	 * Conditional deletes are not supported in the batch form; use the
+	 * single-record overload if you need a {@link DeleteOptions.condition}.
+	 *
+	 * @param records - Array of objects each providing the PK and SK field values.
+	 * @returns A {@link DeleteResponse} aggregating successes and failures
+	 * across all batches.
+	 *
+	 * @example
+	 * ```ts
+	 * const result = await PostFacet.delete([
+	 *   { pageId: 'p1', postId: 'a' },
+	 *   { pageId: 'p1', postId: 'b' },
+	 * ]);
+	 * ```
 	 */
 	async delete(
 		records: (Pick<T, PK | SK> & Partial<T>)[],
@@ -543,16 +670,59 @@ class FacetImpl<
 	}
 
 	/**
-	 * Put a record into the Dynamo DB table
-	 * @param records
+	 * Write a single record to the Dynamo DB table.
+	 *
+	 * The record is marshalled through {@link Facet.in} — synthetic `PK`,
+	 * `SK`, `GSI*PK`/`GSI*SK`, `facet`, and `ttl` attributes are stamped
+	 * on before the `PutItem` request. An optional
+	 * {@link PutOptions.condition} expression is compiled into a
+	 * `ConditionExpression`; a failed condition resolves as
+	 * `wasSuccessful: false` rather than throwing.
+	 *
+	 * @remarks
+	 * Input validation is off by default (see `validateInput` on
+	 * {@link FacetOptions}); enable it to run the facet's `validator`
+	 * against the record before marshalling.
+	 *
+	 * @param record - The full model to write.
+	 * @param options - Optional {@link PutOptions}, e.g. a `condition`.
+	 * @returns {@link PutSingleItemResponse} carrying the written record and
+	 * a `wasSuccessful` flag.
+	 *
+	 * @example
+	 * ```ts
+	 * const result = await PostFacet.put(post, {
+	 *   condition: ['postId', 'not_exists'],
+	 * });
+	 * if (!result.wasSuccessful) console.error(result.error);
+	 * ```
 	 */
 	async put(
 		record: T,
 		options?: PutOptions<T>,
 	): Promise<PutSingleItemResponse<T>>;
 	/**
-	 * Put multiple records into the Dynamo DB table
-	 * @param records
+	 * Batch-write records to the Dynamo DB table.
+	 *
+	 * Splits the input into `BatchWriteItem` batches of 25 (Dynamo DB's
+	 * hard limit), deduplicates records that share the same PK+SK within
+	 * a batch (last-write-wins), and issues batches in parallel.
+	 * `UnprocessedItems` are retried up to 5 times with exponential
+	 * backoff; anything that still fails lands in the response's
+	 * `failed` array rather than rejecting the promise.
+	 *
+	 * @remarks
+	 * Conditional writes are not supported in the batch form; use the
+	 * single-record overload if you need a {@link PutOptions.condition}.
+	 *
+	 * @param records - Array of full models to write.
+	 * @returns A {@link PutResponse} aggregating successes and failures.
+	 *
+	 * @example
+	 * ```ts
+	 * const result = await PostFacet.put([post1, post2, post3]);
+	 * console.log(`wrote ${result.put.length}, failed ${result.failed.length}`);
+	 * ```
 	 */
 	async put(records: T[]): Promise<PutResponse<T>>;
 	async put(
@@ -567,7 +737,37 @@ class FacetImpl<
 	}
 
 	/**
-	 * Query a partition on the Facet
+	 * Begin a query over a single partition on the base table.
+	 *
+	 * Returns a {@link PartitionQuery} builder that exposes the sort-key
+	 * operators — `equals`, `greaterThan`, `greaterThanOrEqual`, `lessThan`,
+	 * `lessThanOrEqual`, `beginsWith`, `between`, `list`, and `first`. Each
+	 * accepts a filter expression, pagination cursor, and limit via
+	 * {@link QueryOptions}.
+	 *
+	 * @param partition - Object providing the PK field values. Extra fields
+	 * are ignored; only the facet's PK fields are read.
+	 * @param shard - Optional shard id when the partition key is configured
+	 * with a {@link ShardConfiguration}. If omitted on a sharded facet, you
+	 * must iterate every shard to list the full partition.
+	 * @returns A {@link PartitionQuery} builder.
+	 *
+	 * @example
+	 * ```ts
+	 * // All posts in page 'p1'
+	 * const all = await PostFacet.query({ pageId: 'p1' }).list();
+	 *
+	 * // Posts in page 'p1' whose postId starts with 'draft-'
+	 * const drafts = await PostFacet.query({ pageId: 'p1' })
+	 *   .beginsWith({ postId: 'draft-' });
+	 *
+	 * // With a filter, limit, and cursor
+	 * const page = await PostFacet.query({ pageId: 'p1' }).list({
+	 *   filter: ['postStatus', '<>', 'deleted'],
+	 *   limit: 20,
+	 *   cursor: previousPage.cursor,
+	 * });
+	 * ```
 	 */
 	query(
 		partition: Pick<T, PK> & Partial<T>,
@@ -581,12 +781,43 @@ class FacetImpl<
 	}
 
 	/**
-	 * Register a GSI for a Facet
-	 * @param index The name of the actual GSI configured in Dynamo DB
-	 * @param partitionKey The partition key for the index
-	 * @param sortKey The sort key for the index
-	 * @param alias An optional alias to call the index by
-	 * @returns
+	 * Register a Global Secondary Index on this facet and thread it into
+	 * the facet's type.
+	 *
+	 * Mutates `this`: after the call, the GSI is reachable both by its
+	 * enum name (e.g. `facet.GSI1`) and, if provided, by its `alias`
+	 * (e.g. `facet.byStatus`). The return type is the facet narrowed with
+	 * those index accessors, so the chained `.addIndex(...)` pattern
+	 * keeps the full type visible at the call site.
+	 *
+	 * @remarks
+	 * The same `index` slot cannot be registered twice — attempting to
+	 * reuse it throws. Aliases must not collide with existing properties
+	 * on the facet.
+	 *
+	 * Every registered index's `GSIxPK`/`GSIxSK` attributes are written on
+	 * every subsequent `put`, and stripped from every read, so the table
+	 * must declare them as `AttributeDefinitions`. This library assumes
+	 * the GSIs are created with `ProjectionType: ALL`.
+	 *
+	 * @param options - {@link AddIndexOptions} — the GSI slot, its PK/SK
+	 * {@link KeyConfiguration}s, and an optional alias.
+	 * @returns The facet, with the index's accessors merged into its type.
+	 *
+	 * @example
+	 * ```ts
+	 * const PostFacet = new Facet({ ...baseOptions })
+	 *   .addIndex({
+	 *     index: Index.GSI1,
+	 *     alias: 'byStatus',
+	 *     PK: { keys: ['userId', 'status'], prefix: '#STATUS' },
+	 *     SK: { keys: ['timestamp'], prefix: '#TS' },
+	 *   });
+	 *
+	 * // Both work and return a PartitionQuery over the index:
+	 * await PostFacet.GSI1.query({ userId: 'u1', status: 'queued' }).list();
+	 * await PostFacet.byStatus.query({ userId: 'u1', status: 'queued' }).list();
+	 * ```
 	 */
 	addIndex<
 		I extends Index,
@@ -676,6 +907,9 @@ export interface FacetConstructor {
 	): FacetImpl<T, PK, SK, undefined>;
 }
 
+// `Facet` is deliberately both a type alias (above) and a value (the typed
+// constructor); TS merges them across the type and value namespaces.
+// eslint-disable-next-line no-redeclare
 export const Facet: FacetConstructor = FacetImpl as unknown as FacetConstructor;
 
 export interface AddIndexOptions<
