@@ -836,6 +836,410 @@ describe('Facet', () => {
 			expect(projected).not.toHaveProperty('price');
 		});
 	});
+
+	describe('Query projection (select)', () => {
+		interface Row {
+			userId: string;
+			rowId: string;
+			status: string;
+			createdAt: string;
+			name: string;
+			body: string;
+			count: number;
+		}
+
+		const rowValidator = (input: unknown): Row => input as Row;
+		const rowPickValidator: PickValidator<Row> = (keys) => (input) => {
+			const record = input as Record<string, unknown>;
+			const picked: Record<string, unknown> = {};
+			for (const key of keys) {
+				if (key in record) {
+					picked[key as string] = record[key as string];
+				}
+			}
+			return picked as Pick<Row, (typeof keys)[number]>;
+		};
+
+		const ProjectableQueryFacet = new Facet<Row, 'userId', 'rowId'>({
+			name: 'QueryRow',
+			validator: rowValidator,
+			pickValidator: rowPickValidator,
+			PK: { keys: ['userId'], prefix: 'QUSER' },
+			SK: { keys: ['rowId'], prefix: 'QROW' },
+			connection: { dynamoDb: ddb, tableName },
+		}).addIndex({
+			alias: 'byStatus',
+			index: Index.GSI1,
+			PK: { keys: ['userId', 'status'], prefix: 'QSTATUS' },
+			SK: { keys: ['createdAt'], prefix: 'QCREATED' },
+		});
+
+		const PlainQueryFacet = new Facet<Row, 'userId', 'rowId'>({
+			name: 'QueryRowPlain',
+			validator: rowValidator,
+			PK: { keys: ['userId'], prefix: 'QPLAIN' },
+			SK: { keys: ['rowId'], prefix: 'QPLAIN' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+
+		const USER = 'query-user-1';
+		const rows: Row[] = [
+			{
+				userId: USER,
+				rowId: 'r-001',
+				status: 'queued',
+				createdAt: '2024-01-01T00:00:00.000Z',
+				name: 'Alpha',
+				body: 'a body',
+				count: 1,
+			},
+			{
+				userId: USER,
+				rowId: 'r-002',
+				status: 'queued',
+				createdAt: '2024-02-01T00:00:00.000Z',
+				name: 'Bravo',
+				body: 'b body',
+				count: 2,
+			},
+			{
+				userId: USER,
+				rowId: 'r-003',
+				status: 'sent',
+				createdAt: '2024-03-01T00:00:00.000Z',
+				name: 'Charlie',
+				body: 'c body',
+				count: 3,
+			},
+		];
+
+		beforeAll(async () => {
+			await ProjectableQueryFacet.put(rows);
+		});
+
+		test('list with select returns only chosen + key fields', async () => {
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).list({ select: ['name'] });
+
+			expect(result.records).toHaveLength(3);
+			for (const record of result.records) {
+				expect(record).toHaveProperty('userId');
+				expect(record).toHaveProperty('rowId');
+				expect(record).toHaveProperty('name');
+				expect(record).not.toHaveProperty('body');
+				expect(record).not.toHaveProperty('count');
+				expect(record).not.toHaveProperty('status');
+			}
+		});
+
+		test('first with select returns a projected record', async () => {
+			const record = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).first({ select: ['body'] });
+
+			expect(record).not.toBeNull();
+			expect(record?.userId).toBe(USER);
+			expect(record?.rowId).toBe('r-001');
+			expect(record?.body).toBe('a body');
+			expect(record).not.toHaveProperty('name');
+		});
+
+		test('equals with select narrows to one row', async () => {
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).equals({ rowId: 'r-002' }, { select: ['count'] });
+
+			expect(result.records).toHaveLength(1);
+			expect(result.records[0].rowId).toBe('r-002');
+			expect(result.records[0].count).toBe(2);
+			expect(result.records[0]).not.toHaveProperty('name');
+		});
+
+		test('greaterThan with select', async () => {
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).greaterThan({ rowId: 'r-001' }, { select: ['body'] });
+
+			expect(result.records.map((r) => [r.rowId, r.body])).toEqual([
+				['r-002', 'b body'],
+				['r-003', 'c body'],
+			]);
+			for (const record of result.records) {
+				expect(record).not.toHaveProperty('name');
+			}
+		});
+
+		test('greaterThanOrEqual with select', async () => {
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).greaterThanOrEqual({ rowId: 'r-002' }, { select: ['name'] });
+
+			expect(result.records.map((r) => [r.rowId, r.name])).toEqual([
+				['r-002', 'Bravo'],
+				['r-003', 'Charlie'],
+			]);
+			for (const record of result.records) {
+				expect(record).not.toHaveProperty('body');
+			}
+		});
+
+		test('lessThan with select', async () => {
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).lessThan({ rowId: 'r-003' }, { select: ['count'] });
+
+			expect(result.records.map((r) => [r.rowId, r.count])).toEqual([
+				['r-001', 1],
+				['r-002', 2],
+			]);
+			for (const record of result.records) {
+				expect(record).not.toHaveProperty('body');
+			}
+		});
+
+		test('lessThanOrEqual with select', async () => {
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).lessThanOrEqual({ rowId: 'r-002' }, { select: ['name'] });
+
+			expect(result.records.map((r) => [r.rowId, r.name])).toEqual([
+				['r-001', 'Alpha'],
+				['r-002', 'Bravo'],
+			]);
+			for (const record of result.records) {
+				expect(record).not.toHaveProperty('body');
+			}
+		});
+
+		test('beginsWith with select', async () => {
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).beginsWith({ rowId: 'r-' }, { select: ['name'] });
+
+			expect(result.records).toHaveLength(3);
+			for (const record of result.records) {
+				expect(record).toHaveProperty('userId');
+				expect(record).toHaveProperty('rowId');
+				expect(record).toHaveProperty('name');
+				expect(record).not.toHaveProperty('body');
+			}
+		});
+
+		test('between with select', async () => {
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).between(
+				{ rowId: 'r-001' },
+				{ rowId: 'r-002' },
+				{ select: ['body'] },
+			);
+
+			expect(result.records.map((r) => [r.rowId, r.body])).toEqual([
+				['r-001', 'a body'],
+				['r-002', 'b body'],
+			]);
+			for (const record of result.records) {
+				expect(record).not.toHaveProperty('count');
+			}
+		});
+
+		test('index query with select auto-includes GSI PK/SK fields', async () => {
+			const result = await ProjectableQueryFacet.byStatus
+				.query({ userId: USER, status: 'queued' })
+				.list({ select: ['name'] });
+
+			expect(result.records).toHaveLength(2);
+			for (const record of result.records) {
+				// base PK + base SK (ALL projection on the GSI)
+				expect(record).toHaveProperty('userId');
+				expect(record).toHaveProperty('rowId');
+				// index PK field (status) and index SK field (createdAt)
+				expect(record).toHaveProperty('status');
+				expect(record).toHaveProperty('createdAt');
+				// selected
+				expect(record).toHaveProperty('name');
+				// not selected
+				expect(record).not.toHaveProperty('body');
+			}
+		});
+
+		test('query projection select narrows the return type', async () => {
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).list({ select: ['name'] });
+
+			if (result.records.length === 0) throw new Error('expected rows');
+			const row = result.records[0];
+
+			const _userId: string = row.userId;
+			const _rowId: string = row.rowId;
+			const _name: string = row.name;
+			void _userId;
+			void _rowId;
+			void _name;
+
+			// @ts-expect-error body was not selected on a base-facet query
+			void row.body;
+			// @ts-expect-error count was not selected
+			void row.count;
+		});
+
+		test('index projection narrows return type and auto-includes index keys', async () => {
+			const result = await ProjectableQueryFacet.byStatus
+				.query({ userId: USER, status: 'queued' })
+				.list({ select: ['name'] });
+
+			if (result.records.length === 0) throw new Error('expected rows');
+			const row = result.records[0];
+
+			const _name: string = row.name;
+			const _userId: string = row.userId;
+			const _rowId: string = row.rowId;
+			const _status: string = row.status;
+			const _createdAt: string = row.createdAt;
+			void _name;
+			void _userId;
+			void _rowId;
+			void _status;
+			void _createdAt;
+
+			// @ts-expect-error body was not selected
+			void row.body;
+		});
+
+		test('select with duplicate keys is deduped', async () => {
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).list({ select: ['name', 'name', 'body', 'name'] });
+
+			expect(result.records).toHaveLength(3);
+			for (const record of result.records) {
+				expect(record).toHaveProperty('name');
+				expect(record).toHaveProperty('body');
+				expect(record).not.toHaveProperty('count');
+			}
+		});
+
+		test('select that includes an auto-included key field does not double-project', async () => {
+			// userId is the PK and is auto-included; listing it explicitly
+			// in select must not cause a DDB ValidationException (duplicate
+			// attribute name in ProjectionExpression).
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).list({ select: ['userId', 'name'] });
+
+			expect(result.records).toHaveLength(3);
+			for (const record of result.records) {
+				expect(record.userId).toBe(USER);
+				expect(record).toHaveProperty('rowId');
+				expect(record).toHaveProperty('name');
+				expect(record).not.toHaveProperty('body');
+			}
+		});
+
+		test('filter combined with select applies both', async () => {
+			const result = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).list({
+				filter: ['status', '=', 'queued'],
+				select: ['name'],
+			});
+
+			expect(result.records.map((r) => r.rowId).sort()).toEqual([
+				'r-001',
+				'r-002',
+			]);
+			for (const record of result.records) {
+				expect(record).toHaveProperty('name');
+				expect(record).not.toHaveProperty('body');
+			}
+		});
+
+		test('cursor pagination survives a projected query', async () => {
+			const first = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).list({ select: ['name'], limit: 2 });
+
+			expect(first.records).toHaveLength(2);
+			expect(first.cursor).toBeDefined();
+
+			const second = await ProjectableQueryFacet.query({
+				userId: USER,
+			}).list({ select: ['name'], limit: 2, cursor: first.cursor });
+
+			expect(second.records).toHaveLength(1);
+			// Collected across both pages, every seeded rowId is visible.
+			const seen = [
+				...first.records.map((r) => r.rowId),
+				...second.records.map((r) => r.rowId),
+			].sort();
+			expect(seen).toEqual(['r-001', 'r-002', 'r-003']);
+		});
+
+		test('type gate: every query method rejects select without pickValidator', () => {
+			void (async () => {
+				// @ts-expect-error list is gated on PV
+				await PlainQueryFacet.query({ userId: USER }).list({
+					select: ['name'],
+				});
+				// @ts-expect-error first is gated
+				await PlainQueryFacet.query({ userId: USER }).first({
+					select: ['name'],
+				});
+				// @ts-expect-error equals is gated
+				await PlainQueryFacet.query({ userId: USER }).equals(
+					{ rowId: 'x' },
+					{ select: ['name'] },
+				);
+				// @ts-expect-error greaterThan is gated
+				await PlainQueryFacet.query({ userId: USER }).greaterThan(
+					{ rowId: 'x' },
+					{ select: ['name'] },
+				);
+				// @ts-expect-error greaterThanOrEqual is gated
+				await PlainQueryFacet.query({ userId: USER }).greaterThanOrEqual(
+					{ rowId: 'x' },
+					{ select: ['name'] },
+				);
+				// @ts-expect-error lessThan is gated
+				await PlainQueryFacet.query({ userId: USER }).lessThan(
+					{ rowId: 'x' },
+					{ select: ['name'] },
+				);
+				// @ts-expect-error lessThanOrEqual is gated
+				await PlainQueryFacet.query({ userId: USER }).lessThanOrEqual(
+					{ rowId: 'x' },
+					{ select: ['name'] },
+				);
+				// @ts-expect-error beginsWith is gated
+				await PlainQueryFacet.query({ userId: USER }).beginsWith(
+					{ rowId: 'r-' },
+					{ select: ['name'] },
+				);
+				// @ts-expect-error between is gated
+				await PlainQueryFacet.query({ userId: USER }).between(
+					{ rowId: 'r-001' },
+					{ rowId: 'r-002' },
+					{ select: ['name'] },
+				);
+			});
+		});
+
+		test('plain query methods still work without select', async () => {
+			await PlainQueryFacet.put({
+				userId: USER,
+				rowId: 'plain-1',
+				status: 'x',
+				createdAt: '2024-01-01',
+				name: 'N',
+				body: 'B',
+				count: 1,
+			});
+			const result = await PlainQueryFacet.query({ userId: USER }).list();
+			expect(result.records.some((r) => r.rowId === 'plain-1')).toBe(true);
+		});
+	});
 });
 
 function mockPages(count: number, overrides: Partial<Page> = {}): Page[] {
