@@ -602,6 +602,103 @@ Faceteer supports up to twenty indexes (`Index.GSI1` through `Index.GSI20`), mat
 - [x] _"List tasks by user and by status ordered by the date they were created"_
 - [x] _"List tasks by user and by status ordered by the date they are due"_
 
+### Projected reads
+
+Every read returns a record with every attribute DynamoDB stored. When you only need a subset of fields, you can reduce network payload and JSON-parse cost with a DynamoDB `ProjectionExpression`. Faceteer exposes this as a `select` option on every read method.
+
+Projected reads require a `pickValidator` on the facet. The full `validator` would reject a record with missing fields by design, so projection needs a factory that produces a sub-validator for any chosen subset of keys.
+
+```ts
+import { PickValidator } from "@faceteer/facet";
+
+export const teamPickValidator: PickValidator<Team> = (keys) => {
+  const mask: { [K in keyof Team]?: true } = {};
+  for (const k of keys) mask[k as keyof Team] = true;
+  const picked = teamSchema.pick(mask);
+  return (input) => picked.parse(input) as Pick<Team, (typeof keys)[number]>;
+};
+```
+
+Zod, Valibot, and arktype all expose `.pick()` or equivalent. AJV users typically cache compiled sub-validators by a canonical signature of the key tuple. See the tsdoc on `PickValidator` for a worked AJV example.
+
+Configure the facet with both validators:
+
+```ts
+const TeamFacet = new Facet({
+  name: "TEAM",
+  validator: teamValidator,
+  pickValidator: teamPickValidator,
+  PK: { keys: ["teamId"], prefix: "#TEAM" },
+  SK: { keys: ["teamId"], prefix: "#TEAM" },
+  connection: { dynamoDb: dynamoDbClient, tableName: dynamoDbTableName },
+});
+```
+
+#### On `get`
+
+```ts
+// Unprojected: the full record.
+const team = await TeamFacet.get({ teamId });
+
+// Projected: only the chosen fields plus the facet's PK/SK fields.
+const slim = await TeamFacet.get({ teamId }, { select: ["teamName"] });
+// slim: { teamId: string; teamName: string } | null
+```
+
+PK and SK fields are always included in the result even if omitted from `select`. They are load-bearing for identity: you need them to round-trip the result back into a `get`, `delete`, or `put`. Batch gets work the same way:
+
+```ts
+const slim = await TeamFacet.get(
+  teamIds.map((teamId) => ({ teamId })),
+  { select: ["teamName"] },
+);
+```
+
+#### On `query`
+
+Every `PartitionQuery` operator accepts `select` and narrows the return type the same way.
+
+```ts
+await TeamFacet.query({ teamId }).list({ select: ["teamName"] });
+
+await TeamFacet.query({ teamId }).first({ select: ["teamName"] });
+
+await TeamFacet.GSIByStatus
+  .query({ teamId, status: "active" })
+  .between(
+    { createdAt: "2024-01-01" },
+    { createdAt: "2024-02-01" },
+    { select: ["teamName"] },
+  );
+```
+
+On an index query, Faceteer auto-includes both the base-table PK/SK fields and the index's own partition-key and sort-key fields. Under the library's assumption that GSIs are created with `ProjectionType: ALL`, all four sets are always present on the index. The guarantee lets you feed a projected result straight back into `get`, `delete`, or `put` without a second round-trip to fetch the identity fields.
+
+#### Type-level gate
+
+Projection is unavailable at the type level on facets constructed without a `pickValidator`. Passing `select` on those facets is a compile error, not a runtime error.
+
+```ts
+const PlainFacet = new Facet({ /* no pickValidator */ });
+
+// Type error: this overload requires pickValidator on the facet.
+await PlainFacet.get({ teamId }, { select: ["teamName"] });
+
+// Also a type error:
+await PlainFacet.query({ teamId }).list({ select: ["teamName"] });
+```
+
+If you want projected reads, add a `pickValidator` to the facet options. If you want to opt out of validation for projected reads (trust-the-DB paths, or benchmarks), pass an identity pickValidator:
+
+```ts
+const identityPickValidator: PickValidator<Team> =
+  (keys) => (input) => input as Pick<Team, (typeof keys)[number]>;
+```
+
+#### Cost
+
+Projection reduces the data DynamoDB sends over the wire, which shrinks payload size and JSON-parse cost. It does not reduce read capacity: DynamoDB charges based on the size of the item it reads from storage, not what it projects to the response. Projection is a bandwidth and latency optimization, not an RCU one.
+
 ### Composite sort keys
 
 Sort keys in Faceteer are composite strings built from a prefix and the fields you list in `SK.keys`. A facet configured with `SK: { keys: ['status', 'timestamp'], prefix: '#ESTIME' }` writes sort keys like `#ESTIME_queued_2024-01-01T00:00:00.000Z`.
@@ -740,6 +837,16 @@ do {
 } while (cursor);
 ```
 
+**"Every record, but only a subset of attributes"**
+
+Requires `pickValidator` on the facet.
+
+```ts
+await Facet.query({ partitionFields }).list({ select: ["name", "status"] });
+```
+
+PK/SK fields are auto-included in the result, and on index queries the index's PK/SK fields are included too.
+
 ### Pagination
 
 DynamoDB returns at most **1 MB** of evaluated data per page. When more data is available, the service returns a `LastEvaluatedKey`; Faceteer surfaces it as an opaque `cursor` string (CBOR, then base64). Treat the cursor as a token — don't try to parse it, and don't persist it beyond the current session: the encoding is tied to this library's version and the DynamoDB SDK's `AttributeValue` shape.
@@ -829,6 +936,7 @@ Only for single-item deletes: `facet.delete(record, { condition: [...] })`. `con
 - **Know your access patterns before you design the key.** Faceteer isn't built for ad-hoc queries. Every GSI costs writes, so pick the smallest set of indexes that covers the patterns you actually have.
 - **Overload indexes with prefixes.** Two facets can share `GSI1` as long as their SK prefixes differ — that's the whole point of the `prefix` field on each `KeyConfiguration`. Differentiate by prefix, query by prefix.
 - **Prefer key conditions over `filter`.** `equals`, `beginsWith`, and `between` prune reads on the server. `filter` runs server-side too but *after* the read is billed — it shrinks the response, not the cost.
+- **Reach for `select` when payload size hurts.** `ProjectionExpression` cuts the wire payload but not the read-capacity cost. DynamoDB bills the full item size regardless. Worth using when you're rendering lists, hydrating caches, or returning over a slow link; not worth it when you need the full record anyway.
 - **Avoid `greaterThan` and `lessThan` on composite sort keys.** They compare the full composite string, so a query like `greaterThan({ status: 'queued', timestamp: X })` bleeds into records whose status sorts after `queued`. Scope with `beginsWith`, or with `between` where both bounds pin the same leading value. See the "Composite sort keys" section above.
 - **Shard hot partitions.** When one PK value attracts disproportionate traffic, add a `shard: { count, keys }` config. Keep `count` small to start (2, 4, 8); every shard is an extra query on read, so more shards is not free.
 - **Use TTL for ephemeral data.** Sessions, OTPs, cache entries, and soft-delete markers all benefit. Remember AWS purges asynchronously — expired items can linger in query results for a while.

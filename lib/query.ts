@@ -315,6 +315,14 @@ export class PartitionQuery<
 	 *   .query({ postStatus: 'queued' })
 	 *   .equals({ sendAt: new Date('2024-01-01') });
 	 * ```
+	 *
+	 * @example
+	 * Projected, requires `pickValidator` on the facet:
+	 * ```ts
+	 * const { records } = await PostFacet.GSIStatusSendAt
+	 *   .query({ postStatus: 'queued' })
+	 *   .equals({ sendAt: new Date('2024-01-01') }, { select: ['postTitle'] });
+	 * ```
 	 */
 	equals(
 		sort: Partial<Pick<T, GSISK>> | string,
@@ -334,6 +342,10 @@ export class PartitionQuery<
 
 	/**
 	 * Fetch records whose sort key is strictly greater than the given value.
+	 *
+	 * @remarks
+	 * Accepts `select` on facets configured with a `pickValidator`; see
+	 * {@link PartitionQuery.equals} for a projected example.
 	 *
 	 * @param sort - Object of sort-key field values, or a raw string.
 	 * @param options - Optional {@link QueryOptions}.
@@ -357,6 +369,10 @@ export class PartitionQuery<
 
 	/**
 	 * Fetch records whose sort key is greater than or equal to the given value.
+	 *
+	 * @remarks
+	 * Accepts `select` on facets configured with a `pickValidator`; see
+	 * {@link PartitionQuery.equals} for a projected example.
 	 *
 	 * @param sort - Object of sort-key field values, or a raw string.
 	 * @param options - Optional {@link QueryOptions}.
@@ -385,6 +401,10 @@ export class PartitionQuery<
 	/**
 	 * Fetch records whose sort key is strictly less than the given value.
 	 *
+	 * @remarks
+	 * Accepts `select` on facets configured with a `pickValidator`; see
+	 * {@link PartitionQuery.equals} for a projected example.
+	 *
 	 * @param sort - Object of sort-key field values, or a raw string.
 	 * @param options - Optional {@link QueryOptions}.
 	 * @returns {@link QueryResult}.
@@ -407,6 +427,10 @@ export class PartitionQuery<
 
 	/**
 	 * Fetch records whose sort key is less than or equal to the given value.
+	 *
+	 * @remarks
+	 * Accepts `select` on facets configured with a `pickValidator`; see
+	 * {@link PartitionQuery.equals} for a projected example.
 	 *
 	 * @param sort - Object of sort-key field values, or a raw string.
 	 * @param options - Optional {@link QueryOptions}.
@@ -448,6 +472,14 @@ export class PartitionQuery<
 	 *   .query({ pageId: 'p1' })
 	 *   .list({ limit: 50 });
 	 * ```
+	 *
+	 * @example
+	 * Projected, requires `pickValidator` on the facet:
+	 * ```ts
+	 * const { records } = await PostFacet
+	 *   .query({ pageId: 'p1' })
+	 *   .list({ select: ['postTitle'] });
+	 * ```
 	 */
 	list(
 		options?: QueryOptions<T, PK, SK> & { select?: never },
@@ -477,6 +509,14 @@ export class PartitionQuery<
 	 * const latest = await PostFacet.GSIStatusSendAt
 	 *   .query({ postStatus: 'sent' })
 	 *   .first({ scanForward: false });
+	 * ```
+	 *
+	 * @example
+	 * Projected, requires `pickValidator` on the facet:
+	 * ```ts
+	 * const head = await PostFacet
+	 *   .query({ pageId: 'p1' })
+	 *   .first({ select: ['postTitle'] });
 	 * ```
 	 */
 	first(
@@ -524,6 +564,14 @@ export class PartitionQuery<
 	 *   .query({ pageId: 'p1' })
 	 *   .beginsWith({ postTitle: 'aa' });
 	 * ```
+	 *
+	 * @example
+	 * Projected, requires `pickValidator` on the facet:
+	 * ```ts
+	 * const aa = await PostFacet.GSIPostByTitle
+	 *   .query({ pageId: 'p1' })
+	 *   .beginsWith({ postTitle: 'aa' }, { select: ['postStatus'] });
+	 * ```
 	 */
 	beginsWith(
 		sort: Partial<Pick<T, GSISK>> | string,
@@ -561,6 +609,18 @@ export class PartitionQuery<
 	 * const range = await PostFacet.GSIPostByTitle
 	 *   .query({ pageId: 'p1' })
 	 *   .between({ postTitle: 'ab' }, { postTitle: 'ae' });
+	 * ```
+	 *
+	 * @example
+	 * Projected, requires `pickValidator` on the facet:
+	 * ```ts
+	 * const range = await PostFacet.GSIPostByTitle
+	 *   .query({ pageId: 'p1' })
+	 *   .between(
+	 *     { postTitle: 'ab' },
+	 *     { postTitle: 'ae' },
+	 *     { select: ['postStatus'] },
+	 *   );
 	 * ```
 	 */
 	between(
