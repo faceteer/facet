@@ -11,11 +11,14 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "removeComments": true,
-    "declaration": true,
     "isolatedModules": true,
-    "types": ["node"]
+    "noEmit": true,
+    "types": ["node", "vitest/globals"]
   },
-  "include": ["index.ts", "lib/**/*.ts", "_scratch/**/*.ts"],
-  "exclude": ["**/*.test.ts"]
+  "include": [
+    "index.ts",
+    "lib/**/*.ts",
+    "_scratch/**/*.ts",
+    "vitest.config.ts"
+  ]
 }

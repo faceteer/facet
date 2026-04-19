@@ -6,9 +6,9 @@
 	"scripts": {
 		"test": "vitest run --coverage",
 		"test:ci": "vitest run --coverage",
-		"build:clean": "tsc -b --clean",
-		"build": "tsc -b --clean && tsc -b",
-		"typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
+		"build:clean": "tsc -b --clean tsconfig.build.json",
+		"build": "tsc -b --clean tsconfig.build.json && tsc -b tsconfig.build.json",
+		"typecheck": "tsc --noEmit",
 		"prepublishOnly": "npm run build"
 	},
 	"engines": {

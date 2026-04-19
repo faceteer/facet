@@ -482,8 +482,8 @@ describe('Facet', () => {
 	});
 
 	test('reserved attribute names fail the type-level constraint', () => {
-		// Type-only assertions — the build (which type-checks tests under
-		// tsconfig.test.json) is the real check. At runtime this is a no-op.
+		// Type-only assertions — `npm run typecheck` (which covers tests via
+		// the base tsconfig.json) is the real check. At runtime this is a no-op.
 		// @ts-expect-error — PK is a reserved attribute name
 		type _PkModel = Facet<{ PK: string; id: string }>;
 		// @ts-expect-error — ttl is a reserved attribute name
