@@ -20,11 +20,13 @@ We will be creating a mock "tasks" application.
 
 ### Install
 
-Install with npm:
+Install with npm. `@aws-sdk/client-dynamodb` is a peer dependency, so install both:
 
 ```
-npm i @faceteer/facet --save
+npm i @faceteer/facet @aws-sdk/client-dynamodb --save
 ```
+
+Faceteer requires Node.js 20 or newer.
 
 ### Access Patterns
 
@@ -77,11 +79,9 @@ export interface Task {
 
 ### Validation
 
-Faceteer requires validation when reading records from the Dynamo DB table.
+Faceteer requires a validator function on every facet. By default it runs on **read**, so invalid records never reach your application code. The function takes an unknown input and returns an object that matches the model for the facet, or throws if the input is invalid.
 
-This is done using a validator function that is passed into a facet when constructing it.
-
-The function should be able to take an unkown input and return an object that matches the model for the facet or throw an error if the input is invalid.
+If you also want validation on **write**, pass `validateInput: true` to the facet constructor. This adds a per-call cost and is off by default.
 
 ```ts
 import AJV, { JSONSchemaType } from "ajv";
@@ -121,16 +121,19 @@ export function teamValidator(input: unknown): Team {
 
 Let's create our facets! Since all of our application logic is isolated by team, we'll use the team id as the partition for all of our models.
 
+Every facet needs a unique `name`. It's written to each record under the `facet` attribute, which lets you distinguish item types when several facets share a single table.
+
 ```ts
 import { Facet } from "@faceteer/facet";
 import { teamValidator, userValidator, taskValidator } from "./models";
-import { DynamoDB } from "aws-sdk";
+import { DynamoDB } from "@aws-sdk/client-dynamodb";
 
-const dynamoDbClient = new DynamoDB();
+const dynamoDbClient = new DynamoDB({});
 const dynamoDbTableName = "ExampleTableName";
 
 // Facet containing our teams
 const TeamFacet = new Facet({
+  name: "TEAM",
   PK: {
     keys: ["teamId"],
     prefix: "#TEAM",
@@ -140,14 +143,15 @@ const TeamFacet = new Facet({
     prefix: "#TEAM",
   },
   connection: {
-    tableName: "TableName",
-    dynamoDb: new DynamoDB(),
+    dynamoDb: dynamoDbClient,
+    tableName: dynamoDbTableName,
   },
   validator: teamValidator,
 });
 
 // Facet containing our users
 const UserFacet = new Facet({
+  name: "USER",
   PK: {
     keys: ["teamId"],
     prefix: "#TEAM",
@@ -165,6 +169,7 @@ const UserFacet = new Facet({
 
 // Facet containing our tasks
 const TaskFacet = new Facet({
+  name: "TASK",
   PK: {
     keys: ["teamId"],
     prefix: "#TEAM",
@@ -209,7 +214,7 @@ if (putResult.wasSuccessful) {
 }
 ```
 
-We can also put several records at once. Faceteer will handle batching the put requests.
+We can also put several records at once. Faceteer chunks array puts into DynamoDB's max batch size of 25 items and retries any `UnprocessedItems` up to 5 times with exponential backoff. Records that still fail after retries are reported back in `failed`.
 
 Let's make a function to create multiple users.
 
@@ -231,7 +236,7 @@ export async function createNewUsers(usersToCreate: Omit<User, "userId">[]) {
   // Check to see if any of the put requests failed
   if (putResult.hasFailures) {
     for (const putFailure of putResult.failed) {
-      handleFailure(putFailures);
+      handleFailure(putFailure);
     }
   }
 
@@ -239,6 +244,19 @@ export async function createNewUsers(usersToCreate: Omit<User, "userId">[]) {
   return putResult.put;
 }
 ```
+
+#### Conditional puts
+
+Pass a `condition` with a single-item `put` to guard against writes that would clobber existing data. Conditions use the tuple syntax from [`@faceteer/expression-builder`](https://github.com/faceteer/expression-builder).
+
+```ts
+// Only create the user if one with this partition/sort key doesn't already exist
+const result = await UserFacet.put(user, {
+  condition: ["userId", "not_exists"],
+});
+```
+
+`condition` is only applied to single-item calls. If you pass it alongside an array, it's silently ignored.
 
 ### Getting Records
 
@@ -266,6 +284,16 @@ export async function getUser(teamId: string, userId: string) {
 ```
 
 A get request will always return exactly one record, or a `null` value.
+
+You can also pass an array of identifiers to fetch many records in one call. Faceteer chunks requests into DynamoDB's max batch-get size of 100 items and retries any `UnprocessedKeys` up to 10 times with exponential backoff. The returned array is not guaranteed to preserve input order.
+
+```ts
+const users = await UserFacet.get([
+  { teamId, userId: "a" },
+  { teamId, userId: "b" },
+  { teamId, userId: "c" },
+]);
+```
 
 ### Querying
 
@@ -323,12 +351,23 @@ You can query in the following ways:
 
 The results will always be ordered by the sort key.
 
+Every query operator accepts a shared `options` argument where you can pass a `filter`, a `limit`, a `cursor` for pagination, `scanForward: false` to reverse order, and (for sharded keys) a `shard` number. Filters use tuple syntax from [`@faceteer/expression-builder`](https://github.com/faceteer/expression-builder) and run on the server after key conditions, so they shrink the response but not the read cost.
+
+```ts
+// Everything in the partition except failed tasks
+const { records, cursor } = await TaskFacet.query({ teamId }).list({
+  filter: ["status", "<>", "failed"],
+  limit: 50,
+});
+```
+
 One of our access patterns was _"List users by team ordered by the date created"_, but our sort key is ordered by the `userId`.
 
 One option would be to include the user's `dateCreated` as a part of the sort key for a user.
 
 ```diff
 const UserFacet = new Facet({
+  name: "USER",
   PK: {
     keys: ["teamId"],
     prefix: "#TEAM",
@@ -386,6 +425,7 @@ Here is our facet:
 
 ```ts
 export const TaskFacet = new Facet({
+  name: "TASK",
   PK: {
     keys: ["teamId"],
     prefix: "#TEAM",
@@ -417,6 +457,7 @@ To get tasks by team ordered by due date we'll have to configure a GSI using the
 import { Facet, Index } from "@faceteer/facet";
 
 export const TaskFacet = new Facet({
+  name: "TASK",
   PK: {
     keys: ["teamId"],
     prefix: "#TEAM",
@@ -501,6 +542,7 @@ For the last two we'll need two more indexes.
 import { Facet, Index } from "@faceteer/facet";
 
 export const TaskFacet = new Facet({
+  name: "TASK",
   PK: {
     keys: ["teamId"],
     prefix: "#TEAM",
@@ -553,6 +595,8 @@ export const TaskFacet = new Facet({
   });
 ```
 
+Faceteer supports up to twenty indexes (`Index.GSI1` through `Index.GSI20`), matching DynamoDB's own per-table GSI limit. The fixed attribute names (`GSI1PK`/`GSI1SK`, `GSI2PK`/`GSI2SK`, ...) must be declared on your table's schema for any index you actually use.
+
 - [x] _"List tasks by team ordered by the date they were created"_
 - [x] _"List tasks by team ordered by the date they are due"_
 - [x] _"List tasks by user and by status ordered by the date they were created"_
@@ -560,10 +604,98 @@ export const TaskFacet = new Facet({
 
 ### Pagination
 
+DynamoDB returns at most **1 MB** of evaluated data per page. When more data is available, the service returns a `LastEvaluatedKey`; Faceteer surfaces it as an opaque `cursor` string (CBOR, then base64). Treat the cursor as a token — don't try to parse it, and don't persist it beyond the current session: the encoding is tied to this library's version and the DynamoDB SDK's `AttributeValue` shape.
+
+Two things commonly surprise new users:
+
+1. `limit` caps how many items DynamoDB **evaluates**, not how many match. Filters run **after** key conditions, so a query with a filter can return an empty `records` array *and* a `cursor` — that just means "keep going".
+2. You're done paginating when `cursor` comes back `undefined`, not when `records` is empty.
+
+A typical paginate-to-the-end loop:
+
+```ts
+let cursor: string | undefined;
+do {
+  const page = await TaskFacet.query({ teamId }).list({ limit: 50, cursor });
+  for (const task of page.records) {
+    // ...handle task
+  }
+  cursor = page.cursor;
+} while (cursor);
+```
+
+### TTL
+
+Set `ttl` on the facet to the name of a field containing a unix timestamp, a numeric string, or a `Date`. Faceteer writes that value into DynamoDB's TTL attribute so the service can purge the record asynchronously. AWS's sweeper typically deletes expired items within 48 hours — filter out already-expired records client-side if freshness matters.
+
+```ts
+const SessionFacet = new Facet({
+  name: "SESSION",
+  PK: { keys: ["userId"], prefix: "#USER" },
+  SK: { keys: ["sessionId"], prefix: "#SESSION" },
+  connection: { dynamoDb: dynamoDbClient, tableName: dynamoDbTableName },
+  validator: sessionValidator,
+  ttl: "expiresAt",
+});
+```
+
+### Write Sharding
+
+If one partition key takes the lion's share of write traffic (think a single `teamId` with millions of tasks), DynamoDB will throttle that physical partition. Add a `shard` configuration to the key to spread writes across a fixed number of buckets:
+
+```ts
+.addIndex({
+  index: Index.GSI1,
+  PK: {
+    keys: ["postStatus"],
+    shard: { count: 4, keys: ["postId"] },
+    prefix: "#STATUS",
+  },
+  SK: { keys: ["sendAt"], prefix: "#STATUS" },
+  alias: "GSIStatusSendAt",
+});
+```
+
+On write, Faceteer CRC-32 hashes the values of the `shard.keys` fields and prepends the hex shard id to the partition key. The id width is `(count - 1).toString(16).length` characters, so `count: 4` gives `"0".."3"` and `count: 256` gives `"00".."ff"`.
+
+On read, you pass the shard number explicitly to `query(partition, shard)` (or via `options.shard` on an operator). Query every shard and merge client-side to get the full partition.
+
 ## FAQs
+
+**Why do I have to pass every key field to `get`?**
+DynamoDB identifies an item by the full `(PK, SK)` pair, and both are computed from the fields listed in `KeyConfiguration.keys`. Miss one and Faceteer can't build the composite key it needs to look the record up.
+
+**Can I change a field that participates in PK or SK after writing?**
+No. The composite key is the item's identity in DynamoDB; changing it means writing a new item and deleting the old one.
+
+**Why does my query return fewer items than `limit`?**
+Three likely reasons: you hit the 1 MB page ceiling, a `filter` removed results after the fact, or the partition just doesn't contain that many items. Check `cursor` — if it's defined there's more to read.
+
+**Can two facets share the same GSI?**
+Yes — this is called index overloading and it's a cornerstone of single-table design. Give each facet a distinct `prefix` on the index's `PK`/`SK` so your queries can target just the items you want.
+
+**Are cursors durable across deploys or library upgrades?**
+No. They're CBOR+base64 encodings of a DynamoDB `LastEvaluatedKey`. Treat them as session-local tokens; never store them somewhere a different build of your app might try to decode them.
+
+**Does Faceteer retry on throttling?**
+Only for the specific `UnprocessedItems`/`UnprocessedKeys` path inside batch writes and reads (5 retries for writes, 10 for reads, exponential backoff). Regular `ProvisionedThroughputExceededException` errors surface as rejected promises — wrap your calls with backoff if you expect sustained throttling.
+
+**Does `put` validate my record before writing?**
+Not by default; the validator runs on read. Pass `validateInput: true` to the facet constructor if you want validation to run on writes too. It has a per-call cost.
+
+**Does `delete` support conditions?**
+Only for single-item deletes: `facet.delete(record, { condition: [...] })`. `condition` passed alongside an array is silently ignored.
 
 ## Best Practices
 
-```
-
-```
+- **Know your access patterns before you design the key.** Faceteer isn't built for ad-hoc queries. Every GSI costs writes, so pick the smallest set of indexes that covers the patterns you actually have.
+- **Overload indexes with prefixes.** Two facets can share `GSI1` as long as their SK prefixes differ — that's the whole point of the `prefix` field on each `KeyConfiguration`. Differentiate by prefix, query by prefix.
+- **Prefer key conditions over `filter`.** `equals`, `beginsWith`, and `between` prune reads on the server. `filter` runs server-side too but *after* the read is billed — it shrinks the response, not the cost.
+- **Shard hot partitions.** When one PK value attracts disproportionate traffic, add a `shard: { count, keys }` config. Keep `count` small to start (2, 4, 8); every shard is an extra query on read, so more shards is not free.
+- **Use TTL for ephemeral data.** Sessions, OTPs, cache entries, and soft-delete markers all benefit. Remember AWS purges asynchronously — expired items can linger in query results for a while.
+- **Keep indexes sparse.** Faceteer only writes values of primitive / `Date` fields into composite keys, so leaving an indexed field `undefined` keeps that record out of the index entirely. Use this to make cheap "only open orders" or "only active users" indexes.
+- **Treat PK and SK as immutable.** Any field that contributes to a composite key can't change after write. Plan upfront, or plan the migration.
+- **Respect the batch limits.** 25 items per write batch, 100 per get batch, and the 1 MB response ceiling applies to every individual request. Faceteer chunks for you, but very large operations still happen serially across many round-trips.
+- **Wrap calls with retry logic for throttling.** Faceteer's internal retry only covers the "unprocessed items" path. Other throttles surface as rejected promises.
+- **Use `condition` for optimistic concurrency.** Guard creations with `['field', 'not_exists']`, guard updates with version checks, guard deletes against races. Reminder: `condition` only applies to single-item calls.
+- **Validate on read.** Schemas drift; the validator is your last line of defense before bad data reaches your business logic. Opt into `validateInput: true` only when you specifically want write-time validation.
