@@ -5,7 +5,7 @@ import { IndexKeyNameMap, PK, SK, Keys } from './keys';
 import type { QueryInput } from '@aws-sdk/client-dynamodb';
 
 export interface PartitionQueryOptions<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	GSIPK extends Keys<T>,
@@ -63,7 +63,7 @@ export interface QueryOptions<T, PK extends keyof T, SK extends keyof T> {
 }
 
 export class PartitionQuery<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	GSIPK extends Keys<T> = never,

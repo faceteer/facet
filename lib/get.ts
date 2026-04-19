@@ -7,7 +7,7 @@ import { PK, SK, Keys } from './keys';
 import { wait } from './wait';
 
 export async function getSingleItem<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 >(facet: Facet<T, PK, SK>, query: Partial<T>) {
@@ -44,7 +44,7 @@ export async function getSingleItem<
  * @param queries
  */
 export async function getBatch<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 >(facet: Facet<T, PK, SK>, queries: Partial<T>[]): Promise<T[]> {
@@ -138,7 +138,7 @@ export async function getBatch<
  * @param queries
  */
 export async function getBatchItems<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 >(facet: Facet<T, PK, SK>, queries: Partial<T>[]): Promise<T[]> {
@@ -172,7 +172,7 @@ export async function getBatchItems<
  * @returns
  */
 async function getBatchKeys<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 >(keys: KeysAndAttributes['Keys'], facet: Facet<T, PK, SK>) {

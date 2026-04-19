@@ -59,7 +59,7 @@ export interface PutSingleItemResponse<T> {
 }
 
 export async function putSingleItem<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 >(
@@ -98,7 +98,7 @@ export async function putSingleItem<
  * @param records
  */
 export async function putItems<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 >(
@@ -148,7 +148,7 @@ export async function putItems<
 }
 
 function putAdapter<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 >(facet: Facet<T, PK, SK>): BatchWriteAdapter<T, T> {

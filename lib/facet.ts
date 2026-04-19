@@ -85,16 +85,22 @@ export type ReservedAttributeName =
 	| `GSI${number}SK`;
 
 /**
- * Constraint used on `T` to forbid reserved attribute names at the
- * type level. Any field typed `never` cannot hold a value, so a model
- * that declares a reserved name fails the bound.
+ * Constraint used on `T` to forbid reserved attribute names at the type
+ * level. Mapping over `keyof T` (rather than over the reserved-name union
+ * directly) is important: a mapped type over a template-literal union
+ * produces an index signature that no concrete type structurally matches,
+ * which would reject every `T`. Mapping over `keyof T` instead marks any
+ * colliding field as `never`, so a `T` that declares a reserved name has
+ * at least one impossible field and fails the bound.
+ *
+ * Use as `T extends WithoutReservedAttributes<T>`.
  */
-export type WithoutReservedAttributes = {
-	[K in ReservedAttributeName]?: never;
+export type WithoutReservedAttributes<T> = {
+	[K in keyof T]: K extends ReservedAttributeName ? never : T[K];
 };
 
 export type FacetIndexKeys<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	GSIPK extends Keys<T>,
@@ -187,9 +193,9 @@ function assertNoReservedAttributes(model: object): void {
  * ```
  */
 export class Facet<
-	T extends WithoutReservedAttributes,
-	PK extends Keys<T> = Keys<T>,
-	SK extends Keys<T> = Keys<T>,
+	T extends WithoutReservedAttributes<T>,
+	PK extends Keys<T> = never,
+	SK extends Keys<T> = never,
 > {
 	#PK: KeyConfiguration<T, PK>;
 	#SK: KeyConfiguration<T, SK>;
@@ -498,7 +504,7 @@ export class Facet<
 }
 
 export interface AddIndexOptions<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	I extends Index,
 	GSIPK extends Keys<T>,
 	GSISK extends Keys<T>,
@@ -511,7 +517,7 @@ export interface AddIndexOptions<
 }
 
 export class FacetIndex<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T> = Keys<T>,
 	SK extends Keys<T> = Keys<T>,
 	GSIPK extends Keys<T> = Keys<T>,
@@ -569,7 +575,7 @@ export class FacetIndex<
  * Options for configuring a Faceteer Facet
  */
 export interface FacetOptions<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 > {

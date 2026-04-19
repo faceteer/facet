@@ -45,7 +45,7 @@ export interface DeleteResponse<T> {
 }
 
 export async function deleteSingleItem<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	U extends Partial<T> = Pick<T, PK | SK> & Partial<T>,
@@ -97,7 +97,7 @@ export async function deleteSingleItem<
  * @param records
  */
 export async function deleteItems<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	U extends Partial<T> = Pick<T, PK | SK> & Partial<T>,
@@ -145,7 +145,7 @@ export async function deleteItems<
 }
 
 function deleteAdapter<
-	T extends WithoutReservedAttributes,
+	T extends WithoutReservedAttributes<T>,
 	PartitionKey extends Keys<T>,
 	SortKey extends Keys<T>,
 	U extends Partial<T>,
