@@ -4,14 +4,14 @@
 	"description": "",
 	"main": "index.js",
 	"scripts": {
-		"test": "jest --runInBand --silent --coverage",
-		"test:ci": "jest --ci --runInBand --silent --coverage",
+		"test": "vitest run --coverage",
+		"test:ci": "vitest run --coverage",
 		"build:clean": "tsc -b --clean",
 		"build": "tsc -b --clean && tsc -b",
 		"prepublishOnly": "npm run build"
 	},
 	"engines": {
-		"node": ">=20.0.0"
+		"node": ">=20.19.0"
 	},
 	"keywords": [
 		"DynamoDB"
@@ -34,10 +34,10 @@
 	"homepage": "https://github.com/faceteer/facet#readme",
 	"devDependencies": {
 		"@aws-sdk/client-dynamodb": ">=3.0.0 <=3.859.0",
-		"@types/jest": "^29.0.0",
 		"@types/node": "^20.0.0",
 		"@typescript-eslint/eslint-plugin": "^6.0.0",
 		"@typescript-eslint/parser": "^6.0.0",
+		"@vitest/coverage-v8": "^4.1.4",
 		"eslint": "^8.0.0",
 		"eslint-config-google": "^0.14.0",
 		"eslint-config-prettier": "^9.0.0",
@@ -47,13 +47,10 @@
 		"eslint-plugin-n": "^16.0.0",
 		"eslint-plugin-prettier": "^5.0.0",
 		"eslint-plugin-promise": "^6.0.0",
-		"jest": "^29.0.0",
-		"jest-junit": "^12.2.0",
 		"prettier": "^3.0.0",
-		"ts-jest": "^29.0.0",
-		"ts-node": "^10.1.0",
 		"typedoc": "^0.25.0",
-		"typescript": "^5.0.0"
+		"typescript": "^5.0.0",
+		"vitest": "^4.1.4"
 	},
 	"peerDependencies": {
 		"@aws-sdk/client-dynamodb": ">=3.0.0 <=3.859.0"

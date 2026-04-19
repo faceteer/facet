@@ -20,7 +20,7 @@
     "removeComments": true,
     "declaration": true,
     "isolatedModules": true,
-    "types": ["jest", "node"]
+    "types": ["vitest/globals", "node"]
   },
   "exclude": [
     "node_modules",
@@ -28,6 +28,6 @@
     "lib/__mocks__",
     "dist",
     "./node.d.ts",
-    "jest.config.ts"
+    "vitest.config.ts"
   ]
 }
