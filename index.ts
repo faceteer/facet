@@ -6,11 +6,14 @@ export type {
 export { Facet } from './lib/facet';
 export type {
 	AddIndexOptions,
+	FacetConstructor,
 	FacetIndex,
 	FacetOptions,
 	FacetIndexKeys,
 	FacetWithIndex,
+	PickValidator,
 	Validator,
+	WithoutReservedAttributes,
 } from './lib/facet';
 export { Index } from './lib/keys';
 export type { KeyConfiguration, ShardConfiguration } from './lib/keys';

@@ -1,5 +1,5 @@
 import { DynamoDB, ResourceInUseException } from '@aws-sdk/client-dynamodb';
-import { Facet } from './facet';
+import { Facet, PickValidator } from './facet';
 import { Index } from './keys';
 import { wait } from './wait';
 
@@ -590,6 +590,251 @@ describe('Facet', () => {
 		});
 
 		expect(raw.Item?.ttl).toEqual({ N: deleteAt });
+	});
+
+	describe('Projection (select)', () => {
+		interface Product {
+			productId: string;
+			sku: string;
+			name: string;
+			price: number;
+			description?: string;
+		}
+
+		const productValidator = (input: unknown): Product => {
+			const record = input as Record<string, unknown>;
+			if (
+				typeof record.productId !== 'string' ||
+				typeof record.sku !== 'string' ||
+				typeof record.name !== 'string' ||
+				typeof record.price !== 'number'
+			) {
+				throw new Error('invalid product');
+			}
+			return record as unknown as Product;
+		};
+
+		const productPickValidator: PickValidator<Product> = (keys) => (input) => {
+			const record = input as Record<string, unknown>;
+			const picked: Record<string, unknown> = {};
+			for (const key of keys) {
+				if (key in record) {
+					picked[key as string] = record[key as string];
+				}
+			}
+			return picked as Pick<Product, (typeof keys)[number]>;
+		};
+
+		const ProjectableFacet = new Facet<Product, 'productId', 'sku'>({
+			name: 'Product',
+			validator: productValidator,
+			pickValidator: productPickValidator,
+			PK: { keys: ['productId'], prefix: 'PROD' },
+			SK: { keys: ['sku'], prefix: 'SKU' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+
+		const PlainFacet = new Facet<Product, 'productId', 'sku'>({
+			name: 'ProductPlain',
+			validator: productValidator,
+			PK: { keys: ['productId'], prefix: 'PLAIN' },
+			SK: { keys: ['sku'], prefix: 'PLAIN' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+
+		test('single get with select returns only chosen + key fields', async () => {
+			await ProjectableFacet.put({
+				productId: 'p-1',
+				sku: 's-1',
+				name: 'Widget',
+				price: 9.99,
+				description: 'A useful widget',
+			});
+
+			const projected = await ProjectableFacet.get(
+				{ productId: 'p-1', sku: 's-1' },
+				{ select: ['name'] },
+			);
+
+			expect(projected).not.toBeNull();
+			expect(projected?.productId).toBe('p-1');
+			expect(projected?.sku).toBe('s-1');
+			expect(projected?.name).toBe('Widget');
+			expect(projected).not.toHaveProperty('price');
+			expect(projected).not.toHaveProperty('description');
+			expect(projected).not.toHaveProperty('PK');
+			expect(projected).not.toHaveProperty('SK');
+			expect(projected).not.toHaveProperty('facet');
+		});
+
+		test('batch get with select returns projected records', async () => {
+			const products: Product[] = [
+				{ productId: 'p-2', sku: 's-2', name: 'A', price: 1 },
+				{ productId: 'p-3', sku: 's-3', name: 'B', price: 2 },
+			];
+			await ProjectableFacet.put(products);
+
+			const projected = await ProjectableFacet.get(
+				products.map((p) => ({ productId: p.productId, sku: p.sku })),
+				{ select: ['price'] },
+			);
+
+			expect(projected).toHaveLength(2);
+			for (const record of projected) {
+				expect(record).toHaveProperty('productId');
+				expect(record).toHaveProperty('sku');
+				expect(record).toHaveProperty('price');
+				expect(record).not.toHaveProperty('name');
+				expect(record).not.toHaveProperty('description');
+			}
+		});
+
+		test('select runs pickValidator, not the full validator', async () => {
+			let fullValidatorCalls = 0;
+			let pickValidatorCalls = 0;
+
+			const countingPickValidator: PickValidator<Product> =
+				(keys) => (input) => {
+					pickValidatorCalls += 1;
+					return productPickValidator(keys)(input);
+				};
+
+			const CountingFacet = new Facet<Product, 'productId', 'sku'>({
+				name: 'ProductPickCount',
+				validator: (input) => {
+					fullValidatorCalls += 1;
+					return productValidator(input);
+				},
+				pickValidator: countingPickValidator,
+				PK: { keys: ['productId'], prefix: 'PICKCNT' },
+				SK: { keys: ['sku'], prefix: 'PICKCNT' },
+				connection: { dynamoDb: ddb, tableName },
+			});
+
+			await CountingFacet.put({
+				productId: 'pc-1',
+				sku: 'pc-1',
+				name: 'X',
+				price: 0,
+			});
+
+			fullValidatorCalls = 0;
+			pickValidatorCalls = 0;
+
+			await CountingFacet.get(
+				{ productId: 'pc-1', sku: 'pc-1' },
+				{ select: ['name'] },
+			);
+
+			expect(pickValidatorCalls).toBe(1);
+			expect(fullValidatorCalls).toBe(0);
+		});
+
+		test('select narrows the return type', async () => {
+			await ProjectableFacet.put({
+				productId: 'type-1',
+				sku: 'type-1',
+				name: 'X',
+				price: 0,
+			});
+
+			const projected = await ProjectableFacet.get(
+				{ productId: 'type-1', sku: 'type-1' },
+				{ select: ['name'] },
+			);
+			if (!projected) throw new Error('expected record');
+
+			const _name: string = projected.name;
+			const _productId: string = projected.productId;
+			const _sku: string = projected.sku;
+			void _name;
+			void _productId;
+			void _sku;
+
+			// @ts-expect-error `price` was not selected, so it is not in the type
+			void projected.price;
+			// @ts-expect-error `description` was not selected
+			void projected.description;
+		});
+
+		test('get without select still works on a projectable facet', async () => {
+			await ProjectableFacet.put({
+				productId: 'plain-get-1',
+				sku: 'plain-get-1',
+				name: 'Y',
+				price: 1,
+			});
+
+			const full = await ProjectableFacet.get({
+				productId: 'plain-get-1',
+				sku: 'plain-get-1',
+			});
+			expect(full?.name).toBe('Y');
+			expect(full?.price).toBe(1);
+		});
+
+		test('get without select still works on a plain facet', async () => {
+			await PlainFacet.put({
+				productId: 'plain-1',
+				sku: 'plain-1',
+				name: 'Z',
+				price: 2,
+			});
+			const full = await PlainFacet.get({
+				productId: 'plain-1',
+				sku: 'plain-1',
+			});
+			expect(full?.name).toBe('Z');
+		});
+
+		test('type gate: select is unavailable on facets without pickValidator', () => {
+			void (async () => {
+				// @ts-expect-error select is gated at the type level behind pickValidator
+				await PlainFacet.get(
+					{ productId: 'x', sku: 'x' },
+					{ select: ['name'] },
+				);
+				// @ts-expect-error batch form is gated the same way
+				await PlainFacet.get([{ productId: 'x', sku: 'x' }], {
+					select: ['name'],
+				});
+			});
+		});
+
+		test('select with duplicate keys is deduped', async () => {
+			await ProjectableFacet.put({
+				productId: 'dup-1',
+				sku: 'dup-1',
+				name: 'D',
+				price: 3,
+			});
+			const projected = await ProjectableFacet.get(
+				{ productId: 'dup-1', sku: 'dup-1' },
+				{ select: ['name', 'name', 'price', 'name'] },
+			);
+			expect(projected?.name).toBe('D');
+			expect(projected?.price).toBe(3);
+		});
+
+		test('select that includes a PK/SK field does not double-project', async () => {
+			await ProjectableFacet.put({
+				productId: 'overlap-1',
+				sku: 'overlap-1',
+				name: 'O',
+				price: 4,
+			});
+			// productId is the PK and is auto-included; listing it explicitly
+			// in `select` must not produce a DDB error (duplicate placeholder)
+			// or drop other selected fields.
+			const projected = await ProjectableFacet.get(
+				{ productId: 'overlap-1', sku: 'overlap-1' },
+				{ select: ['productId', 'name'] },
+			);
+			expect(projected?.productId).toBe('overlap-1');
+			expect(projected?.sku).toBe('overlap-1');
+			expect(projected?.name).toBe('O');
+			expect(projected).not.toHaveProperty('price');
+		});
 	});
 });
 

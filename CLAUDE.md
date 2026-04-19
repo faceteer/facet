@@ -41,6 +41,10 @@ The big idea: one `Facet<T, PK, SK>` represents one logical record type in a sha
 - When touching the `in`/`out` cycle, remember that `out` must strip every synthetic key for every registered index or the validator will reject the record. Adding a new synthetic attribute means updating the strip list in `Facet.out`.
 - `addIndex` relies on `Object.assign(this, ...)` for both the index name and the alias — type safety is enforced via the generic return cast, not the runtime. Don't remove the `hasOwnProperty` check that guards against alias collisions.
 
+### Assumptions about the DynamoDB table
+
+- GSIs on the target table use `ProjectionType: ALL`. Projected reads (`select`) on an index rely on base-table attributes being present in the index. A KEYS_ONLY or INCLUDE GSI would return incomplete data for attributes it doesn't project; the library doesn't validate the table's projection type.
+
 ## Style
 
 - Tabs, single quotes, trailing commas, semicolons (see `.prettierrc` / `.eslintrc.js`). `@typescript-eslint/no-unused-vars` is `error`.

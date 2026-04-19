@@ -7,7 +7,7 @@ import {
 	DeleteResponse,
 	deleteSingleItem,
 } from './delete';
-import { getBatchItems, getSingleItem } from './get';
+import { GetOptions, getBatchItems, getSingleItem } from './get';
 import {
 	buildKey,
 	Index,
@@ -70,6 +70,88 @@ export interface AttributeMap {
  * ```
  */
 export type Validator<T> = (input: unknown) => T;
+
+/**
+ * A `PickValidator` is a factory that, given a subset of keys, returns a
+ * {@link Validator} for `Pick<T, K>`. It is used on projected reads
+ * (`select`) where only a subset of the record's attributes is returned and
+ * the full-record `Validator` would reject the shape.
+ *
+ * The factory shape mirrors how real validator libraries split work: the
+ * outer function is for deriving a sub-schema (expensive, run once per
+ * key-set); the inner function is the per-record parse (cheap, run for
+ * every row).
+ *
+ * ## Example using Zod
+ *
+ * Zod exposes `.pick()` directly, so derivation is a one-liner:
+ *
+ * ```ts
+ * import { z } from 'zod';
+ *
+ * const teamSchema = z.object({
+ *   teamId: z.string(),
+ *   teamName: z.string(),
+ *   dateCreated: z.date(),
+ *   dateDeleted: z.date().optional(),
+ * });
+ *
+ * export const teamPickValidator: PickValidator<Team> = (keys) => {
+ *   const mask: { [K in keyof Team]?: true } = {};
+ *   for (const k of keys) mask[k as keyof Team] = true;
+ *   const picked = teamSchema.pick(mask);
+ *   return (input) => picked.parse(input) as Pick<Team, (typeof keys)[number]>;
+ * };
+ * ```
+ *
+ * ## Example using AJV
+ *
+ * AJV's `compile()` is expensive, so derive a sub-schema and compile it
+ * once per key-set. The cache lives in module scope, keyed by a canonical
+ * signature of the key tuple, so the same projection only compiles once
+ * across the whole process:
+ *
+ * ```ts
+ * import Ajv, { ValidateFunction } from 'ajv';
+ *
+ * // Pre-built dictionary of per-field JSON schemas and the full required list.
+ * const teamFieldSchemas = {
+ *   teamId: { type: 'string' },
+ *   teamName: { type: 'string' },
+ *   dateCreated: { type: 'object', format: 'date-time' },
+ *   dateDeleted: { type: 'object', format: 'date-time', nullable: true },
+ * } as const;
+ * const teamRequired: Array<keyof Team> = ['teamId', 'teamName', 'dateCreated'];
+ *
+ * const ajv = new Ajv();
+ * const cache = new Map<string, ValidateFunction>();
+ *
+ * export const teamPickValidator: PickValidator<Team> = (keys) => {
+ *   const signature = [...keys].sort().join(',');
+ *   let validate = cache.get(signature);
+ *   if (!validate) {
+ *     validate = ajv.compile({
+ *       type: 'object',
+ *       additionalProperties: false,
+ *       properties: Object.fromEntries(
+ *         keys.map((k) => [k as string, teamFieldSchemas[k]]),
+ *       ),
+ *       required: (keys as readonly (keyof Team)[]).filter((k) =>
+ *         teamRequired.includes(k),
+ *       ) as string[],
+ *     });
+ *     cache.set(signature, validate);
+ *   }
+ *   return (input) => {
+ *     if (validate!(input)) return input as never;
+ *     throw new Error(ajv.errorsText(validate!.errors));
+ *   };
+ * };
+ * ```
+ */
+export type PickValidator<T> = <K extends keyof T>(
+	keys: readonly K[],
+) => Validator<Pick<T, K>>;
 
 /**
  * Attribute names that Facet writes synthetically on every record.
@@ -192,14 +274,16 @@ function assertNoReservedAttributes(model: object): void {
  *  });
  * ```
  */
-export class Facet<
+class FacetImpl<
 	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T> = never,
 	SK extends Keys<T> = never,
+	PV extends PickValidator<T> | undefined = PickValidator<T> | undefined,
 > {
 	#PK: KeyConfiguration<T, PK>;
 	#SK: KeyConfiguration<T, SK>;
 	#validator: Validator<T>;
+	#pickValidator?: PickValidator<T>;
 	#dateFormat?: ConverterOptions['dateFormat'];
 	#convertEmptyValues?: ConverterOptions['convertEmptyValues'];
 	#validateInput: boolean;
@@ -234,16 +318,18 @@ export class Facet<
 		SK,
 		connection,
 		validator,
+		pickValidator,
 		convertEmptyValues,
 		dateFormat,
 		delimiter = '_',
 		ttl,
 		validateInput = false,
-	}: FacetOptions<T, PK, SK>) {
+	}: FacetOptions<T, PK, SK, PV>) {
 		this.name = name;
 		this.#PK = PK;
 		this.#SK = SK;
 		this.#validator = validator;
+		this.#pickValidator = pickValidator;
 		this.#convertEmptyValues = convertEmptyValues;
 		this.#dateFormat = dateFormat;
 		this.delimiter = delimiter;
@@ -271,6 +357,15 @@ export class Facet<
 	 */
 	sk(model: Partial<T>, shard?: number) {
 		return buildKey(this.#SK, model, this.delimiter, shard);
+	}
+
+	/**
+	 * The T-level field names that compose this facet's partition and sort
+	 * keys. Projected reads auto-include these so callers can always round
+	 * a result back into a `get`/`delete`/`put`.
+	 */
+	get keyFields(): readonly (PK | SK)[] {
+		return [...this.#PK.keys, ...this.#SK.keys];
 	}
 
 	/**
@@ -336,6 +431,31 @@ export class Facet<
 	}
 
 	/**
+	 * Convert and validate a projected Dynamo DB record. Intended as a
+	 * library-internal helper called by the read path when `select` is set.
+	 *
+	 * The user-facing compile-time gate for "is projection available on this
+	 * facet?" lives on `Facet.get`, not here — `pick` is reached internally
+	 * with the class default `PV = PickValidator<T> | undefined`, so it
+	 * cannot carry the same `this:` constraint. The defensive throw below
+	 * is the safety net for paths that bypass the `get` gate (cross-boundary
+	 * upcasts, direct `.pick()` calls), so misuse surfaces as a descriptive
+	 * error instead of an opaque `TypeError`.
+	 */
+	pick<K extends keyof T>(
+		record: AttributeMap,
+		keys: readonly K[],
+	): Pick<T, K> {
+		if (!this.#pickValidator) {
+			throw new Error(
+				`Facet "${this.name}" has no pickValidator; projected reads require one. This call bypassed the compile-time gate on Facet.get — configure a pickValidator in the facet options.`,
+			);
+		}
+		const unmarshalled: unknown = Converter.unmarshall(record);
+		return this.#pickValidator(keys)(unmarshalled);
+	}
+
+	/**
 	 * Convert and validate a dynamo DB record
 	 */
 	out(record: AttributeMap): T {
@@ -366,19 +486,32 @@ export class Facet<
 	 * key and sort key
 	 * @param query
 	 */
+	async get<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		query: (Pick<T, PK | SK> & Partial<T>)[],
+		options: GetOptions<T, K> & { select: readonly [K, ...K[]] },
+	): Promise<Pick<T, K | PK | SK>[]>;
+	async get<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		query: Pick<T, PK | SK> & Partial<T>,
+		options: GetOptions<T, K> & { select: readonly [K, ...K[]] },
+	): Promise<Pick<T, K | PK | SK> | null>;
 	async get(query: (Pick<T, PK | SK> & Partial<T>)[]): Promise<T[]>;
 	async get(query: Pick<T, PK | SK> & Partial<T>): Promise<T | null>;
-	async get(
+	async get<K extends keyof T>(
 		query: (Pick<T, PK | SK> & Partial<T>)[] | (Pick<T, PK | SK> & Partial<T>),
-	): Promise<T[] | T | null> {
+		options: GetOptions<T, K> = {},
+	): Promise<
+		T[] | T | null | Pick<T, K | PK | SK>[] | Pick<T, K | PK | SK> | null
+	> {
 		if (!Array.isArray(query)) {
-			return getSingleItem(this, query);
+			return getSingleItem(this, query, options);
 		}
 		if (query.length === 0) {
 			return [];
 		}
 
-		return getBatchItems(this, query);
+		return getBatchItems(this, query, options);
 	}
 
 	/**
@@ -503,6 +636,48 @@ export class Facet<
 	}
 }
 
+/**
+ * `Facet<T, PK, SK, PV>` is the type of a Facet instance. `PV` is the
+ * phantom type that tracks whether a `pickValidator` was configured on
+ * the facet; projected read overloads (`get(q, { select })`) are only
+ * callable when `PV extends PickValidator<T>`.
+ */
+export type Facet<
+	T extends WithoutReservedAttributes<T>,
+	PK extends Keys<T> = never,
+	SK extends Keys<T> = never,
+	PV extends PickValidator<T> | undefined = PickValidator<T> | undefined,
+> = FacetImpl<T, PK, SK, PV>;
+
+/**
+ * The constructor-type shape for `Facet`. Overloaded so that passing a
+ * `pickValidator` narrows the instance type to `Facet<T, PK, SK, PickValidator<T>>`
+ * (unlocking projected reads), while omitting it yields
+ * `Facet<T, PK, SK, undefined>` (projection methods are compile-time gated
+ * off). Writing `new Facet({ ... })` picks the correct overload based on
+ * whether the options object contains a `pickValidator`.
+ */
+export interface FacetConstructor {
+	new <
+		T extends WithoutReservedAttributes<T>,
+		PK extends Keys<T> = never,
+		SK extends Keys<T> = never,
+	>(
+		opts: FacetOptions<T, PK, SK, PickValidator<T>> & {
+			pickValidator: PickValidator<T>;
+		},
+	): FacetImpl<T, PK, SK, PickValidator<T>>;
+	new <
+		T extends WithoutReservedAttributes<T>,
+		PK extends Keys<T> = never,
+		SK extends Keys<T> = never,
+	>(
+		opts: FacetOptions<T, PK, SK, undefined>,
+	): FacetImpl<T, PK, SK, undefined>;
+}
+
+export const Facet: FacetConstructor = FacetImpl as unknown as FacetConstructor;
+
 export interface AddIndexOptions<
 	T extends WithoutReservedAttributes<T>,
 	I extends Index,
@@ -578,6 +753,7 @@ export interface FacetOptions<
 	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
+	PV extends PickValidator<T> | undefined = PickValidator<T> | undefined,
 > {
 	/**
 	 * The name of the facet that is stored under `facet` for every record.
@@ -606,6 +782,16 @@ export interface FacetOptions<
 	 * A {@link Validator} for records in this {@link Facet}
 	 */
 	validator: Validator<T>;
+
+	/**
+	 * An optional {@link PickValidator} used on projected reads (`select`).
+	 *
+	 * If omitted, the `select` option on read methods is not available at
+	 * compile time — the facet type gates projection methods behind the
+	 * presence of this property. The gate is enforced purely via the `PV`
+	 * generic; there is no runtime check.
+	 */
+	pickValidator?: PV;
 
 	/**
 	 * The delimiter used when constructing composite keys
