@@ -31,7 +31,7 @@ The big idea: one `Facet<T, PK, SK>` represents one logical record type in a sha
 
 - **`lib/delete.ts`** / **`lib/get.ts`** — analogous single vs. batch paths, same 25-item batching pattern.
 
-- **`lib/cursor.ts`** — pagination cursors are CBOR-encoded `LastEvaluatedKey` values, then base64url. Opaque to callers.
+- **`lib/cursor.ts`** — pagination cursors encode DynamoDB's `LastEvaluatedKey` in a domain-specific binary format: `(code:u8)(len:varint)(utf8:bytes)` tuples, base64url'd. Exploits the invariants that every key value is a string and attribute names come from the fixed 42-name set (`PK`, `SK`, `GSI1PK..GSI20SK`). Opaque to callers.
 
 - **`lib/hash/crc-shard.ts`** — CRC-32 based shard id when a `KeyConfiguration.shard` is present. On write, shard id is computed from the model's shard keys; on query, the caller passes `shard` explicitly to target one group.
 
