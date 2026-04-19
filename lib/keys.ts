@@ -3,10 +3,27 @@ import { crcShard } from './hash/crc-shard';
 export type Keys<T> = T extends T ? keyof T : never;
 
 /**
+ * The `Keys<T>` whose values are primitives that serialise cleanly into
+ * a hash input — `string | number | bigint | boolean`, plus `undefined`
+ * so optional fields qualify. Used to constrain
+ * {@link ShardConfiguration.keys}: a field whose value is an object,
+ * array, or `Date` would otherwise silently contribute `[object Object]`
+ * or a timezone-dependent string to the hash input, producing a
+ * deterministic but opaque shard id.
+ */
+export type PrimitiveShardKey<T> = {
+	[K in Keys<T>]: [T[K]] extends [
+		string | number | bigint | boolean | undefined,
+	]
+		? K
+		: never;
+}[Keys<T>];
+
+/**
  * How to shard a key into multiple groups
  */
 export interface ShardConfiguration<T> {
-	keys: Keys<T>[];
+	keys: PrimitiveShardKey<T>[];
 	count: number;
 }
 

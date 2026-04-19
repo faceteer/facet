@@ -323,6 +323,94 @@ describe('Facet', () => {
 		expect(aPosts.records.length).toBe(20);
 	});
 
+	test('ShardConfiguration.keys rejects non-primitive fields', () => {
+		// Issue #44: shard.keys was typed `Keys<T>[]`, so a Date/object/array
+		// field could be named as a shard key and the hash input would
+		// silently become `[object Object]` / a timezone-dependent string.
+		// The fix narrows shard.keys to `PrimitiveShardKey<T>`.
+		interface Model {
+			id: string;
+			count: number;
+			flag: boolean;
+			big: bigint;
+			optional?: string;
+			sentAt: Date;
+			nested: { inner: string };
+			list: string[];
+			// Locks in that PrimitiveShardKey non-distributes over unions: a
+			// union that mixes a primitive and a non-primitive must be
+			// rejected as a whole, not accepted for the primitive half.
+			mixed: string | Date;
+		}
+
+		void (async () => {
+			// Primitives and optionals are accepted.
+			new Facet<Model, 'id'>({
+				name: 'M',
+				validator: (i) => i as Model,
+				PK: {
+					keys: ['id'],
+					prefix: 'M',
+					shard: { count: 4, keys: ['id', 'count', 'flag', 'big', 'optional'] },
+				},
+				SK: { keys: [], prefix: 'M' },
+				connection: { dynamoDb: ddb, tableName },
+			});
+
+			// Non-primitive shard keys are a type error.
+			new Facet<Model, 'id'>({
+				name: 'M',
+				validator: (i) => i as Model,
+				PK: {
+					keys: ['id'],
+					prefix: 'M',
+					// @ts-expect-error Date is not a primitive shard-key type
+					shard: { count: 4, keys: ['sentAt'] },
+				},
+				SK: { keys: [], prefix: 'M' },
+				connection: { dynamoDb: ddb, tableName },
+			});
+			new Facet<Model, 'id'>({
+				name: 'M',
+				validator: (i) => i as Model,
+				PK: {
+					keys: ['id'],
+					prefix: 'M',
+					// @ts-expect-error object is not a primitive shard-key type
+					shard: { count: 4, keys: ['nested'] },
+				},
+				SK: { keys: [], prefix: 'M' },
+				connection: { dynamoDb: ddb, tableName },
+			});
+			new Facet<Model, 'id'>({
+				name: 'M',
+				validator: (i) => i as Model,
+				PK: {
+					keys: ['id'],
+					prefix: 'M',
+					// @ts-expect-error array is not a primitive shard-key type
+					shard: { count: 4, keys: ['list'] },
+				},
+				SK: { keys: [], prefix: 'M' },
+				connection: { dynamoDb: ddb, tableName },
+			});
+			new Facet<Model, 'id'>({
+				name: 'M',
+				validator: (i) => i as Model,
+				PK: {
+					keys: ['id'],
+					prefix: 'M',
+					// @ts-expect-error a field typed `string | Date` is rejected as a whole
+					shard: { count: 4, keys: ['mixed'] },
+				},
+				SK: { keys: [], prefix: 'M' },
+				connection: { dynamoDb: ddb, tableName },
+			});
+		});
+
+		expect<0>(0 satisfies 0).toBe(0);
+	});
+
 	test('dead-code exports are removed from lib/keys', () => {
 		// Issue #42: IndexPrivatePropertyMap, isIndex, IndexKeyConfiguration,
 		// and IndexKeyOptions were declared but never used. Guard against
