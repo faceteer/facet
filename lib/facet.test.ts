@@ -468,8 +468,7 @@ describe('Facet', () => {
 			await PostFacet.GSIPostByTitle.query({ pageId: 'p' }).equals({
 				postTitle: 'x',
 			});
-			await PostFacet.GSIPostByTitle
-				.query({ pageId: 'p' })
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
 				// @ts-expect-error postId is not an index SK field
 				.equals({ postId: 'x' });
 
@@ -1215,11 +1214,7 @@ describe('Facet', () => {
 		test('between with select', async () => {
 			const result = await ProjectableQueryFacet.query({
 				userId: USER,
-			}).between(
-				{ rowId: 'r-001' },
-				{ rowId: 'r-002' },
-				{ select: ['body'] },
-			);
+			}).between({ rowId: 'r-001' }, { rowId: 'r-002' }, { select: ['body'] });
 
 			expect(result.records.map((r) => [r.rowId, r.body])).toEqual([
 				['r-001', 'a body'],

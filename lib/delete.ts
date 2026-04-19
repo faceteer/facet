@@ -2,10 +2,7 @@ import type { DeleteItemInput } from '@aws-sdk/client-dynamodb';
 import type { Facet, WithoutReservedAttributes } from './facet';
 import type { ConditionExpression } from '@faceteer/expression-builder';
 import { PK, SK, Keys } from './keys';
-import {
-	batchWriteWithRetry,
-	type BatchWriteAdapter,
-} from './batch-write';
+import { batchWriteWithRetry, type BatchWriteAdapter } from './batch-write';
 import { applyCondition } from './condition';
 
 export interface DeleteOptions<T> {
@@ -127,10 +124,11 @@ export async function deleteItems<
 	for (const [index, result] of batchResults.entries()) {
 		if (result.status === 'rejected') {
 			const failedBatch = batches[index];
+			const error: unknown = result.reason;
 			deleteResponse.failed.push(
 				...failedBatch.map((failedItem) => ({
 					record: failedItem,
-					error: result.reason,
+					error,
 				})),
 			);
 		} else {
@@ -172,8 +170,8 @@ function deleteAdapter<
 			if (!key) {
 				return undefined;
 			}
-			const pk = key[PK]?.S;
-			const sk = key[SK]?.S;
+			const pk = key[PK].S;
+			const sk = key[SK].S;
 			if (pk === undefined || sk === undefined) {
 				return undefined;
 			}

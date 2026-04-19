@@ -26,9 +26,7 @@ import {
 } from './put';
 import { PartitionQuery } from './query';
 
-export interface AttributeMap {
-	[key: string]: AttributeValue;
-}
+export type AttributeMap = Record<string, AttributeValue>;
 
 /**
  * A `Validator` is a function that is used by Faceteer whenever
@@ -291,7 +289,7 @@ class FacetImpl<
 	/**
 	 * Indexes that have been configured for the facet
 	 */
-	#indexes: Map<Index, FacetIndex<T, PK, SK, Keys<T>, Keys<T>, PV>> = new Map();
+	#indexes = new Map<Index, FacetIndex<T, PK, SK, Keys<T>, Keys<T>, PV>>();
 
 	/**
 	 * The delimiter used when construction partition and sort keys
@@ -453,23 +451,25 @@ class FacetImpl<
 	 * Convert and validate a dynamo DB record
 	 */
 	out(record: AttributeMap): T {
-		const recordToValidate: Record<string, unknown> =
-			Converter.unmarshall(record);
+		const recordToValidate = Converter.unmarshall(record) as Record<
+			string,
+			unknown
+		>;
 
 		/**
 		 * Delete any constructed keys from the model before
 		 * validating and returning
 		 */
-		delete recordToValidate['facet'];
-		delete recordToValidate['PK'];
-		delete recordToValidate['SK'];
+		delete recordToValidate.facet;
+		delete recordToValidate.PK;
+		delete recordToValidate.SK;
 		for (const index of this.#indexes.keys()) {
 			const indexKeyNames = IndexKeyNameMap[index];
-			delete recordToValidate[indexKeyNames.PK];
-			delete recordToValidate[indexKeyNames.SK];
+			Reflect.deleteProperty(recordToValidate, indexKeyNames.PK);
+			Reflect.deleteProperty(recordToValidate, indexKeyNames.SK);
 		}
 		if (this.ttl) {
-			delete recordToValidate['ttl'];
+			delete recordToValidate.ttl;
 		}
 
 		return this.#validator(recordToValidate);
@@ -580,9 +580,7 @@ class FacetImpl<
 	async get<K extends keyof T>(
 		query: (Pick<T, PK | SK> & Partial<T>)[] | (Pick<T, PK | SK> & Partial<T>),
 		options: GetOptions<T, K> = {},
-	): Promise<
-		T[] | T | null | Pick<T, K | PK | SK>[] | Pick<T, K | PK | SK> | null
-	> {
+	): Promise<T[] | T | null | Pick<T, K | PK | SK>[] | Pick<T, K | PK | SK>> {
 		if (!Array.isArray(query)) {
 			return getSingleItem(this, query, options);
 		}
@@ -903,7 +901,7 @@ export interface FacetConstructor {
 
 // `Facet` is deliberately both a type alias (above) and a value (the typed
 // constructor); TS merges them across the type and value namespaces.
-// eslint-disable-next-line no-redeclare
+
 export const Facet: FacetConstructor = FacetImpl as unknown as FacetConstructor;
 
 export interface AddIndexOptions<

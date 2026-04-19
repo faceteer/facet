@@ -166,7 +166,9 @@ export class PartitionQuery<
 	async #execute<K extends keyof T>(
 		queryInput: QueryInput,
 		options: QueryOptions<T, PK, SK, K>,
-	): Promise<QueryResult<T> | QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>> {
+	): Promise<
+		QueryResult<T> | QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>
+	> {
 		const { dynamoDb } = this.#facet.connection;
 		const { cursor, filter, select } = options;
 
@@ -174,12 +176,18 @@ export class PartitionQuery<
 			queryInput.ExclusiveStartKey = decodeCursor(cursor);
 		}
 
+		queryInput.ExpressionAttributeNames ??= {};
+		queryInput.ExpressionAttributeValues ??= {};
+
 		if (filter) {
 			const filterExpression = buildFilterExpression(filter);
 			queryInput.FilterExpression = filterExpression.expression;
-			Object.assign(queryInput.ExpressionAttributeNames!, filterExpression.names);
 			Object.assign(
-				queryInput.ExpressionAttributeValues!,
+				queryInput.ExpressionAttributeNames,
+				filterExpression.names,
+			);
+			Object.assign(
+				queryInput.ExpressionAttributeValues,
 				filterExpression.values,
 			);
 		}
@@ -194,7 +202,7 @@ export class PartitionQuery<
 		if (projectedKeys) {
 			const projection = buildProjectionExpression(projectedKeys);
 			queryInput.ProjectionExpression = projection.expression;
-			Object.assign(queryInput.ExpressionAttributeNames!, projection.names);
+			Object.assign(queryInput.ExpressionAttributeNames, projection.names);
 		}
 
 		const results = await dynamoDb.query(queryInput);
@@ -257,9 +265,7 @@ export class PartitionQuery<
 	 */
 	#resolveSortKey(sort: Partial<T> | string, shard?: number): string {
 		if (typeof sort === 'string') return sort;
-		return this.#index
-			? this.#index.sk(sort)
-			: this.#facet.sk(sort, shard);
+		return this.#index ? this.#index.sk(sort) : this.#facet.sk(sort, shard);
 	}
 
 	/**
@@ -556,8 +562,7 @@ export class PartitionQuery<
 			{},
 			{ filter, limit: 1, scanForward, shard, select },
 		);
-		const [firstRecord] = listResults.records;
-		return firstRecord ?? null;
+		return listResults.records.at(0) ?? null;
 	}
 
 	/**
@@ -655,10 +660,6 @@ export class PartitionQuery<
 		end: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> = {},
 	) {
-		return this.#betweenExec(
-			start as Partial<T>,
-			end as Partial<T>,
-			options,
-		);
+		return this.#betweenExec(start as Partial<T>, end as Partial<T>, options);
 	}
 }

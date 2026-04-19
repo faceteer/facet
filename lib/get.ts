@@ -43,10 +43,11 @@ export async function getSingleItem<
 	};
 
 	const projectedKeys = options.select
-		? ([
-				...options.select,
-				...facet.keyFields,
-			] as readonly (K | PartitionKey | SortKey)[])
+		? ([...options.select, ...facet.keyFields] as readonly (
+				| K
+				| PartitionKey
+				| SortKey
+			)[])
 		: undefined;
 
 	if (projectedKeys) {
@@ -87,16 +88,18 @@ export async function getBatch<
 	const items: (T | Pick<T, K | PartitionKey | SortKey>)[] = [];
 
 	const projectedKeys = options.select
-		? ([
-				...options.select,
-				...facet.keyFields,
-			] as readonly (K | PartitionKey | SortKey)[])
+		? ([...options.select, ...facet.keyFields] as readonly (
+				| K
+				| PartitionKey
+				| SortKey
+			)[])
 		: undefined;
 
 	const gatherItems = (batchResponse?: BatchGetItemOutput['Responses']) => {
-		if (batchResponse && batchResponse[facet.connection.tableName]) {
+		if (batchResponse?.[facet.connection.tableName]) {
 			const itemsFromResponse = batchResponse[facet.connection.tableName].map(
-				(item) => (projectedKeys ? facet.pick(item, projectedKeys) : facet.out(item)),
+				(item) =>
+					projectedKeys ? facet.pick(item, projectedKeys) : facet.out(item),
 			);
 			items.push(...itemsFromResponse);
 		}
@@ -118,7 +121,7 @@ export async function getBatch<
 	gatherItems(Responses);
 
 	let attempts = 0;
-	if (UnprocessedKeys && UnprocessedKeys[facet.connection.tableName]) {
+	if (UnprocessedKeys?.[facet.connection.tableName]) {
 		const unprocessed = [
 			...(UnprocessedKeys[facet.connection.tableName].Keys ?? []),
 		];
@@ -133,7 +136,7 @@ export async function getBatch<
 
 			gatherItems(RetriedResponses);
 
-			if (StillUnprocessed && StillUnprocessed[facet.connection.tableName]) {
+			if (StillUnprocessed?.[facet.connection.tableName]) {
 				unprocessed.push(
 					...(StillUnprocessed[facet.connection.tableName].Keys ?? []),
 				);

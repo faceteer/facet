@@ -1,5 +1,8 @@
 import type { AttributeValue } from '@aws-sdk/client-dynamodb';
-import { condition, type ConditionExpression } from '@faceteer/expression-builder';
+import {
+	condition,
+	type ConditionExpression,
+} from '@faceteer/expression-builder';
 
 /**
  * Subset of PutItemInput / DeleteItemInput that holds an optional

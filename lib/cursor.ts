@@ -29,9 +29,7 @@ for (let n = 1; n <= 20; n++) {
 	codeToName[2 * n + 1] = `GSI${n}SK`;
 }
 
-export function encodeCursor(lastKey: {
-	[key: string]: AttributeValue;
-}): string {
+export function encodeCursor(lastKey: Record<string, AttributeValue>): string {
 	const chunks: Buffer[] = [];
 	for (const [name, value] of Object.entries(lastKey)) {
 		const code = nameToCode.get(name);
@@ -53,9 +51,7 @@ export function encodeCursor(lastKey: {
 	return Buffer.concat(chunks).toString('base64url');
 }
 
-export function decodeCursor(cursor?: string): {
-	[key: string]: AttributeValue;
-} {
+export function decodeCursor(cursor?: string): Record<string, AttributeValue> {
 	if (!cursor) {
 		return {};
 	}
@@ -63,7 +59,7 @@ export function decodeCursor(cursor?: string): {
 	if (buf.length === 0) {
 		throw new Error('decodeCursor: cursor decoded to an empty buffer');
 	}
-	const result: { [key: string]: AttributeValue } = {};
+	const result: Record<string, AttributeValue> = {};
 	let i = 0;
 	while (i < buf.length) {
 		const code = buf[i++];

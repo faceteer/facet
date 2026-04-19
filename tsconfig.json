@@ -1,24 +1,19 @@
 {
-  "compilerOptions": {
-    "lib": ["ES2022"],
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "types": ["node", "vitest/globals"]
-  },
-  "include": [
-    "index.ts",
-    "lib/**/*.ts",
-    "_scratch/**/*.ts",
-    "vitest.config.ts"
-  ]
+	"compilerOptions": {
+		"lib": ["ES2022"],
+		"target": "ES2022",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noFallthroughCasesInSwitch": true,
+		"skipLibCheck": true,
+		"resolveJsonModule": true,
+		"esModuleInterop": true,
+		"isolatedModules": true,
+		"noEmit": true,
+		"types": ["node", "vitest/globals"]
+	},
+	"include": ["index.ts", "lib/**/*.ts", "_scratch/**/*.ts", "vitest.config.ts"]
 }

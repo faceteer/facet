@@ -58,7 +58,7 @@ export enum Index {
 export const PK = 'PK';
 export const SK = 'SK';
 
-export const IndexSet: Set<Index> = new Set([
+export const IndexSet = new Set<Index>([
 	Index.GSI1,
 	Index.GSI2,
 	Index.GSI3,

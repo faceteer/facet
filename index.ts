@@ -7,13 +7,7 @@
 // --- Values ---
 export { Facet } from './lib/facet';
 export { FacetIndex } from './lib/facet';
-export {
-	buildKey,
-	Index,
-	IndexKeyNameMap,
-	PK,
-	SK,
-} from './lib/keys';
+export { buildKey, Index, IndexKeyNameMap, PK, SK } from './lib/keys';
 export { PartitionQuery } from './lib/query';
 
 // --- Types ---

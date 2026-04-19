@@ -15,7 +15,8 @@ Node >= 20. The package publishes the compiled output next to the source (`lib/*
 - `npm run typecheck` — `tsc --noEmit`. Uses the default `tsconfig.json`, which covers the whole tree (lib + tests + scratch) with `vitest/globals` in `types`. `tsconfig.build.json` is a separate config used only by `npm run build`; it excludes tests and emits declarations.
 - `npm test` — `vitest run --coverage`. Tests are integration tests that hit DynamoDB Local on `localhost:8000`, so start it first: `docker compose up -d` (see `docker-compose.yml`). Tests create a `TEST` table and reset it if it already exists.
 - Run one test file: `npx vitest run lib/facet.test.ts`. Single test case: `npx vitest run -t 'Get Pages'`.
-- CI (`.github/workflows/test.yml`) runs builds and tests on Node 20/22/24 against a DynamoDB Local service container and uses dummy AWS creds (`AWS_ACCESS_KEY_ID=test`, etc.).
+- `npm run lint` — `eslint .` using flat config in `eslint.config.mjs`. `npm run format` writes Prettier changes; `npm run format:check` verifies without writing (used in CI).
+- CI (`.github/workflows/test.yml`) runs lint, format:check, build, typecheck, and tests on Node 20/22/24 against a DynamoDB Local service container and uses dummy AWS creds (`AWS_ACCESS_KEY_ID=test`, etc.).
 
 ## Architecture
 
@@ -47,5 +48,6 @@ The big idea: one `Facet<T, PK, SK>` represents one logical record type in a sha
 
 ## Style
 
-- Tabs, single quotes, trailing commas, semicolons (see `.prettierrc` / `.eslintrc.js`). `@typescript-eslint/no-unused-vars` is `error`.
+- Tabs, single quotes, trailing commas, semicolons (see `.prettierrc`). Prettier is the single source of truth for formatting — ESLint's `eslint-config-prettier` disables any formatting rules that would conflict.
+- ESLint config is flat (`eslint.config.mjs`) and layers `@eslint/js` recommended, `typescript-eslint` strict-type-checked + stylistic-type-checked, `eslint-plugin-import-x` (only `no-cycle` and `no-extraneous-dependencies` enabled), and `eslint-config-prettier` last. Test files (`**/*.test.ts`) override `require-await`, `no-misused-promises` off and allow `_`-prefixed unused vars.
 - Strict TypeScript (`strict: true`, `noUnusedLocals`, `noUnusedParameters`).

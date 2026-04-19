@@ -1,0 +1,15 @@
+node_modules
+coverage
+docs
+_scratch
+
+# built output (sits next to source in this repo)
+lib/**/*.js
+lib/**/*.d.ts
+index.js
+index.d.ts
+
+# build/coverage artifacts
+*.tsbuildinfo
+junit.xml
+package-lock.json

@@ -3,10 +3,7 @@ import type { Facet, WithoutReservedAttributes } from './facet';
 import type { Keys } from './keys';
 import { Converter } from '@faceteer/converter';
 import type { ConditionExpression } from '@faceteer/expression-builder';
-import {
-	batchWriteWithRetry,
-	type BatchWriteAdapter,
-} from './batch-write';
+import { batchWriteWithRetry, type BatchWriteAdapter } from './batch-write';
 import { applyCondition } from './condition';
 
 export interface PutOptions<T> {
@@ -101,10 +98,7 @@ export async function putItems<
 	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
->(
-	facet: Facet<T, PK, SK>,
-	records: T[],
-): Promise<PutResponse<T>> {
+>(facet: Facet<T, PK, SK>, records: T[]): Promise<PutResponse<T>> {
 	const recordsToBatch: T[] = [...records];
 	const putResponse: PutResponse<T> = {
 		failed: [],
@@ -130,10 +124,11 @@ export async function putItems<
 	for (const [index, result] of batchResults.entries()) {
 		if (result.status === 'rejected') {
 			const failedBatch = batches[index];
+			const error: unknown = result.reason;
 			putResponse.failed.push(
 				...failedBatch.map((failedItem) => ({
 					record: failedItem,
-					error: result.reason,
+					error,
 				})),
 			);
 		} else {
@@ -165,7 +160,10 @@ function putAdapter<
 			if (!request.PutRequest?.Item) {
 				return undefined;
 			}
-			const item = Converter.unmarshall(request.PutRequest.Item);
+			const item = Converter.unmarshall(request.PutRequest.Item) as Record<
+				string,
+				unknown
+			>;
 			if (typeof item.PK !== 'string' || typeof item.SK !== 'string') {
 				return undefined;
 			}

@@ -52,28 +52,28 @@ Here are the types we will use for our application:
 
 ```ts
 export interface Team {
-  teamId: string;
-  teamName: string;
-  dateCreated: Date;
-  dateDeleted?: Date;
+	teamId: string;
+	teamName: string;
+	dateCreated: Date;
+	dateDeleted?: Date;
 }
 
 export interface User {
-  userId: string;
-  teamId: string;
-  email: string;
-  password: string;
-  dateCreated: Date;
-  dateDeleted?: Date;
+	userId: string;
+	teamId: string;
+	email: string;
+	password: string;
+	dateCreated: Date;
+	dateDeleted?: Date;
 }
 
 export interface Task {
-  taskId: string;
-  teamId: string;
-  assignedUserId?: string;
-  dateCreated: Date;
-  dateDue: Date;
-  status: "open" | "completed" | "deleted";
+	taskId: string;
+	teamId: string;
+	assignedUserId?: string;
+	dateCreated: Date;
+	dateDue: Date;
+	status: 'open' | 'completed' | 'deleted';
 }
 ```
 
@@ -124,65 +124,65 @@ Let's create our facets! Since all of our application logic is isolated by team,
 Every facet needs a unique `name`. It's written to each record under the `facet` attribute, which lets you distinguish item types when several facets share a single table.
 
 ```ts
-import { Facet } from "@faceteer/facet";
-import { teamValidator, userValidator, taskValidator } from "./models";
-import { DynamoDB } from "@aws-sdk/client-dynamodb";
+import { Facet } from '@faceteer/facet';
+import { teamValidator, userValidator, taskValidator } from './models';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
 
 const dynamoDbClient = new DynamoDB({});
-const dynamoDbTableName = "ExampleTableName";
+const dynamoDbTableName = 'ExampleTableName';
 
 // Facet containing our teams
 const TeamFacet = new Facet({
-  name: "TEAM",
-  PK: {
-    keys: ["teamId"],
-    prefix: "#TEAM",
-  },
-  SK: {
-    keys: ["teamId"],
-    prefix: "#TEAM",
-  },
-  connection: {
-    dynamoDb: dynamoDbClient,
-    tableName: dynamoDbTableName,
-  },
-  validator: teamValidator,
+	name: 'TEAM',
+	PK: {
+		keys: ['teamId'],
+		prefix: '#TEAM',
+	},
+	SK: {
+		keys: ['teamId'],
+		prefix: '#TEAM',
+	},
+	connection: {
+		dynamoDb: dynamoDbClient,
+		tableName: dynamoDbTableName,
+	},
+	validator: teamValidator,
 });
 
 // Facet containing our users
 const UserFacet = new Facet({
-  name: "USER",
-  PK: {
-    keys: ["teamId"],
-    prefix: "#TEAM",
-  },
-  SK: {
-    keys: ["userId"],
-    prefix: "#USER",
-  },
-  connection: {
-    dynamoDb: dynamoDbClient,
-    tableName: dynamoDbTableName,
-  },
-  validator: userValidator,
+	name: 'USER',
+	PK: {
+		keys: ['teamId'],
+		prefix: '#TEAM',
+	},
+	SK: {
+		keys: ['userId'],
+		prefix: '#USER',
+	},
+	connection: {
+		dynamoDb: dynamoDbClient,
+		tableName: dynamoDbTableName,
+	},
+	validator: userValidator,
 });
 
 // Facet containing our tasks
 const TaskFacet = new Facet({
-  name: "TASK",
-  PK: {
-    keys: ["teamId"],
-    prefix: "#TEAM",
-  },
-  SK: {
-    keys: ["taskId"],
-    prefix: "#TASK",
-  },
-  connection: {
-    dynamoDb: dynamoDbClient,
-    tableName: dynamoDbTableName,
-  },
-  validator: taskValidator,
+	name: 'TASK',
+	PK: {
+		keys: ['teamId'],
+		prefix: '#TEAM',
+	},
+	SK: {
+		keys: ['taskId'],
+		prefix: '#TASK',
+	},
+	connection: {
+		dynamoDb: dynamoDbClient,
+		tableName: dynamoDbTableName,
+	},
+	validator: taskValidator,
 });
 ```
 
@@ -191,26 +191,26 @@ const TaskFacet = new Facet({
 Now we can insert a team into our table.
 
 ```ts
-import { nanoid } from "nanoid";
-import { TeamFacet } from "./facets";
-import type { Team } from "./models";
+import { nanoid } from 'nanoid';
+import { TeamFacet } from './facets';
+import type { Team } from './models';
 
 const team: Team = {
-  teamId: nanoid(),
-  teamName: "Penguin Popsicles",
-  dateCreated: new Date(),
+	teamId: nanoid(),
+	teamName: 'Penguin Popsicles',
+	dateCreated: new Date(),
 };
 
 const putResult = await TeamFacet.put(team);
 
 if (putResult.wasSuccessful) {
-  // `record` will contain the record that was
-  // put into the database
-  return putResult.record;
+	// `record` will contain the record that was
+	// put into the database
+	return putResult.record;
 } else {
-  // If there is an issue putting the record into
-  // the database the error will be attached to `error`
-  throw putResult.error;
+	// If there is an issue putting the record into
+	// the database the error will be attached to `error`
+	throw putResult.error;
 }
 ```
 
@@ -219,29 +219,29 @@ We can also put several records at once. Faceteer chunks array puts into DynamoD
 Let's make a function to create multiple users.
 
 ```ts
-import { nanoid } from "nanoid";
-import { UserFacet } from "./facets";
-import type { User } from "./models";
+import { nanoid } from 'nanoid';
+import { UserFacet } from './facets';
+import type { User } from './models';
 
-export async function createNewUsers(usersToCreate: Omit<User, "userId">[]) {
-  // Generate new unique IDs for users
-  const users: User[] = usersToCreate.map((userToCreate) => ({
-    userId: nanoid(),
-    ...userToCreate,
-  }));
+export async function createNewUsers(usersToCreate: Omit<User, 'userId'>[]) {
+	// Generate new unique IDs for users
+	const users: User[] = usersToCreate.map((userToCreate) => ({
+		userId: nanoid(),
+		...userToCreate,
+	}));
 
-  // Save the new users to Dynamo DB
-  const putResult = await UserFacet.put(users);
+	// Save the new users to Dynamo DB
+	const putResult = await UserFacet.put(users);
 
-  // Check to see if any of the put requests failed
-  if (putResult.hasFailures) {
-    for (const putFailure of putResult.failed) {
-      handleFailure(putFailure);
-    }
-  }
+	// Check to see if any of the put requests failed
+	if (putResult.hasFailures) {
+		for (const putFailure of putResult.failed) {
+			handleFailure(putFailure);
+		}
+	}
 
-  // Return the users that were successfully created
-  return putResult.put;
+	// Return the users that were successfully created
+	return putResult.put;
 }
 ```
 
@@ -252,7 +252,7 @@ Pass a `condition` with a single-item `put` to guard against writes that would c
 ```ts
 // Only create the user if one with this partition/sort key doesn't already exist
 const result = await UserFacet.put(user, {
-  condition: ["userId", "not_exists"],
+	condition: ['userId', 'not_exists'],
 });
 ```
 
@@ -265,21 +265,21 @@ Getting records from a Facet requires any properties that are used in the partit
 This is because Dynamo DB uniquely identifies records in a table by the combination of both keys.
 
 ```ts
-import { UserFacet } from "./facets";
-import type { User } from "./models";
+import { UserFacet } from './facets';
+import type { User } from './models';
 
 export async function getUser(teamId: string, userId: string) {
-  // Since `teamId` and `userId` are used by the UserFacet to
-  // create the partition and sort keys, both must be provided
-  // to get the user record
-  const user = await UserFacet.get({ teamId, userId });
+	// Since `teamId` and `userId` are used by the UserFacet to
+	// create the partition and sort keys, both must be provided
+	// to get the user record
+	const user = await UserFacet.get({ teamId, userId });
 
-  // If there is no record matching the combined partition and sort
-  // keys faceteer will return null
-  if (!user) {
-    throw new Error("User not found");
-  }
-  return user;
+	// If there is no record matching the combined partition and sort
+	// keys faceteer will return null
+	if (!user) {
+		throw new Error('User not found');
+	}
+	return user;
 }
 ```
 
@@ -289,9 +289,9 @@ You can also pass an array of identifiers to fetch many records in one call. Fac
 
 ```ts
 const users = await UserFacet.get([
-  { teamId, userId: "a" },
-  { teamId, userId: "b" },
-  { teamId, userId: "c" },
+	{ teamId, userId: 'a' },
+	{ teamId, userId: 'b' },
+	{ teamId, userId: 'c' },
 ]);
 ```
 
@@ -302,27 +302,27 @@ Querying for records happens in two parts.
 First you must specify which partition you want to query.
 
 ```ts
-import { UserFacet } from "./facets";
+import { UserFacet } from './facets';
 
 export async function getUsersForTeam(teamId: string) {
-  const partition = UserFacet.query({ teamId });
+	const partition = UserFacet.query({ teamId });
 }
 ```
 
 Then you specify the query operation you want to run against that partition.
 
 ```ts
-import { UserFacet } from "./facets";
+import { UserFacet } from './facets';
 
 export async function getUsersForTeam(teamId: string) {
-  // You can store a partition in a variable to re-use it
-  const teamPartition = UserFacet.query({ teamId });
-  const { records, cursor } = await teamPartition.list();
+	// You can store a partition in a variable to re-use it
+	const teamPartition = UserFacet.query({ teamId });
+	const { records, cursor } = await teamPartition.list();
 
-  // Or you can call an operation on a partition directly
-  const { records, cursor } = await UserFacet.query({ teamId }).list();
+	// Or you can call an operation on a partition directly
+	const { records, cursor } = await UserFacet.query({ teamId }).list();
 
-  return { users: records, cursor };
+	return { users: records, cursor };
 }
 ```
 
@@ -341,7 +341,6 @@ You can query in the following ways:
 - `beginsWith(key)`
   - Returns records with sort keys that begin with the specified sort key.
 - `between(startKey, endKey)`
-
   - Returns records with sort keys that are greater than or equal to the start key, and are less than or equal to the end key.
 
 - `list()`
@@ -356,8 +355,8 @@ Every query operator accepts a shared `options` argument where you can pass a `f
 ```ts
 // Everything in the partition except failed tasks
 const { records, cursor } = await TaskFacet.query({ teamId }).list({
-  filter: ["status", "<>", "failed"],
-  limit: 50,
+	filter: ['status', '<>', 'failed'],
+	limit: 50,
 });
 ```
 
@@ -425,20 +424,20 @@ Here is our facet:
 
 ```ts
 export const TaskFacet = new Facet({
-  name: "TASK",
-  PK: {
-    keys: ["teamId"],
-    prefix: "#TEAM",
-  },
-  SK: {
-    keys: ["taskId"],
-    prefix: "#TASK",
-  },
-  connection: {
-    dynamoDb: dynamoDbClient,
-    tableName: dynamoDbTableName,
-  },
-  validator: taskValidator,
+	name: 'TASK',
+	PK: {
+		keys: ['teamId'],
+		prefix: '#TEAM',
+	},
+	SK: {
+		keys: ['taskId'],
+		prefix: '#TASK',
+	},
+	connection: {
+		dynamoDb: dynamoDbClient,
+		tableName: dynamoDbTableName,
+	},
+	validator: taskValidator,
 });
 ```
 
@@ -454,34 +453,34 @@ First we can use the trick with sequential time ids to allow have the task id so
 To get tasks by team ordered by due date we'll have to configure a GSI using the `addIndex()` command.
 
 ```ts
-import { Facet, Index } from "@faceteer/facet";
+import { Facet, Index } from '@faceteer/facet';
 
 export const TaskFacet = new Facet({
-  name: "TASK",
-  PK: {
-    keys: ["teamId"],
-    prefix: "#TEAM",
-  },
-  SK: {
-    keys: ["taskId"],
-    prefix: "#TASK",
-  },
-  connection: {
-    dynamoDb: dynamoDbClient,
-    tableName: dynamoDbTableName,
-  },
-  validator: taskValidator,
+	name: 'TASK',
+	PK: {
+		keys: ['teamId'],
+		prefix: '#TEAM',
+	},
+	SK: {
+		keys: ['taskId'],
+		prefix: '#TASK',
+	},
+	connection: {
+		dynamoDb: dynamoDbClient,
+		tableName: dynamoDbTableName,
+	},
+	validator: taskValidator,
 }).addIndex({
-  index: Index.GSI1,
-  PK: {
-    keys: ["teamId"],
-    prefix: "#TEAM",
-  },
-  SK: {
-    keys: ["dateDue"],
-    prefix: "#TASK_DUE",
-  },
-  alias: "GSITeamDueDate",
+	index: Index.GSI1,
+	PK: {
+		keys: ['teamId'],
+		prefix: '#TEAM',
+	},
+	SK: {
+		keys: ['dateDue'],
+		prefix: '#TASK_DUE',
+	},
+	alias: 'GSITeamDueDate',
 });
 ```
 
@@ -489,11 +488,11 @@ Now we can use `GSI1` to query for our tasks ordered by their due date!
 
 ```ts
 export async function getTeamTasks(teamId: string) {
-  const queryResult = await TaskFacet.GSI1.query({ teamId }).list();
-  return {
-    tasks: queryResult.records,
-    cursor: queryResult.cursor,
-  };
+	const queryResult = await TaskFacet.GSI1.query({ teamId }).list();
+	return {
+		tasks: queryResult.records,
+		cursor: queryResult.cursor,
+	};
 }
 ```
 
@@ -501,14 +500,14 @@ Or we can get any tasks that are past due.
 
 ```ts
 export async function getPastDueTasks(teamId: string) {
-  const today = new Date();
-  const queryResult = await TaskFacet.GSI1.query({ teamId }).lessThan({
-    dateDue: today,
-  });
-  return {
-    tasks: queryResult.records,
-    cursor: queryResult.cursor,
-  };
+	const today = new Date();
+	const queryResult = await TaskFacet.GSI1.query({ teamId }).lessThan({
+		dateDue: today,
+	});
+	return {
+		tasks: queryResult.records,
+		cursor: queryResult.cursor,
+	};
 }
 ```
 
@@ -539,60 +538,60 @@ This enables another required access pattern.
 For the last two we'll need two more indexes.
 
 ```ts
-import { Facet, Index } from "@faceteer/facet";
+import { Facet, Index } from '@faceteer/facet';
 
 export const TaskFacet = new Facet({
-  name: "TASK",
-  PK: {
-    keys: ["teamId"],
-    prefix: "#TEAM",
-  },
-  SK: {
-    keys: ["taskId"],
-    prefix: "#TASK",
-  },
-  connection: {
-    dynamoDb: dynamoDbClient,
-    tableName: dynamoDbTableName,
-  },
-  validator: taskValidator,
+	name: 'TASK',
+	PK: {
+		keys: ['teamId'],
+		prefix: '#TEAM',
+	},
+	SK: {
+		keys: ['taskId'],
+		prefix: '#TASK',
+	},
+	connection: {
+		dynamoDb: dynamoDbClient,
+		tableName: dynamoDbTableName,
+	},
+	validator: taskValidator,
 })
-  .addIndex({
-    index: Index.GSI1,
-    PK: {
-      keys: ["teamId"],
-      prefix: "#TEAM",
-    },
-    SK: {
-      keys: ["dateDue"],
-      prefix: "#TASK_DUE",
-    },
-    alias: "GSITeamDueDate",
-  })
-  .addIndex({
-    index: Index.GSI2,
-    PK: {
-      keys: ["assignedUserId", "status"],
-      prefix: "#USER_STATUS",
-    },
-    SK: {
-      keys: ["dateCreated"],
-      prefix: "#TASK_CREATED",
-    },
-    alias: "GSIUserStatusCreated",
-  })
-  .addIndex({
-    index: Index.GSI3,
-    PK: {
-      keys: ["assignedUserId", "status"],
-      prefix: "#USER_STATUS",
-    },
-    SK: {
-      keys: ["dateDue"],
-      prefix: "#TASK_DUE",
-    },
-    alias: "GSIUserStatusDue",
-  });
+	.addIndex({
+		index: Index.GSI1,
+		PK: {
+			keys: ['teamId'],
+			prefix: '#TEAM',
+		},
+		SK: {
+			keys: ['dateDue'],
+			prefix: '#TASK_DUE',
+		},
+		alias: 'GSITeamDueDate',
+	})
+	.addIndex({
+		index: Index.GSI2,
+		PK: {
+			keys: ['assignedUserId', 'status'],
+			prefix: '#USER_STATUS',
+		},
+		SK: {
+			keys: ['dateCreated'],
+			prefix: '#TASK_CREATED',
+		},
+		alias: 'GSIUserStatusCreated',
+	})
+	.addIndex({
+		index: Index.GSI3,
+		PK: {
+			keys: ['assignedUserId', 'status'],
+			prefix: '#USER_STATUS',
+		},
+		SK: {
+			keys: ['dateDue'],
+			prefix: '#TASK_DUE',
+		},
+		alias: 'GSIUserStatusDue',
+	});
 ```
 
 Faceteer supports up to twenty indexes (`Index.GSI1` through `Index.GSI20`), matching DynamoDB's own per-table GSI limit. The fixed attribute names (`GSI1PK`/`GSI1SK`, `GSI2PK`/`GSI2SK`, ...) must be declared on your table's schema for any index you actually use.
@@ -609,13 +608,13 @@ Every read returns a record with every attribute DynamoDB stored. When you only 
 Projected reads require a `pickValidator` on the facet. The full `validator` would reject a record with missing fields by design, so projection needs a factory that produces a sub-validator for any chosen subset of keys.
 
 ```ts
-import { PickValidator } from "@faceteer/facet";
+import { PickValidator } from '@faceteer/facet';
 
 export const teamPickValidator: PickValidator<Team> = (keys) => {
-  const mask: { [K in keyof Team]?: true } = {};
-  for (const k of keys) mask[k as keyof Team] = true;
-  const picked = teamSchema.pick(mask);
-  return (input) => picked.parse(input) as Pick<Team, (typeof keys)[number]>;
+	const mask: { [K in keyof Team]?: true } = {};
+	for (const k of keys) mask[k as keyof Team] = true;
+	const picked = teamSchema.pick(mask);
+	return (input) => picked.parse(input) as Pick<Team, (typeof keys)[number]>;
 };
 ```
 
@@ -625,12 +624,12 @@ Configure the facet with both validators:
 
 ```ts
 const TeamFacet = new Facet({
-  name: "TEAM",
-  validator: teamValidator,
-  pickValidator: teamPickValidator,
-  PK: { keys: ["teamId"], prefix: "#TEAM" },
-  SK: { keys: ["teamId"], prefix: "#TEAM" },
-  connection: { dynamoDb: dynamoDbClient, tableName: dynamoDbTableName },
+	name: 'TEAM',
+	validator: teamValidator,
+	pickValidator: teamPickValidator,
+	PK: { keys: ['teamId'], prefix: '#TEAM' },
+	SK: { keys: ['teamId'], prefix: '#TEAM' },
+	connection: { dynamoDb: dynamoDbClient, tableName: dynamoDbTableName },
 });
 ```
 
@@ -641,7 +640,7 @@ const TeamFacet = new Facet({
 const team = await TeamFacet.get({ teamId });
 
 // Projected: only the chosen fields plus the facet's PK/SK fields.
-const slim = await TeamFacet.get({ teamId }, { select: ["teamName"] });
+const slim = await TeamFacet.get({ teamId }, { select: ['teamName'] });
 // slim: { teamId: string; teamName: string } | null
 ```
 
@@ -649,8 +648,8 @@ PK and SK fields are always included in the result even if omitted from `select`
 
 ```ts
 const slim = await TeamFacet.get(
-  teamIds.map((teamId) => ({ teamId })),
-  { select: ["teamName"] },
+	teamIds.map((teamId) => ({ teamId })),
+	{ select: ['teamName'] },
 );
 ```
 
@@ -659,17 +658,15 @@ const slim = await TeamFacet.get(
 Every `PartitionQuery` operator accepts `select` and narrows the return type the same way.
 
 ```ts
-await TeamFacet.query({ teamId }).list({ select: ["teamName"] });
+await TeamFacet.query({ teamId }).list({ select: ['teamName'] });
 
-await TeamFacet.query({ teamId }).first({ select: ["teamName"] });
+await TeamFacet.query({ teamId }).first({ select: ['teamName'] });
 
-await TeamFacet.GSIByStatus
-  .query({ teamId, status: "active" })
-  .between(
-    { createdAt: "2024-01-01" },
-    { createdAt: "2024-02-01" },
-    { select: ["teamName"] },
-  );
+await TeamFacet.GSIByStatus.query({ teamId, status: 'active' }).between(
+	{ createdAt: '2024-01-01' },
+	{ createdAt: '2024-02-01' },
+	{ select: ['teamName'] },
+);
 ```
 
 On an index query, Faceteer auto-includes both the base-table PK/SK fields and the index's own partition-key and sort-key fields. Under the library's assumption that GSIs are created with `ProjectionType: ALL`, all four sets are always present on the index. The guarantee lets you feed a projected result straight back into `get`, `delete`, or `put` without a second round-trip to fetch the identity fields.
@@ -679,20 +676,22 @@ On an index query, Faceteer auto-includes both the base-table PK/SK fields and t
 Projection is unavailable at the type level on facets constructed without a `pickValidator`. Passing `select` on those facets is a compile error, not a runtime error.
 
 ```ts
-const PlainFacet = new Facet({ /* no pickValidator */ });
+const PlainFacet = new Facet({
+	/* no pickValidator */
+});
 
 // Type error: this overload requires pickValidator on the facet.
-await PlainFacet.get({ teamId }, { select: ["teamName"] });
+await PlainFacet.get({ teamId }, { select: ['teamName'] });
 
 // Also a type error:
-await PlainFacet.query({ teamId }).list({ select: ["teamName"] });
+await PlainFacet.query({ teamId }).list({ select: ['teamName'] });
 ```
 
 If you want projected reads, add a `pickValidator` to the facet options. If you want to opt out of validation for projected reads (trust-the-DB paths, or benchmarks), pass an identity pickValidator:
 
 ```ts
-const identityPickValidator: PickValidator<Team> =
-  (keys) => (input) => input as Pick<Team, (typeof keys)[number]>;
+const identityPickValidator: PickValidator<Team> = (keys) => (input) =>
+	input as Pick<Team, (typeof keys)[number]>;
 ```
 
 #### Cost
@@ -707,9 +706,7 @@ DynamoDB stores and compares those sort keys as plain strings. `equals`, `begins
 
 ```ts
 // Every record in the partition whose composite SK starts with '#ESTIME_queued_'.
-await EmailFacet.byStatus
-  .query({ userId })
-  .beginsWith({ status: 'queued' });
+await EmailFacet.byStatus.query({ userId }).beginsWith({ status: 'queued' });
 ```
 
 `greaterThan`, `greaterThanOrEqual`, `lessThan`, and `lessThanOrEqual` also compare the entire composite string. They do not scope to a single value of the leading field. This trips people up:
@@ -717,8 +714,8 @@ await EmailFacet.byStatus
 ```ts
 // Anti-pattern. Bleeds across status values.
 await EmailFacet.byStatus
-  .query({ userId })
-  .greaterThan({ status: 'queued', timestamp: '2024-01-01' });
+	.query({ userId })
+	.greaterThan({ status: 'queued', timestamp: '2024-01-01' });
 ```
 
 DynamoDB asks for every record where `#ESTIME_queued_2024-01-01 < SK`. That includes records with `status = 'queued'` and a later timestamp, and also every record whose status sorts alphabetically after `queued`, such as `sent` or `spam`. The operator has no way to know you meant "queued only".
@@ -729,11 +726,11 @@ Two ways to range correctly over a trailing field:
 
    ```ts
    await EmailFacet.byStatus
-     .query({ userId })
-     .between(
-       { status: 'queued', timestamp: '2024-01-01' },
-       { status: 'queued', timestamp: '2024-02-28' },
-     );
+   	.query({ userId })
+   	.between(
+   		{ status: 'queued', timestamp: '2024-01-01' },
+   		{ status: 'queued', timestamp: '2024-02-28' },
+   	);
    ```
 
    For an open upper bound, use a sentinel that sorts after every real value, for example `'\uffff'`.
@@ -770,8 +767,8 @@ await Facet.query({ partitionFields }).beginsWith({ leadingField: value });
 
 ```ts
 await Facet.query({ partitionFields }).between(
-  { leadingField: value, trailingField: start },
-  { leadingField: value, trailingField: end },
+	{ leadingField: value, trailingField: start },
+	{ leadingField: value, trailingField: end },
 );
 ```
 
@@ -800,8 +797,8 @@ await Facet.query({ partitionFields }).first({ scanForward: false });
 
 ```ts
 await Facet.query({ partitionFields }).list({
-  limit: N,
-  scanForward: false,
+	limit: N,
+	scanForward: false,
 });
 ```
 
@@ -809,7 +806,7 @@ await Facet.query({ partitionFields }).list({
 
 ```ts
 await Facet.query({ partitionFields }).list({
-  filter: ['someField', '=', value],
+	filter: ['someField', '=', value],
 });
 ```
 
@@ -826,14 +823,14 @@ const exists = (await Facet.query({ partitionFields }).first()) !== null;
 ```ts
 let cursor: string | undefined;
 do {
-  const page = await Facet.query({ partitionFields }).list({
-    limit: 100,
-    cursor,
-  });
-  for (const record of page.records) {
-    // handle record
-  }
-  cursor = page.cursor;
+	const page = await Facet.query({ partitionFields }).list({
+		limit: 100,
+		cursor,
+	});
+	for (const record of page.records) {
+		// handle record
+	}
+	cursor = page.cursor;
 } while (cursor);
 ```
 
@@ -842,7 +839,7 @@ do {
 Requires `pickValidator` on the facet.
 
 ```ts
-await Facet.query({ partitionFields }).list({ select: ["name", "status"] });
+await Facet.query({ partitionFields }).list({ select: ['name', 'status'] });
 ```
 
 PK/SK fields are auto-included in the result, and on index queries the index's PK/SK fields are included too.
@@ -853,7 +850,7 @@ DynamoDB returns at most **1 MB** of evaluated data per page. When more data is 
 
 Two things commonly surprise new users:
 
-1. `limit` caps how many items DynamoDB **evaluates**, not how many match. Filters run **after** key conditions, so a query with a filter can return an empty `records` array *and* a `cursor` — that just means "keep going".
+1. `limit` caps how many items DynamoDB **evaluates**, not how many match. Filters run **after** key conditions, so a query with a filter can return an empty `records` array _and_ a `cursor` — that just means "keep going".
 2. You're done paginating when `cursor` comes back `undefined`, not when `records` is empty.
 
 A typical paginate-to-the-end loop:
@@ -861,11 +858,11 @@ A typical paginate-to-the-end loop:
 ```ts
 let cursor: string | undefined;
 do {
-  const page = await TaskFacet.query({ teamId }).list({ limit: 50, cursor });
-  for (const task of page.records) {
-    // ...handle task
-  }
-  cursor = page.cursor;
+	const page = await TaskFacet.query({ teamId }).list({ limit: 50, cursor });
+	for (const task of page.records) {
+		// ...handle task
+	}
+	cursor = page.cursor;
 } while (cursor);
 ```
 
@@ -875,12 +872,12 @@ Set `ttl` on the facet to the name of a field containing a unix timestamp, a num
 
 ```ts
 const SessionFacet = new Facet({
-  name: "SESSION",
-  PK: { keys: ["userId"], prefix: "#USER" },
-  SK: { keys: ["sessionId"], prefix: "#SESSION" },
-  connection: { dynamoDb: dynamoDbClient, tableName: dynamoDbTableName },
-  validator: sessionValidator,
-  ttl: "expiresAt",
+	name: 'SESSION',
+	PK: { keys: ['userId'], prefix: '#USER' },
+	SK: { keys: ['sessionId'], prefix: '#SESSION' },
+	connection: { dynamoDb: dynamoDbClient, tableName: dynamoDbTableName },
+	validator: sessionValidator,
+	ttl: 'expiresAt',
 });
 ```
 
@@ -935,7 +932,7 @@ Only for single-item deletes: `facet.delete(record, { condition: [...] })`. `con
 
 - **Know your access patterns before you design the key.** Faceteer isn't built for ad-hoc queries. Every GSI costs writes, so pick the smallest set of indexes that covers the patterns you actually have.
 - **Overload indexes with prefixes.** Two facets can share `GSI1` as long as their SK prefixes differ — that's the whole point of the `prefix` field on each `KeyConfiguration`. Differentiate by prefix, query by prefix.
-- **Prefer key conditions over `filter`.** `equals`, `beginsWith`, and `between` prune reads on the server. `filter` runs server-side too but *after* the read is billed — it shrinks the response, not the cost.
+- **Prefer key conditions over `filter`.** `equals`, `beginsWith`, and `between` prune reads on the server. `filter` runs server-side too but _after_ the read is billed — it shrinks the response, not the cost.
 - **Reach for `select` when payload size hurts.** `ProjectionExpression` cuts the wire payload but not the read-capacity cost. DynamoDB bills the full item size regardless. Worth using when you're rendering lists, hydrating caches, or returning over a slow link; not worth it when you need the full record anyway.
 - **Avoid `greaterThan` and `lessThan` on composite sort keys.** They compare the full composite string, so a query like `greaterThan({ status: 'queued', timestamp: X })` bleeds into records whose status sorts after `queued`. Scope with `beginsWith`, or with `between` where both bounds pin the same leading value. See the "Composite sort keys" section above.
 - **Shard hot partitions.** When one PK value attracts disproportionate traffic, add a `shard: { count, keys }` config. Keep `count` small to start (2, 4, 8); every shard is an extra query on read, so more shards is not free.
