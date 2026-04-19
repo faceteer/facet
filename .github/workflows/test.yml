@@ -40,6 +40,9 @@ jobs:
       - name: Test Building Library
         run: npm run build && npm run build:clean
 
+      - name: Typecheck Tests
+        run: npm run typecheck:tests
+
       - name: Run Tests
         run: npm run test:ci
         env:

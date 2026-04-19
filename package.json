@@ -8,6 +8,7 @@
 		"test:ci": "vitest run --coverage",
 		"build:clean": "tsc -b --clean",
 		"build": "tsc -b --clean && tsc -b",
+		"typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
 		"prepublishOnly": "npm run build"
 	},
 	"engines": {

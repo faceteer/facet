@@ -12,6 +12,7 @@ Node >= 20. The package publishes the compiled output next to the source (`lib/*
 
 - `npm run build` — clean then compile (`tsc -b --clean && tsc -b`). Always run both, since `prepublishOnly` and CI run this pair.
 - `npm run build:clean` — remove compiled artifacts only.
+- `npm run typecheck:tests` — `tsc --noEmit -p tsconfig.test.json`. Typechecks the test file under the test-only tsconfig (which adds `vitest/globals`); the library's own `tsconfig.json` excludes tests so they don't get emitted into the published package.
 - `npm test` — `vitest run --coverage`. Tests are integration tests that hit DynamoDB Local on `localhost:8000`, so start it first: `docker compose up -d` (see `docker-compose.yml`). Tests create a `TEST` table and reset it if it already exists.
 - Run one test file: `npx vitest run lib/facet.test.ts`. Single test case: `npx vitest run -t 'Get Pages'`.
 - CI (`.github/workflows/test.yml`) runs builds and tests on Node 20/22/24 against a DynamoDB Local service container and uses dummy AWS creds (`AWS_ACCESS_KEY_ID=test`, etc.).

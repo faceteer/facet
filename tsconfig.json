@@ -4,30 +4,18 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noImplicitThis": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "alwaysStrict": true,
-    "strictBindCallApply": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictPropertyInitialization": true,
     "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "removeComments": true,
     "declaration": true,
     "isolatedModules": true,
-    "types": ["vitest/globals", "node"]
+    "types": ["node"]
   },
-  "exclude": [
-    "node_modules",
-    "lib/__tests__",
-    "lib/__mocks__",
-    "dist",
-    "./node.d.ts",
-    "vitest.config.ts"
-  ]
+  "include": ["index.ts", "lib/**/*.ts"],
+  "exclude": ["**/*.test.ts"]
 }
