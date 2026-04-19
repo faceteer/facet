@@ -376,6 +376,38 @@ describe('Facet', () => {
 		expect(raw.Item?.ttl).toEqual({ N: String(expectedSeconds) });
 	});
 
+	test('out() strips ttl even when facet has no indexes', async () => {
+		interface Session {
+			sessionId: string;
+			expiresAt: Date;
+		}
+		const seen: string[][] = [];
+		const SessionFacet = new Facet<Session, 'sessionId'>({
+			name: 'SessionStrict',
+			validator: (input) => {
+				const keys = Object.keys(input as object).sort();
+				seen.push(keys);
+				if (keys.includes('ttl')) {
+					throw new Error(`Unexpected ttl attribute: ${keys.join(',')}`);
+				}
+				return input as Session;
+			},
+			PK: { keys: ['sessionId'], prefix: 'SESSIONX' },
+			SK: { keys: [], prefix: 'SESSIONX' },
+			connection: { dynamoDb: ddb, tableName },
+			ttl: 'expiresAt',
+		});
+
+		const sessionId = 'ttl-session-strict';
+		const expiresAt = new Date('2030-01-02T03:04:05.000Z');
+		const putResult = await SessionFacet.put({ sessionId, expiresAt });
+		expect(putResult.wasSuccessful).toBe(true);
+
+		const fetched = await SessionFacet.get({ sessionId });
+		expect(fetched?.sessionId).toBe(sessionId);
+		expect(seen.at(-1)).toEqual(['expiresAt', 'sessionId']);
+	});
+
 	test('TTL string fields are parsed to epoch-seconds numbers', async () => {
 		interface Token {
 			tokenId: string;

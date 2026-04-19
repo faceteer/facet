@@ -293,9 +293,8 @@ export class Facet<
 	 * Convert and validate a dynamo DB record
 	 */
 	out(record: AttributeMap): T {
-		const parsedRecord = Converter.unmarshall(record);
-
-		const recordToValidate: any = parsedRecord;
+		const recordToValidate: Record<string, unknown> =
+			Converter.unmarshall(record);
 
 		/**
 		 * Delete any constructed keys from the model before
@@ -308,9 +307,9 @@ export class Facet<
 			const indexKeyNames = IndexKeyNameMap[index];
 			delete recordToValidate[indexKeyNames.PK];
 			delete recordToValidate[indexKeyNames.SK];
-			if (this.ttl) {
-				delete recordToValidate['ttl'];
-			}
+		}
+		if (this.ttl) {
+			delete recordToValidate['ttl'];
 		}
 
 		return this.#validator(recordToValidate);
