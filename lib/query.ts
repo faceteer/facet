@@ -25,6 +25,19 @@ type AutoKeys<
 	GSISK extends PropertyKey,
 > = [GSIPK] extends [never] ? PK | SK : PK | SK | GSIPK | GSISK;
 
+/**
+ * The field names that a PartitionQuery's sort-key argument (on
+ * comparison, `beginsWith`, and `between` methods) is typed against.
+ * For a base-facet query this is the facet's own `SK`; for an index
+ * query it is the index's `GSISK`. Discriminates on whether `GSIPK` is
+ * present, which is the signal that the query runs against an index.
+ */
+type ActiveSK<
+	SK extends PropertyKey,
+	GSIPK extends PropertyKey,
+	GSISK extends PropertyKey,
+> = [GSIPK] extends [never] ? SK : GSISK;
+
 export interface PartitionQueryOptions<
 	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
@@ -325,16 +338,16 @@ export class PartitionQuery<
 	 * ```
 	 */
 	equals(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options?: QueryOptions<T, PK, SK> & { select?: never },
 	): Promise<QueryResult<T>>;
 	equals<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	equals<K extends keyof T>(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> = {},
 	) {
 		return this.#compareExec(Comparison.Equals, sort as Partial<T>, options);
@@ -352,16 +365,16 @@ export class PartitionQuery<
 	 * @returns {@link QueryResult}.
 	 */
 	greaterThan(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options?: QueryOptions<T, PK, SK> & { select?: never },
 	): Promise<QueryResult<T>>;
 	greaterThan<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	greaterThan<K extends keyof T>(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> = {},
 	) {
 		return this.#compareExec(Comparison.Greater, sort as Partial<T>, options);
@@ -379,16 +392,16 @@ export class PartitionQuery<
 	 * @returns {@link QueryResult}.
 	 */
 	greaterThanOrEqual(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options?: QueryOptions<T, PK, SK> & { select?: never },
 	): Promise<QueryResult<T>>;
 	greaterThanOrEqual<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	greaterThanOrEqual<K extends keyof T>(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> = {},
 	) {
 		return this.#compareExec(
@@ -410,16 +423,16 @@ export class PartitionQuery<
 	 * @returns {@link QueryResult}.
 	 */
 	lessThan(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options?: QueryOptions<T, PK, SK> & { select?: never },
 	): Promise<QueryResult<T>>;
 	lessThan<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	lessThan<K extends keyof T>(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> = {},
 	) {
 		return this.#compareExec(Comparison.Less, sort as Partial<T>, options);
@@ -437,16 +450,16 @@ export class PartitionQuery<
 	 * @returns {@link QueryResult}.
 	 */
 	lessThanOrEqual(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options?: QueryOptions<T, PK, SK> & { select?: never },
 	): Promise<QueryResult<T>>;
 	lessThanOrEqual<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	lessThanOrEqual<K extends keyof T>(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> = {},
 	) {
 		return this.#compareExec(
@@ -574,16 +587,16 @@ export class PartitionQuery<
 	 * ```
 	 */
 	beginsWith(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options?: QueryOptions<T, PK, SK> & { select?: never },
 	): Promise<QueryResult<T>>;
 	beginsWith<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	beginsWith<K extends keyof T>(
-		sort: Partial<Pick<T, GSISK>> | string,
+		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> = {},
 	) {
 		return this.#beginsWithExec(sort as Partial<T>, options);
@@ -624,19 +637,19 @@ export class PartitionQuery<
 	 * ```
 	 */
 	between(
-		start: Partial<Pick<T, GSISK>> | string,
-		end: Partial<Pick<T, GSISK>> | string,
+		start: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
+		end: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options?: QueryOptions<T, PK, SK> & { select?: never },
 	): Promise<QueryResult<T>>;
 	between<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
-		start: Partial<Pick<T, GSISK>> | string,
-		end: Partial<Pick<T, GSISK>> | string,
+		start: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
+		end: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	between<K extends keyof T>(
-		start: Partial<Pick<T, GSISK>> | string,
-		end: Partial<Pick<T, GSISK>> | string,
+		start: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
+		end: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		options: QueryOptions<T, PK, SK, K> = {},
 	) {
 		return this.#betweenExec(

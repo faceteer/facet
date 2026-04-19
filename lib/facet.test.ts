@@ -322,6 +322,60 @@ describe('Facet', () => {
 		expect(aPosts.records.length).toBe(20);
 	});
 
+	test('base-facet query sort-key argument is typed against the facet SK', () => {
+		// Issue #41: before the fix, every query sort-key arg was typed
+		// `Partial<Pick<T, GSISK>>`, which collapses to `{}` on base-facet
+		// queries (where GSISK is never). That meant the sort arg accepted
+		// any object and no field was checked. The fix threads the active
+		// SK (base SK or index GSISK) through the method signatures.
+		void (async () => {
+			// Base query: SK is postId. Typechecks.
+			await PostFacet.query({ pageId: 'p' }).equals({ postId: 'x' });
+			await PostFacet.query({ pageId: 'p' }).greaterThan({ postId: 'x' });
+			await PostFacet.query({ pageId: 'p' }).greaterThanOrEqual({
+				postId: 'x',
+			});
+			await PostFacet.query({ pageId: 'p' }).lessThan({ postId: 'x' });
+			await PostFacet.query({ pageId: 'p' }).lessThanOrEqual({ postId: 'x' });
+			await PostFacet.query({ pageId: 'p' }).beginsWith({ postId: 'x' });
+			await PostFacet.query({ pageId: 'p' }).between(
+				{ postId: 'a' },
+				{ postId: 'z' },
+			);
+
+			// Non-SK fields on a base query are a type error.
+			// @ts-expect-error postStatus is not a base-facet SK field
+			await PostFacet.query({ pageId: 'p' }).equals({ postStatus: 'x' });
+			// @ts-expect-error sendAt is not a base-facet SK field
+			await PostFacet.query({ pageId: 'p' }).beginsWith({ sendAt: new Date() });
+			await PostFacet.query({ pageId: 'p' }).between(
+				// @ts-expect-error sendAt is not a base-facet SK field on between's start arg
+				{ sendAt: new Date() },
+				'raw',
+			);
+			await PostFacet.query({ pageId: 'p' }).between(
+				'raw',
+				// @ts-expect-error sendAt is not a base-facet SK field on between's end arg
+				{ sendAt: new Date() },
+			);
+
+			// Index query: SK is postTitle. Non-GSISK field is a type error.
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' }).equals({
+				postTitle: 'x',
+			});
+			await PostFacet.GSIPostByTitle
+				.query({ pageId: 'p' })
+				// @ts-expect-error postId is not an index SK field
+				.equals({ postId: 'x' });
+
+			// The string escape hatch keeps working on both.
+			await PostFacet.query({ pageId: 'p' }).equals('raw');
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' }).equals('raw');
+		});
+
+		expect<0>(0 satisfies 0).toBe(0);
+	});
+
 	test('reserved attribute names fail the type-level constraint', () => {
 		// Type-only assertions — the build (which type-checks tests under
 		// tsconfig.test.json) is the real check. At runtime this is a no-op.
