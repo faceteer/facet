@@ -1,6 +1,6 @@
 import { Converter } from '@faceteer/converter';
 import type { ConverterOptions } from '@faceteer/converter/converter-options';
-import { DynamoDB, AttributeValue } from '@aws-sdk/client-dynamodb';
+import type { DynamoDB, AttributeValue } from '@aws-sdk/client-dynamodb';
 import {
 	deleteItems,
 	DeleteOptions,
@@ -336,14 +336,7 @@ class FacetImpl<
 		this.delimiter = delimiter;
 		this.ttl = ttl;
 		this.#validateInput = validateInput;
-		let { dynamoDb, tableName } = connection;
-		if (!dynamoDb) {
-			dynamoDb = new DynamoDB({});
-		}
-		this.connection = {
-			dynamoDb,
-			tableName,
-		};
+		this.connection = connection;
 	}
 
 	/**
@@ -1075,11 +1068,11 @@ export interface FacetOptions<
 	 */
 	connection: {
 		/**
-		 * A configured connection to Dynamo DB from
-		 * the aws-sdk. If this is not set Faceteer will
-		 * attempt to make it's own connection to Dynamo DB
+		 * A configured `DynamoDB` client from `@aws-sdk/client-dynamodb`.
+		 * The caller owns this instance — its region, credentials,
+		 * endpoint, and middleware are whatever the caller configured.
 		 */
-		dynamoDb?: DynamoDB;
+		dynamoDb: DynamoDB;
 		/**
 		 * The Dynamo DB table to write to
 		 */
