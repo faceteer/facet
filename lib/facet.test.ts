@@ -1,4 +1,4 @@
-import { DynamoDB } from '@aws-sdk/client-dynamodb';
+import { DynamoDB, ResourceInUseException } from '@aws-sdk/client-dynamodb';
 import { Facet } from './facet';
 import { Index } from './keys';
 import { wait } from './wait';
@@ -686,17 +686,19 @@ async function createTestTable(): Promise<void> {
 			],
 		});
 	} catch (error) {
-		const resourceError = error as any;
 		/**
-		 * We'll reset the existing table if it already exists
+		 * We'll reset the existing table if it already exists.
+		 * SDK v3 errors expose the class name on `.name` and via
+		 * `instanceof`, not the v2 `.code` field.
 		 */
-		if (resourceError.code === 'ResourceInUseException') {
-			await ddb.deleteTable({
-				TableName: tableName,
-			});
-
-			await createTestTable();
+		if (!(error instanceof ResourceInUseException)) {
+			throw error;
 		}
+		await ddb.deleteTable({
+			TableName: tableName,
+		});
+
+		await createTestTable();
 	}
 
 	/**
