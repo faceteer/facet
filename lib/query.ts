@@ -5,7 +5,10 @@ import {
 	PickValidator,
 	WithoutReservedAttributes,
 } from './facet';
-import * as expressionBuilder from '@faceteer/expression-builder';
+import {
+	filter as buildFilterExpression,
+	type FilterConditionExpression,
+} from '@faceteer/expression-builder';
 import { IndexKeyNameMap, PK, SK, Keys } from './keys';
 import { buildProjectionExpression } from './projection';
 import type { QueryInput } from '@aws-sdk/client-dynamodb';
@@ -99,7 +102,7 @@ export interface QueryOptions<
 	 */
 	shard?: number;
 
-	filter?: expressionBuilder.FilterConditionExpression<Omit<T, PK | SK>>;
+	filter?: FilterConditionExpression<Omit<T, PK | SK>>;
 
 	/**
 	 * Restrict the read to a subset of attributes via a Dynamo DB
@@ -172,7 +175,7 @@ export class PartitionQuery<
 		}
 
 		if (filter) {
-			const filterExpression = expressionBuilder.filter(filter);
+			const filterExpression = buildFilterExpression(filter);
 			queryInput.FilterExpression = filterExpression.expression;
 			Object.assign(queryInput.ExpressionAttributeNames!, filterExpression.names);
 			Object.assign(
