@@ -343,6 +343,69 @@ describe('Facet', () => {
 
 		expect(failedPut.wasSuccessful).toBeFalsy();
 	});
+
+	test('TTL Date fields are written as epoch-seconds numbers', async () => {
+		interface Session {
+			sessionId: string;
+			expiresAt: Date;
+		}
+		const SessionFacet = new Facet<Session, 'sessionId'>({
+			name: 'Session',
+			validator: (input) => input as Session,
+			PK: { keys: ['sessionId'], prefix: 'SESSION' },
+			SK: { keys: [], prefix: 'SESSION' },
+			connection: { dynamoDb: ddb, tableName },
+			ttl: 'expiresAt',
+		});
+
+		const expiresAt = new Date('2030-01-02T03:04:05.000Z');
+		const sessionId = 'ttl-session-1';
+		const expectedSeconds = Math.floor(expiresAt.getTime() / 1000);
+
+		const putResult = await SessionFacet.put({ sessionId, expiresAt });
+		expect(putResult.wasSuccessful).toBe(true);
+
+		const raw = await ddb.getItem({
+			TableName: tableName,
+			Key: {
+				PK: { S: SessionFacet.pk({ sessionId }) },
+				SK: { S: SessionFacet.sk({ sessionId }) },
+			},
+		});
+
+		expect(raw.Item?.ttl).toEqual({ N: String(expectedSeconds) });
+	});
+
+	test('TTL string fields are parsed to epoch-seconds numbers', async () => {
+		interface Token {
+			tokenId: string;
+			deleteAt: string;
+		}
+		const TokenFacet = new Facet<Token, 'tokenId'>({
+			name: 'Token',
+			validator: (input) => input as Token,
+			PK: { keys: ['tokenId'], prefix: 'TOKEN' },
+			SK: { keys: [], prefix: 'TOKEN' },
+			connection: { dynamoDb: ddb, tableName },
+			ttl: 'deleteAt',
+		});
+
+		const tokenId = 'ttl-token-1';
+		const deleteAt = '1893459845';
+
+		const putResult = await TokenFacet.put({ tokenId, deleteAt });
+		expect(putResult.wasSuccessful).toBe(true);
+
+		const raw = await ddb.getItem({
+			TableName: tableName,
+			Key: {
+				PK: { S: TokenFacet.pk({ tokenId }) },
+				SK: { S: TokenFacet.sk({ tokenId }) },
+			},
+		});
+
+		expect(raw.Item?.ttl).toEqual({ N: deleteAt });
+	});
 });
 
 function mockPages(count: number, overrides: Partial<Page> = {}): Page[] {

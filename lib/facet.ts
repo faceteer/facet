@@ -256,24 +256,30 @@ export class Facet<
 		});
 
 		/**
-		 * Attempt to convert the TTL attribute to a unix timestamp
+		 * DynamoDB's TTL reaper only recognises epoch-seconds `N`
+		 * attributes, so normalise Date and numeric-string inputs
+		 * before marshalling.
 		 */
-		let ttlAttribute: unknown = this.ttl ? model[this.ttl] : undefined;
-		if (ttlAttribute instanceof Date) {
-			ttlAttribute = Math.floor(ttlAttribute.getTime() / 1000);
-		} else if (typeof ttlAttribute === 'string') {
-			ttlAttribute = parseInt(ttlAttribute);
-		}
-
-		if (Number.isNaN(ttlAttribute)) {
-			ttlAttribute = undefined;
+		let ttlAttribute: number | undefined;
+		if (this.ttl) {
+			const raw = model[this.ttl];
+			if (raw instanceof Date) {
+				ttlAttribute = Math.floor(raw.getTime() / 1000);
+			} else if (typeof raw === 'number') {
+				ttlAttribute = raw;
+			} else if (typeof raw === 'string') {
+				ttlAttribute = parseInt(raw, 10);
+			}
+			if (ttlAttribute !== undefined && Number.isNaN(ttlAttribute)) {
+				ttlAttribute = undefined;
+			}
 		}
 
 		const dynamoDbRecord = {
 			...attributes,
 			...facetKeys,
 			facet: this.name,
-			ttl: this.ttl ? model[this.ttl] : undefined,
+			ttl: ttlAttribute,
 		};
 
 		return Converter.marshall(dynamoDbRecord, {
