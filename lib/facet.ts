@@ -225,7 +225,7 @@ export class Facet<
 	 * Construct the sort key
 	 */
 	sk(model: Partial<T>, shard?: number) {
-		return buildKey(this.#SK, model, this.delimiter, shard ?? null);
+		return buildKey(this.#SK, model, this.delimiter, shard);
 	}
 
 	/**
@@ -504,7 +504,7 @@ export class FacetIndex<
 	 * Construct the sort key
 	 */
 	sk(model: Partial<T>, shard?: number) {
-		return buildKey(this.#SK, model, this.#facet.delimiter, shard ?? null);
+		return buildKey(this.#SK, model, this.#facet.delimiter, shard);
 	}
 
 	/**

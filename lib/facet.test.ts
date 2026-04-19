@@ -322,6 +322,35 @@ describe('Facet', () => {
 		expect(aPosts.records.length).toBe(20);
 	});
 
+	test('SK.shard config produces sharded sort keys', async () => {
+		interface Event {
+			eventType: string;
+			eventId: string;
+		}
+		const EventFacet = new Facet<Event, 'eventType', 'eventId'>({
+			name: 'Event',
+			validator: (input) => input as Event,
+			PK: { keys: ['eventType'], prefix: 'EVENT' },
+			SK: {
+				keys: ['eventId'],
+				prefix: 'ID',
+				shard: { count: 4, keys: ['eventId'] },
+			},
+			connection: { dynamoDb: ddb, tableName },
+		});
+
+		const model = { eventType: 'click', eventId: 'some-event' };
+
+		const explicit0 = EventFacet.sk(model, 0);
+		const explicit1 = EventFacet.sk(model, 1);
+		const hashed = EventFacet.sk(model);
+
+		// count = 4 → padLength = 1 → single hex digit in the shard slot.
+		expect(explicit0).toBe(`ID_0_${model.eventId}`);
+		expect(explicit1).toBe(`ID_1_${model.eventId}`);
+		expect(hashed).toMatch(/^ID_[0-3]_some-event$/);
+	});
+
 	test('Sharded PK honours explicit shard: 0', async () => {
 		// GSI1 is sharded with count 4 on `postId`.
 		const model = {
