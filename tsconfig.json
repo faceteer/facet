@@ -16,6 +16,6 @@
     "isolatedModules": true,
     "types": ["node"]
   },
-  "include": ["index.ts", "lib/**/*.ts"],
+  "include": ["index.ts", "lib/**/*.ts", "_scratch/**/*.ts"],
   "exclude": ["**/*.test.ts"]
 }
