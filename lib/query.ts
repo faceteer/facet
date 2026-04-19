@@ -1,8 +1,29 @@
 import { decodeCursor, encodeCursor } from './cursor';
-import { Facet, FacetIndex, WithoutReservedAttributes } from './facet';
+import {
+	Facet,
+	FacetIndex,
+	PickValidator,
+	WithoutReservedAttributes,
+} from './facet';
 import * as expressionBuilder from '@faceteer/expression-builder';
 import { IndexKeyNameMap, PK, SK, Keys } from './keys';
+import { buildProjectionExpression } from './projection';
 import type { QueryInput } from '@aws-sdk/client-dynamodb';
+
+/**
+ * The T-level field names that a projected query auto-includes in its
+ * response. For base-table queries this is the facet's `PK | SK`. For
+ * index queries, under the library's documented assumption that GSIs
+ * are created with `ProjectionType: ALL`, the base-table key fields
+ * are still present in the index and are included alongside the
+ * index's own `GSIPK | GSISK`.
+ */
+type AutoKeys<
+	PK extends PropertyKey,
+	SK extends PropertyKey,
+	GSIPK extends PropertyKey,
+	GSISK extends PropertyKey,
+> = [GSIPK] extends [never] ? PK | SK : PK | SK | GSIPK | GSISK;
 
 export interface PartitionQueryOptions<
 	T extends WithoutReservedAttributes<T>,
@@ -10,8 +31,9 @@ export interface PartitionQueryOptions<
 	SK extends Keys<T>,
 	GSIPK extends Keys<T>,
 	GSISK extends Keys<T>,
+	PV extends PickValidator<T> | undefined = PickValidator<T> | undefined,
 > {
-	facet: Facet<T, PK, SK>;
+	facet: Facet<T, PK, SK, PV>;
 	partitionIdentifier: Partial<T>;
 	index?: FacetIndex<T, PK, SK, GSIPK, GSISK>;
 	shard?: number;
@@ -30,7 +52,12 @@ export interface QueryResult<T> {
 	records: T[];
 }
 
-export interface QueryOptions<T, PK extends keyof T, SK extends keyof T> {
+export interface QueryOptions<
+	T,
+	PK extends keyof T,
+	SK extends keyof T,
+	K extends keyof T = keyof T,
+> {
 	/**
 	 * The primary key of the first record that this operation will evaluate.
 	 * Use the value that was returned for `cursor` in the previous operation.
@@ -60,6 +87,18 @@ export interface QueryOptions<T, PK extends keyof T, SK extends keyof T> {
 	shard?: number;
 
 	filter?: expressionBuilder.FilterConditionExpression<Omit<T, PK | SK>>;
+
+	/**
+	 * Restrict the read to a subset of attributes via a Dynamo DB
+	 * `ProjectionExpression`. The facet's PK/SK fields (and the index's
+	 * GSIPK/GSISK on index queries) are always included in the result,
+	 * even if omitted from `select`.
+	 *
+	 * Requires `pickValidator` on the facet; the method overloads that
+	 * accept `select` are gated off at the type level on facets without
+	 * one.
+	 */
+	select?: readonly [K, ...K[]];
 }
 
 export class PartitionQuery<
@@ -68,19 +107,21 @@ export class PartitionQuery<
 	SK extends Keys<T>,
 	GSIPK extends Keys<T> = never,
 	GSISK extends Keys<T> = never,
+	PV extends PickValidator<T> | undefined = PickValidator<T> | undefined,
 > {
-	#facet: Facet<T, PK, SK>;
+	#facet: Facet<T, PK, SK, PV>;
 	#index?: FacetIndex<T, PK, SK, GSIPK, GSISK>;
 	#PK: string;
 	#SK: string;
 	#partition: string;
+	#autoKeyFields: readonly (PK | SK | GSIPK | GSISK)[];
 
 	constructor({
 		facet,
 		partitionIdentifier,
 		index,
 		shard,
-	}: PartitionQueryOptions<T, PK, SK, GSIPK, GSISK>) {
+	}: PartitionQueryOptions<T, PK, SK, GSIPK, GSISK, PV>) {
 		this.#facet = facet;
 		this.#index = index;
 
@@ -89,65 +130,29 @@ export class PartitionQuery<
 			this.#PK = IndexKeys.PK;
 			this.#SK = IndexKeys.SK;
 			this.#partition = this.#index.pk(partitionIdentifier, shard);
+			this.#autoKeyFields = [
+				...this.#facet.keyFields,
+				...this.#index.keyFields,
+			];
 		} else {
 			this.#PK = PK;
 			this.#SK = SK;
 			this.#partition = this.#facet.pk(partitionIdentifier, shard);
+			this.#autoKeyFields = this.#facet.keyFields;
 		}
 	}
 
 	/**
-	 * Get records from a partition by a comparison with the sort key.
+	 * Execute a prepared `QueryInput`, merging in any filter / projection /
+	 * cursor from `options`, then mapping each returned item through the
+	 * facet's projection-aware or full validator as appropriate.
 	 */
-	private async compare(
-		comparison: Comparison,
-		sort: Partial<T> | string,
-		{
-			cursor,
-			limit,
-			scanForward = true,
-			shard,
-			filter,
-		}: QueryOptions<T, PK, SK>,
-	) {
-		const { dynamoDb, tableName } = this.#facet.connection;
-
-		const queryResult: QueryResult<T> = {
-			records: [],
-		};
-
-		let sortKey: string;
-		/**
-		 * If we were given a string we'll use it, otherwise we'll
-		 * create the sort key using the getKey function of the facet
-		 */
-		if (typeof sort === 'string') {
-			sortKey = sort;
-		} else {
-			sortKey = this.#index
-				? this.#index.sk(sort)
-				: this.#facet.sk(sort, shard);
-		}
-
-		const queryInput: QueryInput = {
-			TableName: tableName,
-			IndexName: this.#index?.indexName,
-			KeyConditionExpression: `#PK = :partition AND #SK ${comparison} :sort`,
-			ExpressionAttributeNames: {
-				'#PK': this.#PK,
-				'#SK': this.#SK,
-			},
-			ExpressionAttributeValues: {
-				':partition': {
-					S: this.#partition,
-				},
-				':sort': {
-					S: sortKey,
-				},
-			},
-			Limit: limit,
-			ScanIndexForward: scanForward,
-		};
+	async #execute<K extends keyof T>(
+		queryInput: QueryInput,
+		options: QueryOptions<T, PK, SK, K>,
+	): Promise<QueryResult<T> | QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>> {
+		const { dynamoDb } = this.#facet.connection;
+		const { cursor, filter, select } = options;
 
 		if (cursor) {
 			queryInput.ExclusiveStartKey = decodeCursor(cursor);
@@ -156,35 +161,142 @@ export class PartitionQuery<
 		if (filter) {
 			const filterExpression = expressionBuilder.filter(filter);
 			queryInput.FilterExpression = filterExpression.expression;
-			Object.assign(
-				queryInput.ExpressionAttributeNames!,
-				filterExpression.names,
-			);
+			Object.assign(queryInput.ExpressionAttributeNames!, filterExpression.names);
 			Object.assign(
 				queryInput.ExpressionAttributeValues!,
 				filterExpression.values,
 			);
 		}
 
+		const projectedKeys = select
+			? ([...select, ...this.#autoKeyFields] as unknown as readonly (
+					| K
+					| AutoKeys<PK, SK, GSIPK, GSISK>
+				)[])
+			: undefined;
+
+		if (projectedKeys) {
+			const projection = buildProjectionExpression(projectedKeys);
+			queryInput.ProjectionExpression = projection.expression;
+			Object.assign(queryInput.ExpressionAttributeNames!, projection.names);
+		}
+
 		const results = await dynamoDb.query(queryInput);
 
-		/**
-		 * Gather any items that were returned
-		 */
+		const projectedResult: QueryResult<
+			Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>
+		> = { records: [] };
+		const fullResult: QueryResult<T> = { records: [] };
+
 		if (results.Items) {
-			results.Items.forEach((item) => {
-				queryResult.records.push(this.#facet.out(item));
-			});
+			if (projectedKeys) {
+				for (const item of results.Items) {
+					projectedResult.records.push(this.#facet.pick(item, projectedKeys));
+				}
+			} else {
+				for (const item of results.Items) {
+					fullResult.records.push(this.#facet.out(item));
+				}
+			}
 		}
 
-		/**
-		 * Attach the cursor if needed
-		 */
 		if (results.LastEvaluatedKey) {
-			queryResult.cursor = encodeCursor(results.LastEvaluatedKey);
+			const encoded = encodeCursor(results.LastEvaluatedKey);
+			projectedResult.cursor = encoded;
+			fullResult.cursor = encoded;
 		}
 
-		return queryResult;
+		return projectedKeys ? projectedResult : fullResult;
+	}
+
+	/**
+	 * Build the base `QueryInput` skeleton (table, index, key condition,
+	 * placeholder values, limit, direction). Filter / projection / cursor
+	 * are merged by {@link PartitionQuery.#execute}.
+	 */
+	#baseQueryInput(
+		keyConditionExpression: string,
+		sortValues: Record<string, { S: string }>,
+		options: { limit?: number; scanForward?: boolean },
+	): QueryInput {
+		return {
+			TableName: this.#facet.connection.tableName,
+			IndexName: this.#index?.indexName,
+			KeyConditionExpression: keyConditionExpression,
+			ExpressionAttributeNames: {
+				'#PK': this.#PK,
+				'#SK': this.#SK,
+			},
+			ExpressionAttributeValues: {
+				':partition': { S: this.#partition },
+				...sortValues,
+			},
+			Limit: options.limit,
+			ScanIndexForward: options.scanForward ?? true,
+		};
+	}
+
+	/**
+	 * Build the sort-key string from an object/string argument.
+	 */
+	#resolveSortKey(sort: Partial<T> | string, shard?: number): string {
+		if (typeof sort === 'string') return sort;
+		return this.#index
+			? this.#index.sk(sort)
+			: this.#facet.sk(sort, shard);
+	}
+
+	/**
+	 * Get records from a partition by a comparison with the sort key.
+	 * Private single-signature method; public overloads route through it.
+	 */
+	async #compareExec<K extends keyof T>(
+		comparison: Comparison,
+		sort: Partial<T> | string,
+		options: QueryOptions<T, PK, SK, K>,
+	) {
+		const queryInput = this.#baseQueryInput(
+			`#PK = :partition AND #SK ${comparison} :sort`,
+			{ ':sort': { S: this.#resolveSortKey(sort, options.shard) } },
+			options,
+		);
+		return this.#execute(queryInput, options);
+	}
+
+	/**
+	 * begins_with execution. Private single-signature method; public
+	 * `beginsWith`, `list`, and `first` route through it.
+	 */
+	async #beginsWithExec<K extends keyof T>(
+		sort: Partial<T> | string,
+		options: QueryOptions<T, PK, SK, K>,
+	) {
+		const queryInput = this.#baseQueryInput(
+			'#PK = :partition AND begins_with(#SK, :sort)',
+			{ ':sort': { S: this.#resolveSortKey(sort, options.shard) } },
+			options,
+		);
+		return this.#execute(queryInput, options);
+	}
+
+	/**
+	 * BETWEEN execution. Private single-signature method; public `between`
+	 * routes through it.
+	 */
+	async #betweenExec<K extends keyof T>(
+		start: Partial<T> | string,
+		end: Partial<T> | string,
+		options: QueryOptions<T, PK, SK, K>,
+	) {
+		const queryInput = this.#baseQueryInput(
+			'#PK = :partition AND #SK BETWEEN :start AND :end',
+			{
+				':start': { S: this.#resolveSortKey(start, options.shard) },
+				':end': { S: this.#resolveSortKey(end, options.shard) },
+			},
+			options,
+		);
+		return this.#execute(queryInput, options);
 	}
 
 	/**
@@ -206,9 +318,18 @@ export class PartitionQuery<
 	 */
 	equals(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions<T, PK, SK> = {},
+		options?: QueryOptions<T, PK, SK> & { select?: never },
+	): Promise<QueryResult<T>>;
+	equals<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
+	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
+	equals<K extends keyof T>(
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> = {},
 	) {
-		return this.compare(Comparison.Equals, sort as Partial<T>, options);
+		return this.#compareExec(Comparison.Equals, sort as Partial<T>, options);
 	}
 
 	/**
@@ -220,9 +341,18 @@ export class PartitionQuery<
 	 */
 	greaterThan(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions<T, PK, SK> = {},
+		options?: QueryOptions<T, PK, SK> & { select?: never },
+	): Promise<QueryResult<T>>;
+	greaterThan<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
+	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
+	greaterThan<K extends keyof T>(
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> = {},
 	) {
-		return this.compare(Comparison.Greater, sort as Partial<T>, options);
+		return this.#compareExec(Comparison.Greater, sort as Partial<T>, options);
 	}
 
 	/**
@@ -234,9 +364,22 @@ export class PartitionQuery<
 	 */
 	greaterThanOrEqual(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions<T, PK, SK> = {},
+		options?: QueryOptions<T, PK, SK> & { select?: never },
+	): Promise<QueryResult<T>>;
+	greaterThanOrEqual<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
+	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
+	greaterThanOrEqual<K extends keyof T>(
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> = {},
 	) {
-		return this.compare(Comparison.GreaterOrEqual, sort as Partial<T>, options);
+		return this.#compareExec(
+			Comparison.GreaterOrEqual,
+			sort as Partial<T>,
+			options,
+		);
 	}
 
 	/**
@@ -248,9 +391,18 @@ export class PartitionQuery<
 	 */
 	lessThan(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions<T, PK, SK> = {},
+		options?: QueryOptions<T, PK, SK> & { select?: never },
+	): Promise<QueryResult<T>>;
+	lessThan<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
+	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
+	lessThan<K extends keyof T>(
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> = {},
 	) {
-		return this.compare(Comparison.Less, sort as Partial<T>, options);
+		return this.#compareExec(Comparison.Less, sort as Partial<T>, options);
 	}
 
 	/**
@@ -262,9 +414,22 @@ export class PartitionQuery<
 	 */
 	lessThanOrEqual(
 		sort: Partial<Pick<T, GSISK>> | string,
-		options: QueryOptions<T, PK, SK> = {},
+		options?: QueryOptions<T, PK, SK> & { select?: never },
+	): Promise<QueryResult<T>>;
+	lessThanOrEqual<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
+	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
+	lessThanOrEqual<K extends keyof T>(
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> = {},
 	) {
-		return this.compare(Comparison.LessOrEqual, sort as Partial<T>, options);
+		return this.#compareExec(
+			Comparison.LessOrEqual,
+			sort as Partial<T>,
+			options,
+		);
 	}
 
 	/**
@@ -284,8 +449,15 @@ export class PartitionQuery<
 	 *   .list({ limit: 50 });
 	 * ```
 	 */
-	list(options: QueryOptions<T, PK, SK> = {}) {
-		return this.beginsWith({}, options);
+	list(
+		options?: QueryOptions<T, PK, SK> & { select?: never },
+	): Promise<QueryResult<T>>;
+	list<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
+	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
+	list<K extends keyof T>(options: QueryOptions<T, PK, SK, K> = {}) {
+		return this.#beginsWithExec({}, options);
 	}
 
 	/**
@@ -307,26 +479,29 @@ export class PartitionQuery<
 	 *   .first({ scanForward: false });
 	 * ```
 	 */
-	async first({
+	first(
+		options?: Omit<QueryOptions<T, PK, SK>, 'cursor' | 'limit'> & {
+			select?: never;
+		},
+	): Promise<T | null>;
+	first<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		options: Omit<QueryOptions<T, PK, SK, K>, 'cursor' | 'limit'> & {
+			select: readonly [K, ...K[]];
+		},
+	): Promise<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>> | null>;
+	async first<K extends keyof T>({
 		filter,
 		scanForward,
 		shard,
-	}: Omit<
-		QueryOptions<T, PK, SK>,
-		'cursor' | 'limit'
-	> = {}): Promise<T | null> {
-		const listResults = await this.list({
-			filter,
-			limit: 1,
-			scanForward,
-			shard,
-		});
-
+		select,
+	}: Omit<QueryOptions<T, PK, SK, K>, 'cursor' | 'limit'> = {}) {
+		const listResults = await this.#beginsWithExec(
+			{},
+			{ filter, limit: 1, scanForward, shard, select },
+		);
 		const [firstRecord] = listResults.records;
-		if (firstRecord) {
-			return firstRecord;
-		}
-		return null;
+		return firstRecord ?? null;
 	}
 
 	/**
@@ -350,91 +525,20 @@ export class PartitionQuery<
 	 *   .beginsWith({ postTitle: 'aa' });
 	 * ```
 	 */
-	async beginsWith(
+	beginsWith(
 		sort: Partial<Pick<T, GSISK>> | string,
-		{
-			cursor,
-			limit,
-			scanForward = true,
-			shard,
-			filter,
-		}: QueryOptions<T, PK, SK> = {},
+		options?: QueryOptions<T, PK, SK> & { select?: never },
+	): Promise<QueryResult<T>>;
+	beginsWith<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
+	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
+	beginsWith<K extends keyof T>(
+		sort: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> = {},
 	) {
-		const { dynamoDb, tableName } = this.#facet.connection;
-
-		const queryResult: QueryResult<T> = {
-			records: [],
-		};
-
-		let sortKey: string;
-		/**
-		 * If we were given a string we'll use it, otherwise we'll
-		 * create the sort key using the getKey function of the facet
-		 */
-		if (typeof sort === 'string') {
-			sortKey = sort;
-		} else {
-			sortKey = this.#index
-				? this.#index.sk(sort as Partial<T>)
-				: this.#facet.sk(sort as Partial<T>, shard);
-		}
-
-		const queryInput: QueryInput = {
-			TableName: tableName,
-			IndexName: this.#index?.indexName,
-			KeyConditionExpression: '#PK = :partition AND begins_with(#SK, :sort)',
-			ExpressionAttributeNames: {
-				'#PK': this.#PK,
-				'#SK': this.#SK,
-			},
-			ExpressionAttributeValues: {
-				':partition': {
-					S: this.#partition,
-				},
-				':sort': {
-					S: sortKey,
-				},
-			},
-			Limit: limit,
-			ScanIndexForward: scanForward,
-		};
-
-		if (cursor) {
-			queryInput.ExclusiveStartKey = decodeCursor(cursor);
-		}
-
-		if (filter) {
-			const filterExpression = expressionBuilder.filter(filter);
-			queryInput.FilterExpression = filterExpression.expression;
-			Object.assign(
-				queryInput.ExpressionAttributeNames!,
-				filterExpression.names,
-			);
-			Object.assign(
-				queryInput.ExpressionAttributeValues!,
-				filterExpression.values,
-			);
-		}
-
-		const results = await dynamoDb.query(queryInput);
-
-		/**
-		 * Gather any items that were returned
-		 */
-		if (results.Items) {
-			results.Items.forEach((item) => {
-				queryResult.records.push(this.#facet.out(item));
-			});
-		}
-
-		/**
-		 * Attach the cursor if needed
-		 */
-		if (results.LastEvaluatedKey) {
-			queryResult.cursor = encodeCursor(results.LastEvaluatedKey);
-		}
-
-		return queryResult;
+		return this.#beginsWithExec(sort as Partial<T>, options);
 	}
 
 	/**
@@ -459,109 +563,26 @@ export class PartitionQuery<
 	 *   .between({ postTitle: 'ab' }, { postTitle: 'ae' });
 	 * ```
 	 */
-	async between(
+	between(
 		start: Partial<Pick<T, GSISK>> | string,
 		end: Partial<Pick<T, GSISK>> | string,
-		{
-			cursor,
-			limit,
-			scanForward = true,
-			shard,
-			filter,
-		}: QueryOptions<T, PK, SK> = {},
+		options?: QueryOptions<T, PK, SK> & { select?: never },
+	): Promise<QueryResult<T>>;
+	between<K extends keyof T>(
+		this: [PV] extends [PickValidator<T>] ? this : never,
+		start: Partial<Pick<T, GSISK>> | string,
+		end: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> & { select: readonly [K, ...K[]] },
+	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
+	between<K extends keyof T>(
+		start: Partial<Pick<T, GSISK>> | string,
+		end: Partial<Pick<T, GSISK>> | string,
+		options: QueryOptions<T, PK, SK, K> = {},
 	) {
-		const { dynamoDb, tableName } = this.#facet.connection;
-
-		const queryResult: QueryResult<T> = {
-			records: [],
-		};
-
-		let startKey: string;
-		let endKey: string;
-
-		/**
-		 * If we were given a string we'll use it, otherwise we'll
-		 * create the sort key using the getKey function of the facet
-		 */
-		if (typeof start === 'string') {
-			startKey = start;
-		} else {
-			startKey = this.#index
-				? this.#index.sk(start as Partial<T>)
-				: this.#facet.sk(start as Partial<T>, shard);
-		}
-
-		/**
-		 * If we were given a string we'll use it, otherwise we'll
-		 * create the sort key using the getKey function of the facet
-		 */
-		if (typeof end === 'string') {
-			endKey = end;
-		} else {
-			endKey = this.#index
-				? this.#index.sk(end as Partial<T>)
-				: this.#facet.sk(end as Partial<T>, shard);
-		}
-
-		const queryInput: QueryInput = {
-			TableName: tableName,
-			IndexName: this.#index?.indexName,
-			KeyConditionExpression:
-				'#PK = :partition AND #SK BETWEEN :start AND :end',
-			ExpressionAttributeNames: {
-				'#PK': this.#PK,
-				'#SK': this.#SK,
-			},
-			ExpressionAttributeValues: {
-				':partition': {
-					S: this.#partition,
-				},
-				':start': {
-					S: startKey,
-				},
-				':end': {
-					S: endKey,
-				},
-			},
-			Limit: limit,
-			ScanIndexForward: scanForward,
-		};
-
-		if (cursor) {
-			queryInput.ExclusiveStartKey = decodeCursor(cursor);
-		}
-
-		if (filter) {
-			const filterExpression = expressionBuilder.filter(filter);
-			queryInput.FilterExpression = filterExpression.expression;
-			Object.assign(
-				queryInput.ExpressionAttributeNames!,
-				filterExpression.names,
-			);
-			Object.assign(
-				queryInput.ExpressionAttributeValues!,
-				filterExpression.values,
-			);
-		}
-
-		const results = await dynamoDb.query(queryInput);
-
-		/**
-		 * Gather any items that were returned
-		 */
-		if (results.Items) {
-			results.Items.forEach((item) => {
-				queryResult.records.push(this.#facet.out(item));
-			});
-		}
-
-		/**
-		 * Attach the cursor if needed
-		 */
-		if (results.LastEvaluatedKey) {
-			queryResult.cursor = encodeCursor(results.LastEvaluatedKey);
-		}
-
-		return queryResult;
+		return this.#betweenExec(
+			start as Partial<T>,
+			end as Partial<T>,
+			options,
+		);
 	}
 }

@@ -189,8 +189,9 @@ export type FacetIndexKeys<
 	GSISK extends Keys<T>,
 	I extends Index,
 	A extends string = never,
-> = Record<I, FacetIndex<T, PK, SK, GSIPK, GSISK>> &
-	Record<A, FacetIndex<T, PK, SK, GSIPK, GSISK>>;
+	PV extends PickValidator<T> | undefined = PickValidator<T> | undefined,
+> = Record<I, FacetIndex<T, PK, SK, GSIPK, GSISK, PV>> &
+	Record<A, FacetIndex<T, PK, SK, GSIPK, GSISK, PV>>;
 
 export type FacetWithIndex<F, K> = F & K;
 
@@ -290,7 +291,7 @@ class FacetImpl<
 	/**
 	 * Indexes that have been configured for the facet
 	 */
-	#indexes: Map<Index, FacetIndex<T, PK, SK>> = new Map();
+	#indexes: Map<Index, FacetIndex<T, PK, SK, Keys<T>, Keys<T>, PV>> = new Map();
 
 	/**
 	 * The delimiter used when construction partition and sort keys
@@ -772,7 +773,7 @@ class FacetImpl<
 	query(
 		partition: Pick<T, PK> & Partial<T>,
 		shard?: number,
-	): PartitionQuery<T, PK, SK> {
+	): PartitionQuery<T, PK, SK, never, never, PV> {
 		return new PartitionQuery({
 			facet: this,
 			partitionIdentifier: partition,
@@ -831,7 +832,7 @@ class FacetImpl<
 		alias,
 	}: AddIndexOptions<T, I, GSIPK, GSISK, A>): FacetWithIndex<
 		this,
-		FacetIndexKeys<T, PK, SK, GSIPK, GSISK, I, A>
+		FacetIndexKeys<T, PK, SK, GSIPK, GSISK, I, A, PV>
 	> {
 		if (this.#indexes.has(index)) {
 			throw new Error(
@@ -862,7 +863,7 @@ class FacetImpl<
 		 */
 		return this as unknown as FacetWithIndex<
 			this,
-			FacetIndexKeys<T, PK, SK, GSIPK, GSISK, I, A>
+			FacetIndexKeys<T, PK, SK, GSIPK, GSISK, I, A, PV>
 		>;
 	}
 }
@@ -931,8 +932,9 @@ export class FacetIndex<
 	SK extends Keys<T> = Keys<T>,
 	GSIPK extends Keys<T> = Keys<T>,
 	GSISK extends Keys<T> = Keys<T>,
+	PV extends PickValidator<T> | undefined = PickValidator<T> | undefined,
 > {
-	#facet: Facet<T, PK, SK>;
+	#facet: Facet<T, PK, SK, PV>;
 	#PK: KeyConfiguration<T, GSIPK>;
 	#SK: KeyConfiguration<T, GSISK>;
 
@@ -940,7 +942,7 @@ export class FacetIndex<
 
 	constructor(
 		indexName: Index,
-		facet: Facet<T, PK, SK>,
+		facet: Facet<T, PK, SK, PV>,
 		gsipk: KeyConfiguration<T, GSIPK>,
 		gsisk: KeyConfiguration<T, GSISK>,
 	) {
@@ -965,12 +967,21 @@ export class FacetIndex<
 	}
 
 	/**
+	 * The T-level field names that compose this index's partition and sort
+	 * keys. Projected reads on the index auto-include these so callers can
+	 * round results back into a `get`/`delete`/`put`.
+	 */
+	get keyFields(): readonly (GSIPK | GSISK)[] {
+		return [...this.#PK.keys, ...this.#SK.keys];
+	}
+
+	/**
 	 * Query a partition within the index
 	 */
 	query(
 		partition: Pick<T, GSIPK> & Partial<T>,
 		shard?: number,
-	): PartitionQuery<T, PK, SK, GSIPK, GSISK> {
+	): PartitionQuery<T, PK, SK, GSIPK, GSISK, PV> {
 		return new PartitionQuery({
 			facet: this.#facet,
 			partitionIdentifier: partition,
