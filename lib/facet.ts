@@ -236,7 +236,6 @@ export class Facet<
 	}: FacetOptions<T, PK, SK>) {
 		this.name = name;
 		this.#PK = PK;
-		this.#PK = PK;
 		this.#SK = SK;
 		this.#validator = validator;
 		this.#convertEmptyValues = convertEmptyValues;
