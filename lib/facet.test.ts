@@ -322,6 +322,28 @@ describe('Facet', () => {
 		expect(aPosts.records.length).toBe(20);
 	});
 
+	test('Conditional Deletes', async () => {
+		const [page] = mockPages(1);
+		const putResult = await PageFacet.put(page);
+		expect(putResult.wasSuccessful).toBe(true);
+
+		const successfulDelete = await PageFacet.delete(
+			{ pageId: page.pageId },
+			{ condition: ['pageId', 'exists'] },
+		);
+
+		expect(successfulDelete.hasFailures).toBe(false);
+		expect(successfulDelete.deleted).toHaveLength(1);
+
+		const failedDelete = await PageFacet.delete(
+			{ pageId: page.pageId },
+			{ condition: ['pageId', 'exists'] },
+		);
+
+		expect(failedDelete.hasFailures).toBe(true);
+		expect(failedDelete.deleted).toHaveLength(0);
+	});
+
 	test('Conditional Puts', async () => {
 		const testPage: Page = {
 			accessToken: 'ZZZZZZZZZZZZ',

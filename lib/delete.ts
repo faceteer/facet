@@ -1,14 +1,15 @@
 import type { DeleteItemInput } from '@aws-sdk/client-dynamodb';
 import type { Facet } from './facet';
-import expressionBuilder from '@faceteer/expression-builder';
+import type { ConditionExpression } from '@faceteer/expression-builder';
 import { PK, SK, Keys } from './keys';
 import {
 	batchWriteWithRetry,
 	type BatchWriteAdapter,
 } from './batch-write';
+import { applyCondition } from './condition';
 
 export interface DeleteOptions<T> {
-	condition?: expressionBuilder.ConditionExpression<T>;
+	condition?: ConditionExpression<T>;
 }
 
 /**
@@ -67,10 +68,7 @@ export async function deleteSingleItem<
 		};
 
 		if (options.condition) {
-			const expression = expressionBuilder.condition(options.condition);
-			deleteInput.ConditionExpression = expression.expression;
-			deleteInput.ExpressionAttributeNames = expression.names;
-			deleteInput.ExpressionAttributeValues = expression.values;
+			applyCondition(deleteInput, options.condition);
 		}
 
 		await facet.connection.dynamoDb.deleteItem(deleteInput);
