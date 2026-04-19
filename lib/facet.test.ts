@@ -322,6 +322,32 @@ describe('Facet', () => {
 		expect(aPosts.records.length).toBe(20);
 	});
 
+	test('Sharded PK honours explicit shard: 0', async () => {
+		// GSI1 is sharded with count 4 on `postId`.
+		const model = {
+			postId: 'some-post-id',
+			postStatus: PostStatus.Queued,
+		};
+		const shard0 = PostFacet.GSIStatusSendAt.pk(model, 0);
+		const shard1 = PostFacet.GSIStatusSendAt.pk(model, 1);
+		const shard2 = PostFacet.GSIStatusSendAt.pk(model, 2);
+		const shard3 = PostFacet.GSIStatusSendAt.pk(model, 3);
+		const hashed = PostFacet.GSIStatusSendAt.pk(model);
+
+		// count = 4, so padLength = 1 and shard IDs are single hex digits.
+		expect(shard0).toBe(`${Prefix.Status}_0_${PostStatus.Queued}`);
+		expect(shard1).toBe(`${Prefix.Status}_1_${PostStatus.Queued}`);
+		expect(shard2).toBe(`${Prefix.Status}_2_${PostStatus.Queued}`);
+		expect(shard3).toBe(`${Prefix.Status}_3_${PostStatus.Queued}`);
+
+		// The hashed key for this model happens not to be shard 0, but
+		// the fundamental invariant is that explicit shard 0 differs
+		// from at least one of the other explicit shards — otherwise
+		// it was silently treated as "unspecified".
+		expect(new Set([shard0, shard1, shard2, shard3]).size).toBe(4);
+		expect([shard0, shard1, shard2, shard3]).toContain(hashed);
+	});
+
 	test('Conditional Deletes', async () => {
 		const [page] = mockPages(1);
 		const putResult = await PageFacet.put(page);

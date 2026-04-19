@@ -243,9 +243,11 @@ export function buildKey<T, U extends Keys<T>>(
 	if (keyConfig.shard && shard !== null) {
 		/**
 		 * If the shard was passed in to the `buildKey` function
-		 * we're mostly likely building a key to query with.
+		 * we're mostly likely building a key to query with. A
+		 * truthy check would silently treat `shard === 0` as
+		 * "unspecified" and fall through to the hash path.
 		 */
-		if (shard) {
+		if (shard !== undefined) {
 			const padLength = (keyConfig.shard.count - 1).toString(16).length;
 			compositeKey.push(shard.toString(16).padStart(padLength, '0'));
 		} else {
