@@ -933,6 +933,13 @@ export class FacetIndex<
 
 	readonly indexName: Index;
 
+	/**
+	 * @internal Not intended for direct use. A `FacetIndex` is wired to
+	 * its parent `Facet` via `Facet.addIndex(...)`, which registers the
+	 * index in the facet's internal map so `in()`/`out()` stamp and strip
+	 * the synthetic `GSInPK`/`GSInSK` attributes. A manually constructed
+	 * instance is inert.
+	 */
 	constructor(
 		indexName: Index,
 		facet: Facet<T, PK, SK, PV>,
