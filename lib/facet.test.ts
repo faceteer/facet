@@ -586,6 +586,33 @@ describe('Facet', () => {
 		expect(hashed).toMatch(/^ID_[0-3]_some-event$/);
 	});
 
+	test('multi-key shard inputs are delimiter-separated before hashing', () => {
+		// Without a separator, `{a: 'ab', b: 'c'}` and `{a: 'a', b: 'bc'}`
+		// would stringify-concat to the same 'abc' and share a shard. The
+		// null-byte separator makes them distinct. Using a large shard
+		// count makes a collision vanishingly unlikely under CRC32.
+		interface Thing {
+			kind: string;
+			a: string;
+			b: string;
+		}
+		const ThingFacet = new Facet<Thing, 'kind'>({
+			name: 'Thing',
+			validator: (input) => input as Thing,
+			PK: {
+				keys: ['kind'],
+				prefix: 'T',
+				shard: { count: 256, keys: ['a', 'b'] },
+			},
+			SK: { keys: [], prefix: 'T' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+
+		const left = ThingFacet.pk({ kind: 'k', a: 'ab', b: 'c' });
+		const right = ThingFacet.pk({ kind: 'k', a: 'a', b: 'bc' });
+		expect(left).not.toEqual(right);
+	});
+
 	test('Sharded PK honours explicit shard: 0', async () => {
 		// GSI1 is sharded with count 4 on `postId`.
 		const model = {

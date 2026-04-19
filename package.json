@@ -58,7 +58,6 @@
 	},
 	"dependencies": {
 		"@faceteer/converter": "^2.0.3",
-		"@faceteer/expression-builder": "^2.0.1",
-		"crc-32": "^1.2.0"
+		"@faceteer/expression-builder": "^2.0.1"
 	}
 }

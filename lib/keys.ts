@@ -10,6 +10,11 @@ export type Keys<T> = T extends T ? keyof T : never;
  * array, or `Date` would otherwise silently contribute `[object Object]`
  * or a timezone-dependent string to the hash input, producing a
  * deterministic but opaque shard id.
+ *
+ * Multi-key shard inputs are joined with a null byte (`\x00`) before
+ * hashing so field boundaries are preserved. In the unlikely case a
+ * shard-key string value itself contains a null byte, collisions with
+ * other null-byte-containing inputs become possible.
  */
 export type PrimitiveShardKey<T> = {
 	[K in Keys<T>]: [T[K]] extends [
@@ -157,7 +162,15 @@ export function buildKey<T, U extends Keys<T>>(
 				}
 			}
 
-			const keyToHash = valuesToHash.join('');
+			/**
+			 * `\x00` separates multi-key shard inputs so models that
+			 * would otherwise stringify-concat to the same bytes (e.g.
+			 * `{a: 'ab', b: 'c'}` vs `{a: 'a', b: 'bc'}`) hash to
+			 * different shards. Null bytes never appear in composite
+			 * keys or realistic IDs, and the hash input never leaves
+			 * this function.
+			 */
+			const keyToHash = valuesToHash.join('\x00');
 			const shardId = crcShard(keyToHash, keyConfig.shard.count);
 			compositeKey.push(shardId);
 		}
