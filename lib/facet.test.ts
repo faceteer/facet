@@ -322,6 +322,34 @@ describe('Facet', () => {
 		expect(aPosts.records.length).toBe(20);
 	});
 
+	test('addIndex rejects re-registering a GSI slot', async () => {
+		interface Thing {
+			thingId: string;
+			status: string;
+		}
+		const base = new Facet<Thing, 'thingId'>({
+			name: 'Thing',
+			validator: (input) => input as Thing,
+			PK: { keys: ['thingId'], prefix: 'T' },
+			SK: { keys: [], prefix: 'T' },
+			connection: { dynamoDb: ddb, tableName },
+		}).addIndex({
+			index: Index.GSI1,
+			PK: { keys: ['status'], prefix: 'S' },
+			SK: { keys: ['thingId'], prefix: 'T' },
+			alias: 'byStatus',
+		});
+
+		expect(() =>
+			base.addIndex({
+				index: Index.GSI1,
+				PK: { keys: ['status'], prefix: 'S' },
+				SK: { keys: ['thingId'], prefix: 'T' },
+				alias: 'byStatusAgain',
+			}),
+		).toThrow(/already registered/);
+	});
+
 	test('SK.shard config produces sharded sort keys', async () => {
 		interface Event {
 			eventType: string;

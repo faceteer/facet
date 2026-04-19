@@ -423,6 +423,17 @@ export class Facet<
 		this,
 		FacetIndexKeys<T, PK, SK, GSIPK, GSISK, I, A>
 	> {
+		if (this.#indexes.has(index)) {
+			throw new Error(
+				`Index ${index} is already registered on this Facet. Each GSI slot can only be used once.`,
+			);
+		}
+		if (alias && Object.prototype.hasOwnProperty.call(this, alias)) {
+			throw new Error(
+				`The index alias ${alias} already exists on this Facet. Pick another index to use for this alias.`,
+			);
+		}
+
 		const facetIndex = new FacetIndex(index, this, PK, SK);
 		this.#indexes.set(index, facetIndex);
 
@@ -431,15 +442,6 @@ export class Facet<
 		});
 
 		if (alias) {
-			/**
-			 * Make sure that the alias is not an existing method or property on a Facet
-			 */
-			if (Object.prototype.hasOwnProperty.call(this, alias)) {
-				throw new Error(
-					`The index alias ${alias} already exists on this Facet. Pick another index to use for this alias.`,
-				);
-			}
-
 			Object.assign(this, {
 				[alias]: facetIndex,
 			});
