@@ -59,43 +59,6 @@ export const IndexSet: Set<Index> = new Set([
 	Index.GSI20,
 ]);
 
-export const IndexPrivatePropertyMap = {
-	GSI1: '_GSI1',
-	GSI2: '_GSI2',
-	GSI3: '_GSI3',
-	GSI4: '_GSI4',
-	GSI5: '_GSI5',
-	GSI6: '_GSI6',
-	GSI7: '_GSI7',
-	GSI8: '_GSI8',
-	GSI9: '_GSI9',
-	GSI10: '_GSI10',
-	GSI11: '_GSI11',
-	GSI12: '_GSI12',
-	GSI13: '_GSI13',
-	GSI14: '_GSI14',
-	GSI15: '_GSI15',
-	GSI16: '_GSI16',
-	GSI17: '_GSI17',
-	GSI18: '_GSI18',
-	GSI19: '_GSI19',
-	GSI20: '_GSI20',
-} as const;
-
-/**
- * Type guard to make sure a string is actually an Index
- */
-export function isIndex(indexName: string): indexName is Index {
-	/**
-	 * Kind of dumb. Since `IndexSet` has it's typing as `Set<Index>` you
-	 * can only pass in an `Index` to `IndexSet.has()`.
-	 *
-	 * But obviously I want to check and see if any arbitrary string is
-	 * in the set so I'm forcing the type here
-	 */
-	return IndexSet.has(indexName as Index);
-}
-
 /**
  * How to build a composite key from an object
  */
@@ -143,88 +106,6 @@ export const IndexKeyNameMap = {
 	GSI20: { PK: 'GSI20PK', SK: 'GSI20SK' },
 } as const;
 
-/**
- * Partition and sort key definitions for a
- * Global Secondary Index
- */
-export interface IndexKeyConfiguration<
-	T,
-	P extends Keys<T>,
-	K extends Keys<T>,
-> {
-	PK: KeyConfiguration<T, P>;
-	SK: KeyConfiguration<T, K>;
-}
-
-/**
- * Optional configuration for how to build
- * the partition and sort keys for Global
- * Secondary Indexes.
- */
-export interface IndexKeyOptions<
-	T,
-	GSI1PK extends Keys<T> = never,
-	GSI1SK extends Keys<T> = never,
-	GSI2PK extends Keys<T> = never,
-	GSI2SK extends Keys<T> = never,
-	GSI3PK extends Keys<T> = never,
-	GSI3SK extends Keys<T> = never,
-	GSI4PK extends Keys<T> = never,
-	GSI4SK extends Keys<T> = never,
-	GSI5PK extends Keys<T> = never,
-	GSI5SK extends Keys<T> = never,
-	GSI6PK extends Keys<T> = never,
-	GSI6SK extends Keys<T> = never,
-	GSI7PK extends Keys<T> = never,
-	GSI7SK extends Keys<T> = never,
-	GSI8PK extends Keys<T> = never,
-	GSI8SK extends Keys<T> = never,
-	GSI9PK extends Keys<T> = never,
-	GSI9SK extends Keys<T> = never,
-	GSI10PK extends Keys<T> = never,
-	GSI10SK extends Keys<T> = never,
-	GSI11PK extends Keys<T> = never,
-	GSI11SK extends Keys<T> = never,
-	GSI12PK extends Keys<T> = never,
-	GSI12SK extends Keys<T> = never,
-	GSI13PK extends Keys<T> = never,
-	GSI13SK extends Keys<T> = never,
-	GSI14PK extends Keys<T> = never,
-	GSI14SK extends Keys<T> = never,
-	GSI15PK extends Keys<T> = never,
-	GSI15SK extends Keys<T> = never,
-	GSI16PK extends Keys<T> = never,
-	GSI16SK extends Keys<T> = never,
-	GSI17PK extends Keys<T> = never,
-	GSI17SK extends Keys<T> = never,
-	GSI18PK extends Keys<T> = never,
-	GSI18SK extends Keys<T> = never,
-	GSI19PK extends Keys<T> = never,
-	GSI19SK extends Keys<T> = never,
-	GSI20PK extends Keys<T> = never,
-	GSI20SK extends Keys<T> = never,
-> {
-	GSI1?: IndexKeyConfiguration<T, GSI1PK, GSI1SK>;
-	GSI2?: IndexKeyConfiguration<T, GSI2PK, GSI2SK>;
-	GSI3?: IndexKeyConfiguration<T, GSI3PK, GSI3SK>;
-	GSI4?: IndexKeyConfiguration<T, GSI4PK, GSI4SK>;
-	GSI5?: IndexKeyConfiguration<T, GSI5PK, GSI5SK>;
-	GSI6?: IndexKeyConfiguration<T, GSI6PK, GSI6SK>;
-	GSI7?: IndexKeyConfiguration<T, GSI7PK, GSI7SK>;
-	GSI8?: IndexKeyConfiguration<T, GSI8PK, GSI8SK>;
-	GSI9?: IndexKeyConfiguration<T, GSI9PK, GSI9SK>;
-	GSI10?: IndexKeyConfiguration<T, GSI10PK, GSI10SK>;
-	GSI11?: IndexKeyConfiguration<T, GSI11PK, GSI11SK>;
-	GSI12?: IndexKeyConfiguration<T, GSI12PK, GSI12SK>;
-	GSI13?: IndexKeyConfiguration<T, GSI13PK, GSI13SK>;
-	GSI14?: IndexKeyConfiguration<T, GSI14PK, GSI14SK>;
-	GSI15?: IndexKeyConfiguration<T, GSI15PK, GSI15SK>;
-	GSI16?: IndexKeyConfiguration<T, GSI16PK, GSI16SK>;
-	GSI17?: IndexKeyConfiguration<T, GSI17PK, GSI17SK>;
-	GSI18?: IndexKeyConfiguration<T, GSI18PK, GSI18SK>;
-	GSI19?: IndexKeyConfiguration<T, GSI19PK, GSI19SK>;
-	GSI20?: IndexKeyConfiguration<T, GSI20PK, GSI20SK>;
-}
 /**
  * Build a composite primary or sort key based on the key
  * configuration and a model

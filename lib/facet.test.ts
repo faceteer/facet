@@ -1,6 +1,7 @@
 import { DynamoDB, ResourceInUseException } from '@aws-sdk/client-dynamodb';
 import { Facet, PickValidator } from './facet';
 import { Index } from './keys';
+import * as keysModule from './keys';
 import { wait } from './wait';
 
 const ddb = new DynamoDB({
@@ -320,6 +321,22 @@ describe('Facet', () => {
 			postTitle: 'a',
 		});
 		expect(aPosts.records.length).toBe(20);
+	});
+
+	test('dead-code exports are removed from lib/keys', () => {
+		// Issue #42: IndexPrivatePropertyMap, isIndex, IndexKeyConfiguration,
+		// and IndexKeyOptions were declared but never used. Guard against
+		// them being re-added.
+		// @ts-expect-error IndexPrivatePropertyMap was removed as dead code
+		void keysModule.IndexPrivatePropertyMap;
+		// @ts-expect-error isIndex was removed as dead code
+		void keysModule.isIndex;
+		// @ts-expect-error IndexKeyConfiguration was removed as dead code
+		type _IKC = keysModule.IndexKeyConfiguration<unknown, never, never>;
+		// @ts-expect-error IndexKeyOptions was removed as dead code
+		type _IKO = keysModule.IndexKeyOptions<unknown>;
+
+		expect<0>(0 satisfies 0).toBe(0);
 	});
 
 	test('base-facet query sort-key argument is typed against the facet SK', () => {
