@@ -7,6 +7,7 @@ import type { Facet, WithoutReservedAttributes } from './facet';
 import { PK, SK, Keys } from './keys';
 import { buildProjectionExpression } from './projection';
 import { wait } from './wait';
+import { DEFAULT_BATCH_CONCURRENCY, mapWithConcurrency } from './concurrency';
 
 export interface GetOptions<T, K extends keyof T = keyof T> {
 	/**
@@ -18,6 +19,14 @@ export interface GetOptions<T, K extends keyof T = keyof T> {
 	 * Requires `pickValidator` on the facet; throws otherwise.
 	 */
 	select?: readonly [K, ...K[]];
+	/**
+	 * Maximum number of `BatchGetItem` requests in flight at once
+	 * when batch-reading. Ignored for single-item gets.
+	 *
+	 * Defaults to 8 — tuned to stay within a new on-demand table's
+	 * starting capacity and let adaptive-capacity scale up from there.
+	 */
+	concurrency?: number;
 }
 
 export async function getSingleItem<
@@ -171,10 +180,19 @@ export async function getBatchItems<
 		batches.push(queriesToBatch.splice(0, 100));
 	}
 
-	const batchPromises = batches.map((batch) => getBatch(facet, batch, options));
+	const concurrency = options.concurrency ?? DEFAULT_BATCH_CONCURRENCY;
+	const batchResults = await mapWithConcurrency(batches, concurrency, (batch) =>
+		getBatch(facet, batch, options),
+	);
 
-	const batchResults = await Promise.all(batchPromises);
-	return batchResults.flat(1);
+	const items: (T | Pick<T, K | PartitionKey | SortKey>)[] = [];
+	for (const result of batchResults) {
+		if (result.status === 'rejected') {
+			throw result.reason;
+		}
+		items.push(...result.value);
+	}
+	return items;
 }
 
 /**

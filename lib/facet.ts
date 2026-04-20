@@ -514,7 +514,10 @@ class FacetImpl<
 	 * ]);
 	 * ```
 	 */
-	async get(queries: (Pick<T, PK | SK> & Partial<T>)[]): Promise<T[]>;
+	async get(
+		queries: (Pick<T, PK | SK> & Partial<T>)[],
+		options?: Pick<GetOptions<T, never>, 'concurrency'>,
+	): Promise<T[]>;
 	/**
 	 * Fetch a single record and project only the requested attributes.
 	 *
@@ -647,6 +650,7 @@ class FacetImpl<
 	 */
 	async delete(
 		records: (Pick<T, PK | SK> & Partial<T>)[],
+		options?: Pick<DeleteOptions<Pick<T, PK | SK> & Partial<T>>, 'concurrency'>,
 	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>>;
 	async delete(
 		records:
@@ -655,7 +659,7 @@ class FacetImpl<
 		options?: DeleteOptions<Pick<T, PK | SK> & Partial<T>>,
 	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>> {
 		if (Array.isArray(records)) {
-			return deleteItems(this, records);
+			return deleteItems(this, records, options);
 		}
 
 		return deleteSingleItem(this, records, options);
@@ -716,13 +720,16 @@ class FacetImpl<
 	 * console.log(`wrote ${result.put.length}, failed ${result.failed.length}`);
 	 * ```
 	 */
-	async put(records: T[]): Promise<PutResponse<T>>;
+	async put(
+		records: T[],
+		options?: Pick<PutOptions<T>, 'concurrency'>,
+	): Promise<PutResponse<T>>;
 	async put(
 		records: T[] | T,
 		options?: PutOptions<T>,
 	): Promise<PutResponse<T> | PutSingleItemResponse<T>> {
 		if (Array.isArray(records)) {
-			return putItems(this, records);
+			return putItems(this, records, options);
 		}
 
 		return putSingleItem(this, records, options);

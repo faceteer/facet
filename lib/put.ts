@@ -5,9 +5,18 @@ import { Converter } from '@faceteer/converter';
 import type { ConditionExpression } from '@faceteer/expression-builder';
 import { batchWriteWithRetry, type BatchWriteAdapter } from './batch-write';
 import { applyCondition } from './condition';
+import { DEFAULT_BATCH_CONCURRENCY, mapWithConcurrency } from './concurrency';
 
 export interface PutOptions<T> {
 	condition?: ConditionExpression<T>;
+	/**
+	 * Maximum number of `BatchWriteItem` requests in flight at once
+	 * when batch-writing. Ignored for single-item puts.
+	 *
+	 * Defaults to 8 — tuned to stay within a new on-demand table's
+	 * starting capacity and let adaptive-capacity scale up from there.
+	 */
+	concurrency?: number;
 }
 
 /**
@@ -98,7 +107,11 @@ export async function putItems<
 	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
->(facet: Facet<T, PK, SK>, records: T[]): Promise<PutResponse<T>> {
+>(
+	facet: Facet<T, PK, SK>,
+	records: T[],
+	options: PutOptions<T> = {},
+): Promise<PutResponse<T>> {
 	const recordsToBatch: T[] = [...records];
 	const putResponse: PutResponse<T> = {
 		failed: [],
@@ -116,10 +129,9 @@ export async function putItems<
 	}
 
 	const adapter = putAdapter(facet);
-	const batchResults = await Promise.allSettled(
-		batches.map((batch) =>
-			batchWriteWithRetry(facet.connection, batch, adapter),
-		),
+	const concurrency = options.concurrency ?? DEFAULT_BATCH_CONCURRENCY;
+	const batchResults = await mapWithConcurrency(batches, concurrency, (batch) =>
+		batchWriteWithRetry(facet.connection, batch, adapter),
 	);
 	for (const [index, result] of batchResults.entries()) {
 		if (result.status === 'rejected') {

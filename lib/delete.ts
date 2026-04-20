@@ -4,9 +4,18 @@ import type { ConditionExpression } from '@faceteer/expression-builder';
 import { PK, SK, Keys } from './keys';
 import { batchWriteWithRetry, type BatchWriteAdapter } from './batch-write';
 import { applyCondition } from './condition';
+import { DEFAULT_BATCH_CONCURRENCY, mapWithConcurrency } from './concurrency';
 
 export interface DeleteOptions<T> {
 	condition?: ConditionExpression<T>;
+	/**
+	 * Maximum number of `BatchWriteItem` requests in flight at once
+	 * when batch-deleting. Ignored for single-item deletes.
+	 *
+	 * Defaults to 8 — tuned to stay within a new on-demand table's
+	 * starting capacity and let adaptive-capacity scale up from there.
+	 */
+	concurrency?: number;
 }
 
 /**
@@ -98,7 +107,11 @@ export async function deleteItems<
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	U extends Partial<T> = Pick<T, PK | SK> & Partial<T>,
->(facet: Facet<T, PK, SK>, records: U[]): Promise<DeleteResponse<U>> {
+>(
+	facet: Facet<T, PK, SK>,
+	records: U[],
+	options: DeleteOptions<U> = {},
+): Promise<DeleteResponse<U>> {
 	const recordsToBatch: U[] = [...records];
 	const deleteResponse: DeleteResponse<U> = {
 		failed: [],
@@ -116,10 +129,9 @@ export async function deleteItems<
 	}
 
 	const adapter = deleteAdapter<T, PK, SK, U>(facet);
-	const batchResults = await Promise.allSettled(
-		batches.map((batch) =>
-			batchWriteWithRetry(facet.connection, batch, adapter),
-		),
+	const concurrency = options.concurrency ?? DEFAULT_BATCH_CONCURRENCY;
+	const batchResults = await mapWithConcurrency(batches, concurrency, (batch) =>
+		batchWriteWithRetry(facet.connection, batch, adapter),
 	);
 	for (const [index, result] of batchResults.entries()) {
 		if (result.status === 'rejected') {
