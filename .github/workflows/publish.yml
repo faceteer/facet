@@ -22,12 +22,12 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Use Node.js 24
         # Node 24 bundles npm 11.x. OIDC Trusted Publishing needs npm >= 11.5.1,
         # so using a recent LTS avoids a global npm upgrade step on the runner.
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
