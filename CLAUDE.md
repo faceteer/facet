@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `@faceteer/facet` — a TypeScript helper library for DynamoDB single-table design. The package wraps `@aws-sdk/client-dynamodb` (a peer dependency) with typed `Facet` objects that compute composite keys and GSI keys from model fields.
 
-Node >= 20. The package publishes the compiled output next to the source (`lib/**/*.js`, `index.js`, and their `.d.ts` siblings) — there is no separate `dist/` directory.
+Node >= 22.12 (the first LTS where `require(esm)` is unflagged; the package itself is ESM). The package publishes the compiled output next to the source (`lib/**/*.js`, `index.js`, and their `.d.ts` siblings) — there is no separate `dist/` directory.
 
 ## Commands
 
@@ -51,3 +51,40 @@ The big idea: one `Facet<T, PK, SK>` represents one logical record type in a sha
 - Tabs, single quotes, trailing commas, semicolons (see `.prettierrc`). Prettier is the single source of truth for formatting — ESLint's `eslint-config-prettier` disables any formatting rules that would conflict.
 - ESLint config is flat (`eslint.config.mjs`) and layers `@eslint/js` recommended, `typescript-eslint` strict-type-checked + stylistic-type-checked, `eslint-plugin-import-x` (only `no-cycle` and `no-extraneous-dependencies` enabled), and `eslint-config-prettier` last. Test files (`**/*.test.ts`) override `require-await`, `no-misused-promises` off and allow `_`-prefixed unused vars.
 - Strict TypeScript (`strict: true`, `noUnusedLocals`, `noUnusedParameters`).
+
+## Release workflow
+
+### npm dist-tags
+
+- `X.Y.Z` → dist-tag `latest`
+- `X.Y.Z-alpha.N` → dist-tag `alpha`
+- `X.Y.Z-beta.N` → dist-tag `beta`
+- `X.Y.Z-rc.N` → dist-tag `rc`
+
+`.github/workflows/publish.yml` fires on `v*` tag pushes, runs the full CI gate (lint, format:check, typecheck, build, tests against DynamoDB Local), publishes with the right dist-tag via npm Trusted Publishing (OIDC — no NPM_TOKEN), then creates a GitHub Release whose body is the matching `CHANGELOG.md` section. Prereleases are flagged with `--prerelease`.
+
+### `main` is experimental
+
+Until a final `X.Y.Z` (no suffix) is tagged, `main` may carry breaking, unpublished changes. Consumers should pin to a specific prerelease (`npm install @faceteer/facet@alpha`) during that window. Patching old majors from separate branches is out of scope for now and will be revisited the first time it's needed.
+
+### Starting a new version line
+
+1. Branch from `main`: `git checkout -b v6.1` (or `v7`, etc.).
+2. Make sure `CHANGELOG.md` has a `## [Unreleased]` block at the top; create one if a prior release consumed it.
+3. Land commits as normal.
+
+### Cutting a release (LLM-driven)
+
+Run the following steps in order. Each is small enough to be done in one Claude turn; the user reviews the CHANGELOG draft before the tag push.
+
+1. **Draft the CHANGELOG entry.** Read `git log <last-tag>..HEAD` and group changes under Keep a Changelog sub-headings (`Added` / `Changed` / `Changed (breaking)` / `Fixed` / `Removed` / `Infrastructure`). Reference issue numbers where the commit message mentions them. Write the draft into the `## [Unreleased]` block.
+2. **Rename the block.** `## [Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD`, and open a fresh empty `## [Unreleased]` above it. Add the `[X.Y.Z]` compare-link at the bottom of the file.
+3. **Bump `package.json` `version`** to `X.Y.Z`.
+4. **Sanity-check** that the awk extractor returns non-empty output for the new version:
+
+   ```sh
+   awk -v ver="X.Y.Z" '$0 ~ "^## \\[" ver "\\]" {inside=1; next} inside && /^## \[/ {exit} inside' CHANGELOG.md
+   ```
+
+5. **Commit**: `git commit -m "release: vX.Y.Z"` (or similar). Do not squash with other work.
+6. **Tag and push**: `git tag vX.Y.Z && git push origin vX.Y.Z` (push the tag; branches can be pushed separately). The publish workflow takes it from there.
