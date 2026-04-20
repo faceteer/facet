@@ -8,6 +8,15 @@ npm dist-tags track the most recent publish in each channel: `latest` points at 
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-04-20
+
+Stable promotion of `6.0.0-alpha.0`. No behavioral changes to library code; see the `6.0.0-alpha.0` entry for the full set of v6 changes.
+
+### Infrastructure
+
+- Regenerated typedoc output for v6 and added a `docs` npm script.
+- Bumped `actions/checkout` and `actions/setup-node` from v4 to v6 in CI.
+
 ## [6.0.0-alpha.0] - 2026-04-20
 
 First publish of the v6 line. Breaking changes from v5 touch module format, the DynamoDB client wiring, the cursor format, and the public API surface — migrating existing v5 consumers is not a drop-in upgrade.
@@ -61,5 +70,6 @@ First publish of the v6 line. Breaking changes from v5 touch module format, the 
 - Widened `@aws-sdk/client-dynamodb` peer dep range to `^3.0.0`.
 - Shared VS Code workspace setting makes IDE auto-imports insert the required `.js` extension for NodeNext module resolution.
 
-[unreleased]: https://github.com/faceteer/facet/compare/v6.0.0-alpha.0...HEAD
+[unreleased]: https://github.com/faceteer/facet/compare/v6.0.0...HEAD
+[6.0.0]: https://github.com/faceteer/facet/compare/v6.0.0-alpha.0...v6.0.0
 [6.0.0-alpha.0]: https://github.com/faceteer/facet/releases/tag/v6.0.0-alpha.0
