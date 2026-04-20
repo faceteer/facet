@@ -1,5 +1,5 @@
 import type { DynamoDB, WriteRequest } from '@aws-sdk/client-dynamodb';
-import { wait } from './wait';
+import { wait } from './wait.js';
 
 /**
  * Adapts a domain-specific record (put payload or delete key) to the

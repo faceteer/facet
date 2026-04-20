@@ -1,10 +1,13 @@
 import type { DeleteItemInput } from '@aws-sdk/client-dynamodb';
-import type { Facet, WithoutReservedAttributes } from './facet';
+import type { Facet, WithoutReservedAttributes } from './facet.js';
 import type { ConditionExpression } from '@faceteer/expression-builder';
-import { PK, SK, Keys } from './keys';
-import { batchWriteWithRetry, type BatchWriteAdapter } from './batch-write';
-import { applyCondition } from './condition';
-import { DEFAULT_BATCH_CONCURRENCY, mapWithConcurrency } from './concurrency';
+import { PK, SK, Keys } from './keys.js';
+import { batchWriteWithRetry, type BatchWriteAdapter } from './batch-write.js';
+import { applyCondition } from './condition.js';
+import {
+	DEFAULT_BATCH_CONCURRENCY,
+	mapWithConcurrency,
+} from './concurrency.js';
 
 export interface DeleteOptions<T> {
 	condition?: ConditionExpression<T>;

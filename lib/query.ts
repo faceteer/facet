@@ -1,16 +1,16 @@
-import { decodeCursor, encodeCursor } from './cursor';
+import { decodeCursor, encodeCursor } from './cursor.js';
 import {
 	Facet,
 	FacetIndex,
 	PickValidator,
 	WithoutReservedAttributes,
-} from './facet';
+} from './facet.js';
 import {
 	filter as buildFilterExpression,
 	type FilterConditionExpression,
 } from '@faceteer/expression-builder';
-import { IndexKeyNameMap, PK, SK, Keys } from './keys';
-import { buildProjectionExpression } from './projection';
+import { IndexKeyNameMap, PK, SK, Keys } from './keys.js';
+import { buildProjectionExpression } from './projection.js';
 import type { QueryInput } from '@aws-sdk/client-dynamodb';
 
 /**

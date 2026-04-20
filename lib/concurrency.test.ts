@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { mapWithConcurrency } from './concurrency';
-import { wait } from './wait';
+import { mapWithConcurrency } from './concurrency.js';
+import { wait } from './wait.js';
 
 describe('mapWithConcurrency', () => {
 	test('never runs more than `limit` workers at once', async () => {

@@ -1,4 +1,4 @@
-import { crcShard } from './hash/crc-shard';
+import { crcShard } from './hash/crc-shard.js';
 
 export type Keys<T> = T extends T ? keyof T : never;
 

@@ -5,8 +5,8 @@ import {
 	type WriteRequest,
 } from '@aws-sdk/client-dynamodb';
 import { vi } from 'vitest';
-import { Facet } from './facet';
-import { wait } from './wait';
+import { Facet } from './facet.js';
+import { wait } from './wait.js';
 
 interface Item {
 	pk: string;

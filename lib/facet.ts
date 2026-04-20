@@ -1,13 +1,13 @@
 import { Converter } from '@faceteer/converter';
-import type { ConverterOptions } from '@faceteer/converter/converter-options';
+import type { ConverterOptions } from '@faceteer/converter/converter-options.js';
 import type { DynamoDB, AttributeValue } from '@aws-sdk/client-dynamodb';
 import {
 	deleteItems,
 	DeleteOptions,
 	DeleteResponse,
 	deleteSingleItem,
-} from './delete';
-import { GetOptions, getBatchItems, getSingleItem } from './get';
+} from './delete.js';
+import { GetOptions, getBatchItems, getSingleItem } from './get.js';
 import {
 	buildKey,
 	Index,
@@ -16,15 +16,15 @@ import {
 	PK,
 	SK,
 	Keys,
-} from './keys';
+} from './keys.js';
 import {
 	putItems,
 	PutOptions,
 	PutResponse,
 	putSingleItem,
 	PutSingleItemResponse,
-} from './put';
-import { PartitionQuery } from './query';
+} from './put.js';
+import { PartitionQuery } from './query.js';
 
 export type AttributeMap = Record<string, AttributeValue>;
 

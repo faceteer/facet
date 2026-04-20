@@ -3,11 +3,14 @@ import type {
 	KeysAndAttributes,
 	BatchGetItemOutput,
 } from '@aws-sdk/client-dynamodb';
-import type { Facet, WithoutReservedAttributes } from './facet';
-import { PK, SK, Keys } from './keys';
-import { buildProjectionExpression } from './projection';
-import { wait } from './wait';
-import { DEFAULT_BATCH_CONCURRENCY, mapWithConcurrency } from './concurrency';
+import type { Facet, WithoutReservedAttributes } from './facet.js';
+import { PK, SK, Keys } from './keys.js';
+import { buildProjectionExpression } from './projection.js';
+import { wait } from './wait.js';
+import {
+	DEFAULT_BATCH_CONCURRENCY,
+	mapWithConcurrency,
+} from './concurrency.js';
 
 export interface GetOptions<T, K extends keyof T = keyof T> {
 	/**

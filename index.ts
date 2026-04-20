@@ -5,10 +5,10 @@
  */
 
 // --- Values ---
-export { Facet } from './lib/facet';
-export { FacetIndex } from './lib/facet';
-export { buildKey, Index, IndexKeyNameMap, PK, SK } from './lib/keys';
-export { PartitionQuery } from './lib/query';
+export { Facet } from './lib/facet.js';
+export { FacetIndex } from './lib/facet.js';
+export { buildKey, Index, IndexKeyNameMap, PK, SK } from './lib/keys.js';
+export { PartitionQuery } from './lib/query.js';
 
 // --- Types ---
 export type {
@@ -21,32 +21,32 @@ export type {
 	ReservedAttributeName,
 	Validator,
 	WithoutReservedAttributes,
-} from './lib/facet';
+} from './lib/facet.js';
 
 export type {
 	KeyConfiguration,
 	Keys,
 	PrimitiveShardKey,
 	ShardConfiguration,
-} from './lib/keys';
+} from './lib/keys.js';
 
 export type {
 	DeleteFailure,
 	DeleteOptions,
 	DeleteResponse,
-} from './lib/delete';
+} from './lib/delete.js';
 
-export type { GetOptions } from './lib/get';
+export type { GetOptions } from './lib/get.js';
 
 export type {
 	PutFailure,
 	PutOptions,
 	PutResponse,
 	PutSingleItemResponse,
-} from './lib/put';
+} from './lib/put.js';
 
 export type {
 	PartitionQueryOptions,
 	QueryOptions,
 	QueryResult,
-} from './lib/query';
+} from './lib/query.js';

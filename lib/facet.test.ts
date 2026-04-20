@@ -1,8 +1,8 @@
 import { DynamoDB, ResourceInUseException } from '@aws-sdk/client-dynamodb';
-import { Facet, PickValidator } from './facet';
-import { Index } from './keys';
-import * as keysModule from './keys';
-import { wait } from './wait';
+import { Facet, PickValidator } from './facet.js';
+import { Index } from './keys.js';
+import * as keysModule from './keys.js';
+import { wait } from './wait.js';
 
 const ddb = new DynamoDB({
 	region: 'us-east-1',

@@ -3,8 +3,8 @@ import {
 	type BatchGetItemCommandOutput,
 } from '@aws-sdk/client-dynamodb';
 import { describe, expect, test, vi } from 'vitest';
-import { Facet } from './facet';
-import { wait } from './wait';
+import { Facet } from './facet.js';
+import { wait } from './wait.js';
 
 interface Item {
 	pk: string;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { crcShard } from './crc-shard';
+import { crcShard } from './crc-shard.js';
 
 describe('crcShard', () => {
 	test('produces the same shard for the same input', () => {

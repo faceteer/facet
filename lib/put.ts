@@ -1,11 +1,14 @@
 import type { PutItemInput } from '@aws-sdk/client-dynamodb';
-import type { Facet, WithoutReservedAttributes } from './facet';
-import type { Keys } from './keys';
+import type { Facet, WithoutReservedAttributes } from './facet.js';
+import type { Keys } from './keys.js';
 import { Converter } from '@faceteer/converter';
 import type { ConditionExpression } from '@faceteer/expression-builder';
-import { batchWriteWithRetry, type BatchWriteAdapter } from './batch-write';
-import { applyCondition } from './condition';
-import { DEFAULT_BATCH_CONCURRENCY, mapWithConcurrency } from './concurrency';
+import { batchWriteWithRetry, type BatchWriteAdapter } from './batch-write.js';
+import { applyCondition } from './condition.js';
+import {
+	DEFAULT_BATCH_CONCURRENCY,
+	mapWithConcurrency,
+} from './concurrency.js';
 
 export interface PutOptions<T> {
 	condition?: ConditionExpression<T>;

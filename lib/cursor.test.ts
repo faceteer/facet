@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { decodeCursor, encodeCursor } from './cursor';
+import { decodeCursor, encodeCursor } from './cursor.js';
 
 describe('cursor', () => {
 	test('round-trips a base-table cursor', () => {
