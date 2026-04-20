@@ -125,8 +125,9 @@ dist
 package-lock.json
 yarn.lock
 
-# editor files
-.vscode
+# editor files — keep .vscode/settings.json shared, ignore the rest
+.vscode/*
+!.vscode/settings.json
 .idea
 
 # Optional compressed files (npm generated package, zip, etc)
@@ -143,6 +144,9 @@ profile*
 # generated code
 examples/typescript-server.js
 test/types/index.js
+
+# scratch directory for experimentation
+_scratch
 
 # test tap report
 out.tap

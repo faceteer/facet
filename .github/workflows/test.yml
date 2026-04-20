@@ -1,5 +1,5 @@
 # This workflow will do a clean install of dependencies, run the linter,
-# and then run jest tests
+# and then run the test suite
 
 name: Test
 
@@ -37,10 +37,19 @@ jobs:
       - name: Install
         run: npm install
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Format Check
+        run: npm run format:check
+
       - name: Test Building Library
         run: npm run build && npm run build:clean
 
-      - name: Run Jest Tests
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run Tests
         run: npm run test:ci
         env:
           AWS_ACCESS_KEY_ID: test

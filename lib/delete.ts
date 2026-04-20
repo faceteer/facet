@@ -1,12 +1,24 @@
-import type { WriteRequest, DeleteItemInput } from '@aws-sdk/client-dynamodb';
-import type { Facet } from './facet';
-import { wait } from './wait';
-import { Converter } from '@faceteer/converter';
-import expressionBuilder from '@faceteer/expression-builder';
-import { PK, SK, Keys } from './keys';
+import type { DeleteItemInput } from '@aws-sdk/client-dynamodb';
+import type { Facet, WithoutReservedAttributes } from './facet.js';
+import type { ConditionExpression } from '@faceteer/expression-builder';
+import { PK, SK, Keys } from './keys.js';
+import { batchWriteWithRetry, type BatchWriteAdapter } from './batch-write.js';
+import { applyCondition } from './condition.js';
+import {
+	DEFAULT_BATCH_CONCURRENCY,
+	mapWithConcurrency,
+} from './concurrency.js';
 
 export interface DeleteOptions<T> {
-	condition?: expressionBuilder.ConditionExpression<T>;
+	condition?: ConditionExpression<T>;
+	/**
+	 * Maximum number of `BatchWriteItem` requests in flight at once
+	 * when batch-deleting. Ignored for single-item deletes.
+	 *
+	 * Defaults to 8 — tuned to stay within a new on-demand table's
+	 * starting capacity and let adaptive-capacity scale up from there.
+	 */
+	concurrency?: number;
 }
 
 /**
@@ -42,7 +54,7 @@ export interface DeleteResponse<T> {
 }
 
 export async function deleteSingleItem<
-	T,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	U extends Partial<T> = Pick<T, PK | SK> & Partial<T>,
@@ -65,10 +77,7 @@ export async function deleteSingleItem<
 		};
 
 		if (options.condition) {
-			const expression = expressionBuilder.condition(options.condition);
-			deleteInput.ConditionExpression = expression.expression;
-			deleteInput.ExpressionAttributeNames = expression.names;
-			deleteInput.ExpressionAttributeValues = expression.values;
+			applyCondition(deleteInput, options.condition);
 		}
 
 		await facet.connection.dynamoDb.deleteItem(deleteInput);
@@ -97,11 +106,15 @@ export async function deleteSingleItem<
  * @param records
  */
 export async function deleteItems<
-	T,
+	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
 	SK extends Keys<T>,
 	U extends Partial<T> = Pick<T, PK | SK> & Partial<T>,
->(facet: Facet<T, PK, SK>, records: U[]): Promise<DeleteResponse<U>> {
+>(
+	facet: Facet<T, PK, SK>,
+	records: U[],
+	options: DeleteOptions<U> = {},
+): Promise<DeleteResponse<U>> {
 	const recordsToBatch: U[] = [...records];
 	const deleteResponse: DeleteResponse<U> = {
 		failed: [],
@@ -118,22 +131,24 @@ export async function deleteItems<
 		batches.push(recordsToBatch.splice(0, 25));
 	}
 
-	const batchPromises = batches.map((batch) => deleteBatch(facet, batch));
-	const putResults = await Promise.allSettled(batchPromises);
-	for (const [index, result] of putResults.entries()) {
+	const adapter = deleteAdapter<T, PK, SK, U>(facet);
+	const concurrency = options.concurrency ?? DEFAULT_BATCH_CONCURRENCY;
+	const batchResults = await mapWithConcurrency(batches, concurrency, (batch) =>
+		batchWriteWithRetry(facet.connection, batch, adapter),
+	);
+	for (const [index, result] of batchResults.entries()) {
 		if (result.status === 'rejected') {
 			const failedBatch = batches[index];
+			const error: unknown = result.reason;
 			deleteResponse.failed.push(
-				...failedBatch.map((failedItem) => {
-					return {
-						record: failedItem,
-						error: result.reason,
-					};
-				}),
+				...failedBatch.map((failedItem) => ({
+					record: failedItem,
+					error,
+				})),
 			);
 		} else {
+			deleteResponse.deleted.push(...result.value.ok);
 			deleteResponse.failed.push(...result.value.failed);
-			deleteResponse.deleted.push(...result.value.deleted);
 		}
 	}
 
@@ -142,126 +157,40 @@ export async function deleteItems<
 	return deleteResponse;
 }
 
-/**
- * Delete a batch of records into Dynamo DB.
- *
- * This function expects the batch to be 25
- * records or less
- * @param batchToDelete
- */
-async function deleteBatch<
-	T,
-	PK extends Keys<T>,
-	SK extends Keys<T>,
-	U extends Partial<T> = Pick<T, PK | SK> & Partial<T>,
->(facet: Facet<T, PK, SK>, batchToDelete: U[]): Promise<DeleteResponse<U>> {
-	const deleteRequests: Record<string, WriteRequest> = {};
-	const deleteResponse: DeleteResponse<U> = {
-		failed: [],
-		hasFailures: false,
-		deleted: [],
-	};
-
-	/**
-	 * We keep track of the items by their key so
-	 * we can return any failed requests
-	 */
-	const itemsByKey: Record<string, U> = {};
-
-	/**
-	 * We can't have duplicate items in a batch so we extract
-	 * the SK and PK to make sure the batch only has unique items
-	 */
-	for (const batchItem of batchToDelete) {
-		const key = facet.pk(batchItem) + facet.sk(batchItem);
-		deleteRequests[key] = {
-			DeleteRequest: {
-				Key: {
-					[PK]: {
-						S: facet.pk(batchItem),
-					},
-					[SK]: {
-						S: facet.sk(batchItem),
+function deleteAdapter<
+	T extends WithoutReservedAttributes<T>,
+	PartitionKey extends Keys<T>,
+	SortKey extends Keys<T>,
+	U extends Partial<T>,
+>(facet: Facet<T, PartitionKey, SortKey>): BatchWriteAdapter<U, U> {
+	return {
+		prepare(record) {
+			const pk = facet.pk(record);
+			const sk = facet.sk(record);
+			return {
+				request: {
+					DeleteRequest: {
+						Key: {
+							[PK]: { S: pk },
+							[SK]: { S: sk },
+						},
 					},
 				},
-			},
-		};
-		itemsByKey[key] = batchItem;
-	}
-
-	const result = await facet.connection.dynamoDb.batchWriteItem({
-		RequestItems: {
-			[facet.connection.tableName]: Object.values(deleteRequests),
+				key: pk + sk,
+				output: record,
+			};
 		},
-	});
-
-	/**
-	 * Attempt to put any unprocessed items into the database
-	 */
-	if (
-		result.UnprocessedItems &&
-		result.UnprocessedItems[facet.connection.tableName]
-	) {
-		const unprocessed = [
-			...result.UnprocessedItems[facet.connection.tableName],
-		];
-		let retries = 0;
-
-		while (unprocessed.length > 0 && retries < 5) {
-			retries += 1;
-
-			/**
-			 * Wait a short bit before retrying
-			 */
-			await wait(10 * 2 ** retries);
-
-			const retryResult = await facet.connection.dynamoDb.batchWriteItem({
-				RequestItems: {
-					[facet.connection.tableName]: unprocessed.splice(0),
-				},
-			});
-
-			if (
-				retryResult.UnprocessedItems &&
-				retryResult.UnprocessedItems[facet.connection.tableName]
-			) {
-				unprocessed.push(
-					...retryResult.UnprocessedItems[facet.connection.tableName],
-				);
+		keyForRequest(request) {
+			const key = request.DeleteRequest?.Key;
+			if (!key) {
+				return undefined;
 			}
-		}
-	}
-
-	/**
-	 * If we still have unprocessed items it means that we weren't able
-	 * to successfully retry them.
-	 */
-	if (
-		result.UnprocessedItems &&
-		result.UnprocessedItems[facet.connection.tableName]
-	) {
-		for (const unprocessedRequest of result.UnprocessedItems[
-			facet.connection.tableName
-		]) {
-			if (unprocessedRequest.PutRequest?.Item) {
-				// We use the PK and SK of the delete request in order
-				// to rebuild the primary key and get the original item
-				const item = Converter.unmarshall(unprocessedRequest.PutRequest.Item);
-				const failedItem = itemsByKey[item.PK + item.SK];
-				if (failedItem) {
-					deleteResponse.failed.push({
-						error: new Error('Item was not processed'),
-						record: failedItem,
-					});
-					// We delete the item from itemsByKey since we use
-					// that to generate the successful items later
-					delete itemsByKey[item.PK + item.SK];
-				}
+			const pk = key[PK].S;
+			const sk = key[SK].S;
+			if (pk === undefined || sk === undefined) {
+				return undefined;
 			}
-		}
-	}
-
-	deleteResponse.deleted = [...Object.values(itemsByKey)];
-	deleteResponse.hasFailures = deleteResponse.failed.length > 0;
-	return deleteResponse;
+			return pk + sk;
+		},
+	};
 }

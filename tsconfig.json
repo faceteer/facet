@@ -1,33 +1,19 @@
 {
-  "compilerOptions": {
-    "lib": ["ES2022"],
-    "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitThis": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "alwaysStrict": true,
-    "strictBindCallApply": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictPropertyInitialization": true,
-    "noFallthroughCasesInSwitch": true,
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "removeComments": true,
-    "declaration": true,
-    "isolatedModules": true,
-    "types": ["jest", "node"]
-  },
-  "exclude": [
-    "node_modules",
-    "lib/__tests__",
-    "lib/__mocks__",
-    "dist",
-    "./node.d.ts",
-    "jest.config.ts"
-  ]
+	"compilerOptions": {
+		"lib": ["ES2022"],
+		"target": "ES2022",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noFallthroughCasesInSwitch": true,
+		"skipLibCheck": true,
+		"resolveJsonModule": true,
+		"esModuleInterop": true,
+		"isolatedModules": true,
+		"noEmit": true,
+		"types": ["node", "vitest/globals"]
+	},
+	"include": ["index.ts", "lib/**/*.ts", "_scratch/**/*.ts", "vitest.config.ts"]
 }

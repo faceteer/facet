@@ -1,0 +1,104 @@
+# Publishes @faceteer/facet to npm when a v* tag is pushed.
+# Authenticates via npm Trusted Publishing (OIDC) — no NPM_TOKEN required.
+# After publish, lifts the matching section out of CHANGELOG.md and uses it as
+# the body of the GitHub Release, so each version has discoverable notes.
+
+name: Publish
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:latest
+        ports:
+          - 8000:8000
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        # Node 24 bundles npm 11.x. OIDC Trusted Publishing needs npm >= 11.5.1,
+        # so using a recent LTS avoids a global npm upgrade step on the runner.
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Show npm version
+        run: npm --version
+
+      - name: Install
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm run test:ci
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: 'us-east-1'
+
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$PKG_VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json ($PKG_VERSION)" >&2
+            exit 1
+          fi
+
+      - name: Determine dist-tag
+        id: disttag
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          case "$VERSION" in
+            *-alpha*) echo "tag=alpha" >> "$GITHUB_OUTPUT" ;;
+            *-beta*)  echo "tag=beta"  >> "$GITHUB_OUTPUT" ;;
+            *-rc*)    echo "tag=rc"    >> "$GITHUB_OUTPUT" ;;
+            *)        echo "tag=latest" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Publish to npm
+        run: npm publish --tag ${{ steps.disttag.outputs.tag }}
+
+      - name: Extract release notes from CHANGELOG
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { inside=1; next }
+            inside && (/^## \[/ || /^\[[^]]+\]:/) { exit }
+            inside { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "CHANGELOG.md has no section for version $VERSION" >&2
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          FLAGS=(--title "$GITHUB_REF_NAME" --notes-file release-notes.md)
+          case "$VERSION" in
+            *-alpha*|*-beta*|*-rc*) FLAGS+=(--prerelease) ;;
+          esac
+          gh release create "$GITHUB_REF_NAME" "${FLAGS[@]}"
