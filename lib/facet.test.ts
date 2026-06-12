@@ -1,5 +1,7 @@
 import { DynamoDB, ResourceInUseException } from '@aws-sdk/client-dynamodb';
+import { vi } from 'vitest';
 import { Facet, PickValidator } from './facet.js';
+import { crcShard } from './hash/crc-shard.js';
 import { Index } from './keys.js';
 import * as keysModule from './keys.js';
 import { wait } from './wait.js';
@@ -1420,6 +1422,302 @@ describe('Facet', () => {
 			const result = await PlainQueryFacet.query({ userId: USER }).list();
 			expect(result.records.some((r) => r.rowId === 'plain-1')).toBe(true);
 		});
+	});
+
+	test('get returns null for a record that does not exist', async () => {
+		const missing = await PageFacet.get({ pageId: 'no-such-page' });
+		expect(missing).toBeNull();
+	});
+
+	test('get with an empty batch resolves without calling DynamoDB', async () => {
+		// DynamoDB rejects a BatchGetItem with an empty RequestItems map, so
+		// an empty input must short-circuit instead of going to the wire.
+		const spy = vi.spyOn(ddb, 'batchGetItem');
+		try {
+			const records = await PageFacet.get([]);
+			expect(records).toEqual([]);
+			expect(spy).not.toHaveBeenCalled();
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	test('first returns null on an empty partition', async () => {
+		const record = await PostFacet.query({ pageId: 'no-such-page' }).first();
+		expect(record).toBeNull();
+	});
+
+	test('sort key arguments accept prebuilt key strings', async () => {
+		// The raw-string escape hatch must address the same records as the
+		// object form — callers persist these strings and replay them later.
+		const partition = PostFacet.query({ pageId: mockPageIds[0] });
+		const somePost = await partition.first();
+		if (!somePost) throw new Error('expected a seeded post');
+
+		const viaObject = await partition.equals({ postId: somePost.postId });
+		const viaString = await partition.equals(
+			`${Prefix.Post}_${somePost.postId}`,
+		);
+
+		expect(viaObject.records).toHaveLength(1);
+		expect(viaString.records).toEqual(viaObject.records);
+	});
+
+	test('conditions can compare stored attribute values', async () => {
+		const [page] = mockPages(1);
+		await PageFacet.put(page);
+
+		// Optimistic concurrency: the write only lands while the stored
+		// token still matches.
+		const renamed = await PageFacet.put(
+			{ ...page, pageName: 'Renamed' },
+			{ condition: ['accessToken', '=', page.accessToken] },
+		);
+		expect(renamed.wasSuccessful).toBe(true);
+
+		const stale = await PageFacet.put(
+			{ ...page, pageName: 'Stale write' },
+			{ condition: ['accessToken', '=', 'a-rotated-token'] },
+		);
+		expect(stale.wasSuccessful).toBe(false);
+
+		const stored = await PageFacet.get({ pageId: page.pageId });
+		expect(stored?.pageName).toBe('Renamed');
+	});
+
+	describe('validateInput', () => {
+		interface Account {
+			accountId: string;
+			email: string;
+		}
+		const accountValidator = (input: unknown): Account => {
+			const record = input as Record<string, unknown>;
+			if (
+				typeof record.accountId !== 'string' ||
+				typeof record.email !== 'string'
+			) {
+				throw new Error('invalid account');
+			}
+			// Normalizing proves the validator's return value — not the raw
+			// input — is what gets persisted.
+			return {
+				accountId: record.accountId,
+				email: record.email.toLowerCase(),
+			};
+		};
+
+		test('writes are validated when validateInput is on', async () => {
+			const StrictFacet = new Facet<Account, 'accountId'>({
+				name: 'AccountStrict',
+				validator: accountValidator,
+				validateInput: true,
+				PK: { keys: ['accountId'], prefix: 'ACCTSTRICT' },
+				SK: { keys: [], prefix: 'ACCTSTRICT' },
+				connection: { dynamoDb: ddb, tableName },
+			});
+
+			const invalid = { accountId: 'a-strict', email: 42 };
+			const failed = await StrictFacet.put(invalid as unknown as Account);
+			expect(failed.wasSuccessful).toBe(false);
+			expect((failed.error as Error).message).toBe('invalid account');
+
+			const ok = await StrictFacet.put({
+				accountId: 'a-strict',
+				email: 'Mixed.Case@Example.COM',
+			});
+			expect(ok.wasSuccessful).toBe(true);
+
+			const stored = await StrictFacet.get({ accountId: 'a-strict' });
+			expect(stored?.email).toBe('mixed.case@example.com');
+		});
+
+		test('writes are not validated by default', () => {
+			const LaxFacet = new Facet<Account, 'accountId'>({
+				name: 'AccountLax',
+				validator: accountValidator,
+				PK: { keys: ['accountId'], prefix: 'ACCTLAX' },
+				SK: { keys: [], prefix: 'ACCTLAX' },
+				connection: { dynamoDb: ddb, tableName },
+			});
+
+			// The same model that strict mode rejects marshals untouched —
+			// validation only happens on the read path.
+			const invalid = { accountId: 'a-lax', email: 42 } as unknown as Account;
+			const marshalled = LaxFacet.in(invalid);
+			expect(() => LaxFacet.out(marshalled)).toThrow('invalid account');
+		});
+	});
+
+	test('TTL number fields are written through as epoch seconds', async () => {
+		interface Job {
+			jobId: string;
+			purgeAt: number;
+		}
+		const JobFacet = new Facet<Job, 'jobId'>({
+			name: 'Job',
+			validator: (input) => input as Job,
+			PK: { keys: ['jobId'], prefix: 'JOB' },
+			SK: { keys: [], prefix: 'JOB' },
+			connection: { dynamoDb: ddb, tableName },
+			ttl: 'purgeAt',
+		});
+
+		const purgeAt = 1893459845;
+		const putResult = await JobFacet.put({ jobId: 'ttl-job-1', purgeAt });
+		expect(putResult.wasSuccessful).toBe(true);
+
+		const raw = await ddb.getItem({
+			TableName: tableName,
+			Key: {
+				PK: { S: JobFacet.pk({ jobId: 'ttl-job-1' }) },
+				SK: { S: JobFacet.sk({ jobId: 'ttl-job-1' }) },
+			},
+		});
+		expect(raw.Item?.ttl).toEqual({ N: String(purgeAt) });
+	});
+
+	test('a TTL string that does not parse to a number is not stamped', async () => {
+		interface Draft {
+			draftId: string;
+			expires: string;
+		}
+		const DraftFacet = new Facet<Draft, 'draftId'>({
+			name: 'Draft',
+			validator: (input) => input as Draft,
+			PK: { keys: ['draftId'], prefix: 'DRAFT' },
+			SK: { keys: [], prefix: 'DRAFT' },
+			connection: { dynamoDb: ddb, tableName },
+			ttl: 'expires',
+		});
+
+		const putResult = await DraftFacet.put({
+			draftId: 'ttl-draft-1',
+			expires: 'never',
+		});
+		expect(putResult.wasSuccessful).toBe(true);
+
+		const raw = await ddb.getItem({
+			TableName: tableName,
+			Key: {
+				PK: { S: DraftFacet.pk({ draftId: 'ttl-draft-1' }) },
+				SK: { S: DraftFacet.sk({ draftId: 'ttl-draft-1' }) },
+			},
+		});
+		// The unparseable value must not become a `ttl: NaN` attribute; the
+		// model field itself is stored untouched.
+		expect(raw.Item?.ttl).toBeUndefined();
+		expect(raw.Item?.expires).toEqual({ S: 'never' });
+	});
+
+	test('pick without a pickValidator throws a descriptive error', () => {
+		const [page] = mockPages(1);
+		expect(() => PageFacet.pick(PageFacet.in(page), ['pageName'])).toThrow(
+			/pickValidator/,
+		);
+	});
+
+	test('addIndex rejects a duplicate alias', () => {
+		interface Thing {
+			thingId: string;
+			status: string;
+			owner: string;
+		}
+		const base = new Facet<Thing, 'thingId'>({
+			name: 'ThingAlias',
+			validator: (input) => input as Thing,
+			PK: { keys: ['thingId'], prefix: 'TA' },
+			SK: { keys: [], prefix: 'TA' },
+			connection: { dynamoDb: ddb, tableName },
+		}).addIndex({
+			index: Index.GSI1,
+			PK: { keys: ['status'], prefix: 'TAS' },
+			SK: { keys: ['thingId'], prefix: 'TA' },
+			alias: 'byStatus',
+		});
+
+		expect(() =>
+			base.addIndex({
+				index: Index.GSI2,
+				PK: { keys: ['owner'], prefix: 'TAO' },
+				SK: { keys: ['thingId'], prefix: 'TA' },
+				alias: 'byStatus',
+			}),
+		).toThrow(/already exists/);
+	});
+
+	test('addIndex without an alias exposes the index by GSI slot', async () => {
+		interface Doc {
+			docId: string;
+			category: string;
+		}
+		const DocFacet = new Facet<Doc, 'docId'>({
+			name: 'Doc',
+			validator: (input) => input as Doc,
+			PK: { keys: ['docId'], prefix: 'DOC' },
+			SK: { keys: [], prefix: 'DOC' },
+			connection: { dynamoDb: ddb, tableName },
+		}).addIndex({
+			index: Index.GSI1,
+			PK: { keys: ['category'], prefix: 'DOCCAT' },
+			SK: { keys: ['docId'], prefix: 'DOC' },
+		});
+
+		await DocFacet.put({ docId: 'd-1', category: 'news' });
+
+		const result = await DocFacet.GSI1.query({ category: 'news' }).list();
+		expect(result.records.map((r) => r.docId)).toEqual(['d-1']);
+	});
+
+	test('undefined shard-key values are excluded from the shard hash', () => {
+		interface Task {
+			queue: string;
+			taskId: string;
+			region?: string;
+		}
+		const TaskFacet = new Facet<Task, 'queue'>({
+			name: 'Task',
+			validator: (input) => input as Task,
+			PK: {
+				keys: ['queue'],
+				prefix: 'TASK',
+				shard: { count: 16, keys: ['taskId', 'region'] },
+			},
+			SK: { keys: [], prefix: 'TASK' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+
+		// Shard placement is a persistence contract: records already live in
+		// these partitions, so the hash input for a given model must never
+		// change. A missing optional key contributes nothing — it must not be
+		// stringified into the hash.
+		expect(TaskFacet.pk({ queue: 'emails', taskId: 't-1' })).toBe(
+			`TASK_${crcShard('t-1', 16)}_emails`,
+		);
+		expect(
+			TaskFacet.pk({ queue: 'emails', taskId: 't-1', region: 'us-east-1' }),
+		).toBe(`TASK_${crcShard('t-1\x00us-east-1', 16)}_emails`);
+	});
+
+	test('composite keys stringify primitives and omit non-Date objects', () => {
+		interface Sensor {
+			sensorId: string;
+			active: boolean;
+			serial: bigint;
+			meta: { region: string };
+		}
+		const SensorFacet = new Facet<Sensor, 'active' | 'serial' | 'meta'>({
+			name: 'Sensor',
+			validator: (input) => input as Sensor,
+			PK: { keys: ['active', 'serial', 'meta'], prefix: 'SENSOR' },
+			SK: { keys: [], prefix: 'SENSOR' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+
+		// Booleans and bigints stringify; an object contributes no segment at
+		// all — no empty slot, no '[object Object]'.
+		expect(
+			SensorFacet.pk({ active: true, serial: 42n, meta: { region: 'us' } }),
+		).toBe('SENSOR_true_42');
 	});
 });
 
