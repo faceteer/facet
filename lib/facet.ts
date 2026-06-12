@@ -368,7 +368,7 @@ class FacetImpl<
 		if (this.#validateInput) {
 			model = this.#validator(model);
 		}
-		assertNoReservedAttributes(model as object);
+		assertNoReservedAttributes(model);
 		const attributes: Partial<T> = { ...model };
 
 		/**
@@ -419,7 +419,7 @@ class FacetImpl<
 			wrapNumbers: true,
 			dateFormat: this.#dateFormat,
 			convertEmptyValues: this.#convertEmptyValues,
-		}) as AttributeMap;
+		});
 	}
 
 	/**
@@ -909,7 +909,7 @@ export interface FacetConstructor {
 // `Facet` is deliberately both a type alias (above) and a value (the typed
 // constructor); TS merges them across the type and value namespaces.
 
-export const Facet: FacetConstructor = FacetImpl as unknown as FacetConstructor;
+export const Facet: FacetConstructor = FacetImpl;
 
 export interface AddIndexOptions<
 	T extends WithoutReservedAttributes<T>,

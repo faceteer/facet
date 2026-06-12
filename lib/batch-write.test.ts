@@ -224,6 +224,126 @@ describe('batchWriteWithRetry', () => {
 		expect(result.deleted).toHaveLength(2);
 		expect(calls).toHaveLength(6);
 	});
+
+	test('put: unprocessed entries that match nothing sent are ignored', async () => {
+		// DynamoDB should only echo back requests we sent, but a malformed or
+		// unknown entry must not crash the batch or mark good items as failed.
+		const garbage: WriteRequest[] = [
+			{},
+			{ PutRequest: { Item: { PK: { N: '1' }, SK: { S: 'SK_x' } } } },
+			{
+				PutRequest: {
+					Item: { PK: { S: 'PK_ghost' }, SK: { S: 'SK_ghost' } },
+				},
+			},
+		];
+		const { facet, calls } = buildFacet(
+			Array.from({ length: 6 }, () => unprocessed(garbage)),
+		);
+
+		const result = await facet.put([{ pk: 'a', sk: 'a' }]);
+
+		expect(result.hasFailures).toBe(false);
+		expect(result.failed).toEqual([]);
+		expect(result.put).toEqual([{ pk: 'a', sk: 'a' }]);
+		expect(calls).toHaveLength(6);
+	});
+
+	test('delete: unprocessed entries that match nothing sent are ignored', async () => {
+		const garbage: WriteRequest[] = [
+			// A put request inside a delete batch's unprocessed list.
+			{ PutRequest: { Item: { PK: { S: 'PK_x' }, SK: { S: 'SK_x' } } } },
+			{ DeleteRequest: { Key: { PK: { N: '1' }, SK: { S: 'SK_x' } } } },
+			{
+				DeleteRequest: {
+					Key: { PK: { S: 'PK_ghost' }, SK: { S: 'SK_ghost' } },
+				},
+			},
+		];
+		const { facet, calls } = buildFacet(
+			Array.from({ length: 6 }, () => unprocessed(garbage)),
+		);
+
+		const result = await facet.delete([{ pk: 'a', sk: 'a' }]);
+
+		expect(result.hasFailures).toBe(false);
+		expect(result.failed).toEqual([]);
+		expect(result.deleted).toEqual([{ pk: 'a', sk: 'a' }]);
+		expect(calls).toHaveLength(6);
+	});
+});
+
+describe('batch write call failures', () => {
+	/**
+	 * Rejects any batch containing the `pk-0` item; other batches succeed.
+	 * Lets a test prove that a thrown call fails only its own batch.
+	 */
+	function buildThrowingFacet(error: Error) {
+		const ddb = new DynamoDB({
+			region: 'us-east-1',
+			endpoint: 'http://localhost:8000',
+		});
+		vi.spyOn(ddb, 'batchWriteItem').mockImplementation(
+			async (input: BatchWriteItemCommandInput) => {
+				const requests = input.RequestItems?.[TABLE_NAME] ?? [];
+				const hasPoisonItem = requests.some(
+					(request) =>
+						request.PutRequest?.Item?.pk.S === 'pk-0' ||
+						request.DeleteRequest?.Key?.PK.S === 'PK_pk-0',
+				);
+				if (hasPoisonItem) {
+					throw error;
+				}
+				return emptyOutput();
+			},
+		);
+
+		return new Facet<Item, 'pk', 'sk'>({
+			name: 'Item',
+			PK: { keys: ['pk'], prefix: 'PK' },
+			SK: { keys: ['sk'], prefix: 'SK' },
+			validator: (input) => input as Item,
+			connection: {
+				dynamoDb: ddb,
+				tableName: TABLE_NAME,
+			},
+		});
+	}
+
+	test('put: an error from one batch fails only that batch', async () => {
+		const error = new Error('socket hang up');
+		const facet = buildThrowingFacet(error);
+		// pk-0..pk-24 land in the first batch, pk-25 in the second.
+		const records = buildRecords(26);
+
+		const result = await facet.put(records);
+
+		expect(result.hasFailures).toBe(true);
+		expect(result.failed.map((f) => f.record.pk)).toEqual(
+			records.slice(0, 25).map((r) => r.pk),
+		);
+		for (const failure of result.failed) {
+			expect(failure.error).toBe(error);
+		}
+		expect(result.put.map((r) => r.pk)).toEqual(['pk-25']);
+	});
+
+	test('delete: an error from one batch fails only that batch', async () => {
+		const error = new Error('socket hang up');
+		const facet = buildThrowingFacet(error);
+		const records = buildRecords(26);
+
+		const result = await facet.delete(records);
+
+		expect(result.hasFailures).toBe(true);
+		expect(result.failed.map((f) => f.record.pk)).toEqual(
+			records.slice(0, 25).map((r) => r.pk),
+		);
+		for (const failure of result.failed) {
+			expect(failure.error).toBe(error);
+		}
+		expect(result.deleted.map((r) => r.pk)).toEqual(['pk-25']);
+	});
 });
 
 describe('batch fan-out concurrency', () => {

@@ -8,6 +8,10 @@ npm dist-tags track the most recent publish in each channel: `latest` points at 
 
 ## [Unreleased]
 
+### Infrastructure
+
+- Test coverage raised to 100% (statements, branches, functions, lines). New tests pin batch write/get failure and retry handling, `validateInput`, TTL edge cases, shard-hash placement, raw-string sort keys, and value-comparing conditions.
+
 ## [6.0.0] - 2026-04-20
 
 Stable promotion of `6.0.0-alpha.0`. No behavioral changes to library code; see the `6.0.0-alpha.0` entry for the full set of v6 changes.
