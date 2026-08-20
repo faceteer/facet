@@ -9,6 +9,7 @@ export { Facet } from './lib/facet.js';
 export { FacetIndex } from './lib/facet.js';
 export { buildKey, Index, IndexKeyNameMap, PK, SK } from './lib/keys.js';
 export { PartitionQuery } from './lib/query.js';
+export { transactGet, transactWrite } from './lib/transact.js';
 
 // --- Types ---
 export type {
@@ -50,3 +51,17 @@ export type {
 	QueryOptions,
 	QueryResult,
 } from './lib/query.js';
+
+export type {
+	FacetTransactionBuilders,
+	TransactCancellationReason,
+	TransactCheckOptions,
+	TransactDeleteOptions,
+	TransactFacet,
+	TransactGetOp,
+	TransactGetResult,
+	TransactPutOptions,
+	TransactWriteOp,
+	TransactWriteOptions,
+	TransactWriteResult,
+} from './lib/transact.js';

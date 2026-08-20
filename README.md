@@ -902,6 +902,57 @@ On write, Faceteer CRC-32 hashes the values of the `shard.keys` fields and prepe
 
 On read, you pass the shard number explicitly to `query(partition, shard)` (or via `options.shard` on an operator). Query every shard and merge client-side to get the full partition.
 
+### Transactions
+
+Use a transaction to apply a group of writes atomically: either every write commits, or none do. Each facet exposes operation builders on `.transaction`, and the standalone `transactWrite` function executes them in one `TransactWriteItems` call.
+
+Three write operations are supported:
+
+- `put` writes the full record, like `Facet.put`.
+- `delete` removes the record's item.
+- `check` asserts a condition against an item without writing to it.
+
+```ts
+import { transactWrite } from '@faceteer/facet';
+
+const result = await transactWrite([
+	// Create the order.
+	OrderFacet.transaction.put(order),
+	// Only if the account is still active.
+	AccountFacet.transaction.check(
+		{ accountId: order.accountId },
+		{ condition: ['status', '=', 'active'] },
+	),
+]);
+
+if (!result.wasSuccessful) {
+	// One entry for each operation that caused the cancellation,
+	// with its position in the array and DynamoDB's reason code.
+	console.error(result.cancellationReasons);
+	throw result.error;
+}
+```
+
+`transactWrite` never throws. When DynamoDB cancels the transaction, the result contains the error and a `cancellationReasons` array that maps each failed operation back to its position, with codes like `ConditionalCheckFailed`.
+
+Like single-item `put` and `delete`, each operation accepts a `condition` using the tuple syntax from [`@faceteer/expression-builder`](https://github.com/faceteer/expression-builder). For `check` the condition is required.
+
+A transaction accepts up to 100 operations. Operations can come from different facets, including facets on different tables, as long as every facet uses the same DynamoDB client. Two operations that target the same item are rejected before the network call.
+
+To read several items in one atomic snapshot, use `transactGet`. Pass each operation as a separate argument so every position in `items` keeps its facet's record type:
+
+```ts
+import { transactGet } from '@faceteer/facet';
+
+const { items } = await transactGet(
+	AccountFacet.transaction.get({ accountId }),
+	OrderFacet.transaction.get({ accountId, orderId }),
+);
+// items is typed [Account | null, Order | null]
+```
+
+`transaction.get` always returns the full record; it does not support `select` projections.
+
 ## FAQs
 
 **Why do I have to pass every key field to `get`?**
