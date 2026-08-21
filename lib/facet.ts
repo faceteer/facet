@@ -25,6 +25,13 @@ import {
 	PutSingleItemResponse,
 } from './put.js';
 import { PartitionQuery } from './query.js';
+import {
+	buildTransactCheckOp,
+	buildTransactDeleteOp,
+	buildTransactGetOp,
+	buildTransactPutOp,
+	FacetTransactionBuilders,
+} from './transact.js';
 
 export type AttributeMap = Record<string, AttributeValue>;
 
@@ -157,12 +164,7 @@ export type PickValidator<T> = <K extends keyof T>(
  * the synthetic value — see {@link Facet.in}.
  */
 export type ReservedAttributeName =
-	| 'PK'
-	| 'SK'
-	| 'facet'
-	| 'ttl'
-	| `GSI${number}PK`
-	| `GSI${number}SK`;
+	'PK' | 'SK' | 'facet' | 'ttl' | `GSI${number}PK` | `GSI${number}SK`;
 
 /**
  * Constraint used on `T` to forbid reserved attribute names at the type
@@ -358,6 +360,26 @@ class FacetImpl<
 	 */
 	get keyFields(): readonly (PK | SK)[] {
 		return [...this.#PK.keys, ...this.#SK.keys];
+	}
+
+	/**
+	 * Operation builders for `transactWrite` and `transactGet`, scoped
+	 * to this facet.
+	 *
+	 * A getter lives on the prototype, so `addIndex`'s
+	 * `Object.assign(this, ...)` mutation never touches it. Aliasing an
+	 * index to `"transaction"` makes `addIndex` throw a `TypeError`,
+	 * because assigning through a getter-only accessor fails; the alias
+	 * collision check in `addIndex` only inspects own properties. The
+	 * pre-existing `keyFields` getter has the same behavior.
+	 */
+	get transaction(): FacetTransactionBuilders<T, PK, SK> {
+		return {
+			put: (record, options) => buildTransactPutOp(this, record, options),
+			delete: (record, options) => buildTransactDeleteOp(this, record, options),
+			check: (record, options) => buildTransactCheckOp(this, record, options),
+			get: (query) => buildTransactGetOp(this, query),
+		};
 	}
 
 	/**
@@ -654,8 +676,7 @@ class FacetImpl<
 	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>>;
 	async delete(
 		records:
-			| (Pick<T, PK | SK> & Partial<T>)[]
-			| (Pick<T, PK | SK> & Partial<T>),
+			(Pick<T, PK | SK> & Partial<T>)[] | (Pick<T, PK | SK> & Partial<T>),
 		options?: DeleteOptions<Pick<T, PK | SK> & Partial<T>>,
 	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>> {
 		if (Array.isArray(records)) {

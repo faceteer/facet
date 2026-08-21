@@ -194,8 +194,7 @@ export class PartitionQuery<
 
 		const projectedKeys = select
 			? ([...select, ...this.#autoKeyFields] as unknown as readonly (
-					| K
-					| AutoKeys<PK, SK, GSIPK, GSISK>
+					K | AutoKeys<PK, SK, GSIPK, GSISK>
 				)[])
 			: undefined;
 

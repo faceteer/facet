@@ -1645,6 +1645,41 @@ describe('Facet', () => {
 		).toThrow(/already exists/);
 	});
 
+	test('addIndex throws when an alias collides with a getter-only accessor', () => {
+		interface Thing {
+			thingId: string;
+			status: string;
+		}
+		const base = new Facet<Thing, 'thingId'>({
+			name: 'ThingAccessorAlias',
+			validator: (input) => input as Thing,
+			PK: { keys: ['thingId'], prefix: 'TAA' },
+			SK: { keys: [], prefix: 'TAA' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+
+		// `transaction` and `keyFields` are prototype getters, so the
+		// alias assignment fails instead of shadowing the way a method
+		// name would. The collision guard only inspects own properties.
+		expect(() =>
+			base.addIndex({
+				index: Index.GSI1,
+				PK: { keys: ['status'], prefix: 'TAAS' },
+				SK: { keys: ['thingId'], prefix: 'TAA' },
+				alias: 'transaction',
+			}),
+		).toThrow(TypeError);
+
+		expect(() =>
+			base.addIndex({
+				index: Index.GSI2,
+				PK: { keys: ['status'], prefix: 'TAAS' },
+				SK: { keys: ['thingId'], prefix: 'TAA' },
+				alias: 'keyFields',
+			}),
+		).toThrow(TypeError);
+	});
+
 	test('addIndex without an alias exposes the index by GSI slot', async () => {
 		interface Doc {
 			docId: string;

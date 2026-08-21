@@ -56,9 +56,7 @@ export async function getSingleItem<
 
 	const projectedKeys = options.select
 		? ([...options.select, ...facet.keyFields] as readonly (
-				| K
-				| PartitionKey
-				| SortKey
+				K | PartitionKey | SortKey
 			)[])
 		: undefined;
 
@@ -101,9 +99,7 @@ export async function getBatch<
 
 	const projectedKeys = options.select
 		? ([...options.select, ...facet.keyFields] as readonly (
-				| K
-				| PartitionKey
-				| SortKey
+				K | PartitionKey | SortKey
 			)[])
 		: undefined;
 
