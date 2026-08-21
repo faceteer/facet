@@ -3,6 +3,8 @@ import {
 	type AttributeValue,
 	type BatchGetItemCommandInput,
 	type BatchGetItemCommandOutput,
+	type GetItemCommandInput,
+	type GetItemCommandOutput,
 } from '@aws-sdk/client-dynamodb';
 import { describe, expect, test, vi } from 'vitest';
 import { Facet } from './facet.js';
@@ -219,6 +221,25 @@ describe('getBatchItems unprocessed-key retries', () => {
 		expect(onRetry.calls).toHaveLength(2);
 	});
 
+	test('retried requests keep the consistentRead flag', async () => {
+		const { facet, calls } = buildRetryFacet([
+			batchResponse([storedItem('a')], [keyFor('b')]),
+			batchResponse([storedItem('b')]),
+		]);
+
+		await facet.get(
+			[
+				{ pk: 'a', sk: 'a' },
+				{ pk: 'b', sk: 'b' },
+			],
+			{ consistentRead: true },
+		);
+
+		expect(calls).toHaveLength(2);
+		expect(calls[0].RequestItems?.[TABLE_NAME].ConsistentRead).toBe(true);
+		expect(calls[1].RequestItems?.[TABLE_NAME].ConsistentRead).toBe(true);
+	});
+
 	test('an error from the batch get call is propagated', async () => {
 		const ddb = new DynamoDB({
 			region: 'us-east-1',
@@ -232,5 +253,50 @@ describe('getBatchItems unprocessed-key retries', () => {
 		await expect(facet.get([{ pk: 'a', sk: 'a' }])).rejects.toThrow(
 			'throughput exceeded',
 		);
+	});
+});
+
+describe('consistent reads', () => {
+	function buildGetItemFacet() {
+		const calls: GetItemCommandInput[] = [];
+		const ddb = new DynamoDB({
+			region: 'us-east-1',
+			endpoint: 'http://localhost:8000',
+		});
+		vi.spyOn(ddb, 'getItem').mockImplementation(
+			async (input: GetItemCommandInput): Promise<GetItemCommandOutput> => {
+				calls.push(input);
+				return { Item: storedItem('a'), $metadata: {} };
+			},
+		);
+		return { facet: buildItemFacet(ddb), calls };
+	}
+
+	test('a single get passes ConsistentRead when the option is set', async () => {
+		const { facet, calls } = buildGetItemFacet();
+		await facet.get({ pk: 'a', sk: 'a' }, { consistentRead: true });
+		expect(calls[0].ConsistentRead).toBe(true);
+	});
+
+	test('a single get defaults to an eventually consistent read', async () => {
+		const { facet, calls } = buildGetItemFacet();
+		await facet.get({ pk: 'a', sk: 'a' });
+		expect(calls[0].ConsistentRead).toBeUndefined();
+	});
+
+	test('a batch get passes ConsistentRead in the table request', async () => {
+		const { facet, calls } = buildRetryFacet([
+			batchResponse([storedItem('a')]),
+		]);
+		await facet.get([{ pk: 'a', sk: 'a' }], { consistentRead: true });
+		expect(calls[0].RequestItems?.[TABLE_NAME].ConsistentRead).toBe(true);
+	});
+
+	test('a batch get defaults to an eventually consistent read', async () => {
+		const { facet, calls } = buildRetryFacet([
+			batchResponse([storedItem('a')]),
+		]);
+		await facet.get([{ pk: 'a', sk: 'a' }]);
+		expect(calls[0].RequestItems?.[TABLE_NAME].ConsistentRead).toBeUndefined();
 	});
 });

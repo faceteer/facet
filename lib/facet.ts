@@ -507,6 +507,8 @@ class FacetImpl<
 	 * returned; if the record is missing the promise resolves to `null`.
 	 *
 	 * @param query - Object providing the PK and SK field values.
+	 * @param options - Optional settings, e.g. `consistentRead` for a
+	 * strongly consistent read.
 	 * @returns The record if found, or `null`.
 	 *
 	 * @example
@@ -515,7 +517,10 @@ class FacetImpl<
 	 * if (post) console.log(post.postTitle);
 	 * ```
 	 */
-	async get(query: Pick<T, PK | SK> & Partial<T>): Promise<T | null>;
+	async get(
+		query: Pick<T, PK | SK> & Partial<T>,
+		options?: Pick<GetOptions<T, never>, 'consistentRead'>,
+	): Promise<T | null>;
 	/**
 	 * Batch-fetch records by their exact partition and sort keys.
 	 *
@@ -538,7 +543,7 @@ class FacetImpl<
 	 */
 	async get(
 		queries: (Pick<T, PK | SK> & Partial<T>)[],
-		options?: Pick<GetOptions<T, never>, 'concurrency'>,
+		options?: Pick<GetOptions<T, never>, 'concurrency' | 'consistentRead'>,
 	): Promise<T[]>;
 	/**
 	 * Fetch a single record and project only the requested attributes.

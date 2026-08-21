@@ -696,6 +696,38 @@ const identityPickValidator: PickValidator<Team> = (keys) => (input) =>
 
 Projection reduces the data DynamoDB sends over the wire, which shrinks payload size and JSON-parse cost. It does not reduce read capacity: DynamoDB charges based on the size of the item it reads from storage, not what it projects to the response. Projection is a bandwidth and latency optimization, not an RCU one.
 
+### Consistent reads
+
+DynamoDB reads are eventually consistent by default: a read that closely follows a write can return the item's older state. When you need read-after-write guarantees, pass `consistentRead: true` to opt into a strongly consistent read, which reflects every write that succeeded before the read.
+
+The option is available on single gets, batch gets, and base-table queries:
+
+```ts
+// Single get
+const team = await TeamFacet.get({ teamId }, { consistentRead: true });
+
+// Batch get
+const teams = await TeamFacet.get([{ teamId: 'a' }, { teamId: 'b' }], {
+	consistentRead: true,
+});
+
+// Base-table query
+const { records } = await PostFacet.query({ pageId }).list({
+	consistentRead: true,
+});
+```
+
+DynamoDB does not support consistent reads on global secondary indexes, so index queries gate the option off at the type level:
+
+```ts
+// Compile error: consistentRead is not available on index queries.
+await PostFacet.GSIPostByTitle.query({ pageId }).list({ consistentRead: true });
+```
+
+`transactGet` needs no option: DynamoDB transactions are serializable, so a transactional read is already at least as strong as a consistent read.
+
+Strongly consistent reads cost twice the read capacity of eventually consistent reads and can have higher latency. Reserve them for paths that read their own writes, and let everything else use the default.
+
 ### Composite sort keys
 
 Sort keys in Faceteer are composite strings built from a prefix and the fields you list in `SK.keys`. A facet configured with `SK: { keys: ['status', 'timestamp'], prefix: '#ESTIME' }` writes sort keys like `#ESTIME_queued_2024-01-01T00:00:00.000Z`.
@@ -991,6 +1023,7 @@ Only for single-item deletes: `facet.delete(record, { condition: [...] })`. `con
 - **Know your access patterns before you design the key.** Faceteer isn't built for ad-hoc queries. Every GSI costs writes, so pick the smallest set of indexes that covers the patterns you actually have.
 - **Overload indexes with prefixes.** Two facets can share `GSI1` as long as their SK prefixes differ — that's the whole point of the `prefix` field on each `KeyConfiguration`. Differentiate by prefix, query by prefix.
 - **Prefer key conditions over `filter`.** `equals`, `beginsWith`, and `between` prune reads on the server. `filter` runs server-side too but _after_ the read is billed — it shrinks the response, not the cost.
+- **Default to eventually consistent reads.** `consistentRead: true` doubles the read-capacity cost and adds latency, so reserve it for paths that must read their own writes, such as a read immediately after a conditional put. It's not available on GSI queries, and `transactGet` is already serializable.
 - **Reach for `select` when payload size hurts.** `ProjectionExpression` cuts the wire payload but not the read-capacity cost. DynamoDB bills the full item size regardless. Worth using when you're rendering lists, hydrating caches, or returning over a slow link; not worth it when you need the full record anyway.
 - **Avoid `greaterThan` and `lessThan` on composite sort keys.** They compare the full composite string, so a query like `greaterThan({ status: 'queued', timestamp: X })` bleeds into records whose status sorts after `queued`. Scope with `beginsWith`, or with `between` where both bounds pin the same leading value. See the "Composite sort keys" section above.
 - **Shard hot partitions.** When one PK value attracts disproportionate traffic, add a `shard: { count, keys }` config. Keep `count` small to start (2, 4, 8); every shard is an extra query on read, so more shards is not free.
