@@ -526,6 +526,64 @@ describe('transactWrite with a mocked client', () => {
 		expect(result).toEqual({ wasSuccessful: true });
 		expect(spy).not.toHaveBeenCalled();
 	});
+
+	test('exactly 100 ops is accepted', async () => {
+		const { facet, mockedDdb } = buildMockedFacet();
+		const { spy } = spyOnTransactWrite(mockedDdb, () =>
+			Promise.resolve({ $metadata: {} }),
+		);
+		const ops = Array.from({ length: 100 }, (_, index) =>
+			facet.transaction.put({ pk: `pk-${index}`, sk: 'sk' }),
+		);
+
+		const result = await transactWrite(ops);
+
+		expect(result).toEqual({ wasSuccessful: true });
+		expect(spy).toHaveBeenCalledTimes(1);
+	});
+
+	test('the same keys on different tables are not duplicates', async () => {
+		const mockedDdb = new DynamoDB({
+			region: 'us-east-1',
+			endpoint: 'http://localhost:8000',
+		});
+		const buildForTable = (table: string) =>
+			new Facet<Item, 'pk', 'sk'>({
+				name: 'Item',
+				PK: { keys: ['pk'], prefix: 'PK' },
+				SK: { keys: ['sk'], prefix: 'SK' },
+				validator: (input) => input as Item,
+				connection: { dynamoDb: mockedDdb, tableName: table },
+			});
+		const { spy } = spyOnTransactWrite(mockedDdb, () =>
+			Promise.resolve({ $metadata: {} }),
+		);
+
+		const result = await transactWrite([
+			buildForTable('TABLE_A').transaction.put({ pk: 'a', sk: 'a' }),
+			buildForTable('TABLE_B').transaction.put({ pk: 'a', sk: 'a' }),
+		]);
+
+		expect(result).toEqual({ wasSuccessful: true });
+		expect(spy).toHaveBeenCalledTimes(1);
+	});
+
+	test('keys that concatenate to the same string are not duplicates', async () => {
+		const { facet, mockedDdb } = buildMockedFacet();
+		const { spy } = spyOnTransactWrite(mockedDdb, () =>
+			Promise.resolve({ $metadata: {} }),
+		);
+
+		// 'PK_a b' + 'SK_c' and 'PK_a' + 'SK_b c' would collide on a
+		// separator that can appear inside key values.
+		const result = await transactWrite([
+			facet.transaction.put({ pk: 'a b', sk: 'c' }),
+			facet.transaction.put({ pk: 'a', sk: 'b c' }),
+		]);
+
+		expect(result).toEqual({ wasSuccessful: true });
+		expect(spy).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe('transactGet with a mocked client', () => {
@@ -639,6 +697,22 @@ describe('transactGet with a mocked client', () => {
 
 		expect(result).toEqual({ wasSuccessful: true, items: [] });
 		expect(spy).not.toHaveBeenCalled();
+	});
+
+	test('exactly 100 ops is accepted', async () => {
+		const { facet, mockedDdb } = buildMockedFacet();
+		const { spy } = spyOnTransactGet(mockedDdb, () =>
+			Promise.resolve({ $metadata: {} }),
+		);
+		const ops = Array.from({ length: 100 }, (_, index) =>
+			facet.transaction.get({ pk: `pk-${index}`, sk: 'sk' }),
+		);
+
+		const result = await transactGet(...ops);
+
+		expect(result.wasSuccessful).toBe(true);
+		expect(result.items).toHaveLength(100);
+		expect(spy).toHaveBeenCalledTimes(1);
 	});
 });
 

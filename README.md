@@ -923,20 +923,22 @@ const result = await transactWrite([
 	),
 ]);
 
-if (!result.wasSuccessful && result.failures) {
-	// One entry per operation, aligned with the array above: null for
-	// operations that did not cause the cancellation, and a failure
-	// with DynamoDB's reason code for each one that did.
-	const [orderFailure, accountFailure] = result.failures;
-	if (accountFailure?.conflictingItem) {
-		// The account as it currently exists in the table, typed as Account.
-		console.error(accountFailure.conflictingItem.status);
+if (!result.wasSuccessful) {
+	if (result.failures) {
+		// One entry per operation, aligned with the array above: null for
+		// operations that did not cause the cancellation, and a failure
+		// with DynamoDB's reason code for each one that did.
+		const [orderFailure, accountFailure] = result.failures;
+		if (accountFailure?.conflictingItem) {
+			// The account as it currently exists in the table, typed as Account.
+			console.error(accountFailure.conflictingItem.status);
+		}
 	}
 	throw result.error;
 }
 ```
 
-`transactWrite` never throws. When DynamoDB cancels the transaction, the result contains the error and a `failures` array. For array literals each position keeps its facet's types, so failures can be destructured positionally like the example above.
+`transactWrite` never throws. When DynamoDB cancels the transaction, the result contains the error and a `failures` array. Other failures, such as the client-side guards or a network error, set only `error`, so always gate on `wasSuccessful` rather than on `failures`. For array literals each position keeps its facet's types, so failures can be destructured positionally like the example above.
 
 When a condition fails against an existing item, DynamoDB returns that item and Faceteer parses it into `conflictingItem` with the facet's validator. This is the item as it currently exists in the table, which is what optimistic-concurrency retries need. Two caveats: a condition that fails because the item does not exist, such as an `exists` guard, returns no item; and if the returned item fails validation, `conflictingItem` is unset while `conflictingItemRaw` still holds the raw attribute map.
 
@@ -944,7 +946,7 @@ Like single-item `put` and `delete`, each operation accepts a `condition` using 
 
 A transaction accepts up to 100 operations. Operations can come from different facets, including facets on different tables, as long as every facet uses the same DynamoDB client. Two operations that target the same item are rejected before the network call.
 
-To read several items in one atomic snapshot, use `transactGet`. Pass each operation as a separate argument so every position in `items` keeps its facet's record type:
+To read several items in one atomic snapshot, use `transactGet`. It enforces the same 100-operation cap and same-client requirement as `transactWrite`. Pass each operation as a separate argument so every position in `items` keeps its facet's record type:
 
 ```ts
 import { transactGet } from '@faceteer/facet';

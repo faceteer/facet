@@ -367,10 +367,11 @@ class FacetImpl<
 	 * to this facet.
 	 *
 	 * A getter lives on the prototype, so `addIndex`'s
-	 * `Object.assign(this, ...)` mutation never touches it. Like every
-	 * other prototype member, an index aliased to `"transaction"`
-	 * shadows it; the alias collision check in `addIndex` only inspects
-	 * own properties.
+	 * `Object.assign(this, ...)` mutation never touches it. Aliasing an
+	 * index to `"transaction"` makes `addIndex` throw a `TypeError`,
+	 * because assigning through a getter-only accessor fails; the alias
+	 * collision check in `addIndex` only inspects own properties. The
+	 * pre-existing `keyFields` getter has the same behavior.
 	 */
 	get transaction(): FacetTransactionBuilders<T, PK, SK> {
 		return {

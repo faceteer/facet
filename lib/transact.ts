@@ -374,7 +374,13 @@ export async function transactWrite<Ops extends readonly TransactWriteOp[]>(
 	 */
 	const seenAt = new Map<string, number>();
 	for (const [index, op] of ops.entries()) {
-		const target = `${op.tableName} ${op.pk} ${op.sk}`;
+		/**
+		 * `\x00` separates the segments so keys that would otherwise
+		 * concatenate to the same string (a `pk` ending where another
+		 * op's `sk` begins) cannot collide, matching the shard-hash
+		 * separator in `keys.ts`.
+		 */
+		const target = `${op.tableName}\x00${op.pk}\x00${op.sk}`;
 		const firstIndex = seenAt.get(target);
 		if (firstIndex !== undefined) {
 			return {
@@ -409,7 +415,9 @@ export async function transactWrite<Ops extends readonly TransactWriteOp[]>(
 	}
 }
 
-export interface TransactGetResult<Ops extends readonly TransactGetOp[]> {
+export interface TransactGetResult<
+	Ops extends readonly TransactGetOp[] = readonly TransactGetOp[],
+> {
 	wasSuccessful: boolean;
 	/**
 	 * One entry per operation, in operation order. An entry is `null`
