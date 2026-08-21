@@ -925,15 +925,22 @@ const result = await transactWrite([
 	),
 ]);
 
-if (!result.wasSuccessful) {
-	// One entry for each operation that caused the cancellation,
-	// with its position in the array and DynamoDB's reason code.
-	console.error(result.cancellationReasons);
+if (!result.wasSuccessful && result.failures) {
+	// One entry per operation, aligned with the array above: null for
+	// operations that did not cause the cancellation, and a failure
+	// with DynamoDB's reason code for each one that did.
+	const [orderFailure, accountFailure] = result.failures;
+	if (accountFailure?.conflictingItem) {
+		// The account as it currently exists in the table, typed as Account.
+		console.error(accountFailure.conflictingItem.status);
+	}
 	throw result.error;
 }
 ```
 
-`transactWrite` never throws. When DynamoDB cancels the transaction, the result contains the error and a `cancellationReasons` array that maps each failed operation back to its position, with codes like `ConditionalCheckFailed`.
+`transactWrite` never throws. When DynamoDB cancels the transaction, the result contains the error and a `failures` array. For array literals each position keeps its facet's types, so failures can be destructured positionally like the example above.
+
+When a condition fails against an existing item, DynamoDB returns that item and Faceteer parses it into `conflictingItem` with the facet's validator. This is the item as it currently exists in the table, which is what optimistic-concurrency retries need. Two caveats: a condition that fails because the item does not exist, such as an `exists` guard, returns no item; and if the returned item fails validation, `conflictingItem` is unset while `conflictingItemRaw` still holds the raw attribute map.
 
 Like single-item `put` and `delete`, each operation accepts a `condition` using the tuple syntax from [`@faceteer/expression-builder`](https://github.com/faceteer/expression-builder). For `check` the condition is required.
 

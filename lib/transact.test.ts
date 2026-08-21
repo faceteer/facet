@@ -115,13 +115,20 @@ describe('transactions against DynamoDB Local', () => {
 
 		expect(result.wasSuccessful).toBe(false);
 		expect(result.error).toBeInstanceOf(TransactionCanceledException);
-		expect(result.cancellationReasons).toEqual([
-			{
-				index: 1,
-				code: 'ConditionalCheckFailed',
-				message: expect.any(String) as string,
-			},
-		]);
+		// `failures` is aligned with the ops array, typed per position.
+		const [orderFailure, accountFailure] = result.failures ?? [];
+		expect(orderFailure).toBeNull();
+		expect(accountFailure).toMatchObject({
+			index: 1,
+			code: 'ConditionalCheckFailed',
+		});
+		// ALL_OLD returns the item as it currently exists in the table.
+		expect(accountFailure?.conflictingItem).toEqual({
+			accountId: 'acct-2',
+			status: 'suspended',
+		});
+		expect(accountFailure?.conflictingItem?.status).toBe('suspended');
+		expect(accountFailure?.conflictingItemRaw).toBeDefined();
 		// The put at index 0 must not have been applied.
 		expect(
 			await OrderFacet.get({ accountId: 'acct-2', orderId: 'order-2' }),
@@ -130,6 +137,21 @@ describe('transactions against DynamoDB Local', () => {
 			accountId: 'acct-2',
 			status: 'suspended',
 		});
+	});
+
+	test('a condition that fails on a missing item carries no conflicting item', async () => {
+		const result = await transactWrite([
+			AccountFacet.transaction.check(
+				{ accountId: 'acct-missing' },
+				{ condition: ['status', '=', 'active'] },
+			),
+		]);
+
+		expect(result.wasSuccessful).toBe(false);
+		const [failure] = result.failures ?? [];
+		expect(failure).toMatchObject({ index: 0, code: 'ConditionalCheckFailed' });
+		expect(failure?.conflictingItem).toBeUndefined();
+		expect(failure?.conflictingItemRaw).toBeUndefined();
 	});
 
 	test('a passing condition check guards a write without touching the checked item', async () => {
@@ -301,7 +323,7 @@ describe('transactWrite with a mocked client', () => {
 		expect(calls[1]).not.toHaveProperty('ClientRequestToken');
 	});
 
-	test('a non-cancellation error carries no cancellation reasons', async () => {
+	test('a non-cancellation error carries no failures', async () => {
 		const { facet, mockedDdb } = buildMockedFacet();
 		const failure = new Error('socket hang up');
 		spyOnTransactWrite(mockedDdb, () => Promise.reject(failure));
@@ -312,10 +334,10 @@ describe('transactWrite with a mocked client', () => {
 
 		expect(result.wasSuccessful).toBe(false);
 		expect(result.error).toBe(failure);
-		expect(result.cancellationReasons).toBeUndefined();
+		expect(result.failures).toBeUndefined();
 	});
 
-	test('a cancellation without reasons carries no cancellation reasons', async () => {
+	test('a cancellation without reasons carries no failures', async () => {
 		const { facet, mockedDdb } = buildMockedFacet();
 		const failure = new TransactionCanceledException({
 			message: 'Transaction cancelled',
@@ -329,10 +351,10 @@ describe('transactWrite with a mocked client', () => {
 
 		expect(result.wasSuccessful).toBe(false);
 		expect(result.error).toBe(failure);
-		expect(result.cancellationReasons).toBeUndefined();
+		expect(result.failures).toBeUndefined();
 	});
 
-	test('cancellation reasons keep op indexes and drop None entries', async () => {
+	test('failures keep op positions and stay null for None entries', async () => {
 		const { facet, mockedDdb } = buildMockedFacet();
 		spyOnTransactWrite(mockedDdb, () =>
 			Promise.reject(
@@ -356,14 +378,141 @@ describe('transactWrite with a mocked client', () => {
 			facet.transaction.put({ pk: 'd', sk: 'd' }),
 		]);
 
-		expect(result.cancellationReasons).toEqual([
+		expect(result.failures).toEqual([
+			null,
 			{
 				index: 1,
 				code: 'ConditionalCheckFailed',
 				message: 'The condition failed',
 			},
-			{ index: 3, code: 'TransactionConflict', message: undefined },
+			null,
+			{ index: 3, code: 'TransactionConflict' },
 		]);
+	});
+
+	test('missing or code-less reasons become null failure entries', async () => {
+		const { facet, mockedDdb } = buildMockedFacet();
+		spyOnTransactWrite(mockedDdb, () =>
+			Promise.reject(
+				new TransactionCanceledException({
+					message: 'Transaction cancelled',
+					$metadata: {},
+					CancellationReasons: [{ Code: 'ConditionalCheckFailed' }, {}],
+				}),
+			),
+		);
+
+		const result = await transactWrite([
+			facet.transaction.put({ pk: 'a', sk: 'a' }),
+			facet.transaction.put({ pk: 'b', sk: 'b' }),
+			facet.transaction.put({ pk: 'c', sk: 'c' }),
+		]);
+
+		expect(result.failures).toEqual([
+			{ index: 0, code: 'ConditionalCheckFailed' },
+			// A reason with no code, and a position with no reason at all.
+			null,
+			null,
+		]);
+	});
+
+	test('a returned conflicting item is parsed with the facet converter', async () => {
+		const { facet, mockedDdb } = buildMockedFacet();
+		spyOnTransactWrite(mockedDdb, () =>
+			Promise.reject(
+				new TransactionCanceledException({
+					message: 'Transaction cancelled',
+					$metadata: {},
+					CancellationReasons: [
+						{
+							Code: 'ConditionalCheckFailed',
+							Item: {
+								PK: { S: 'PK_a' },
+								SK: { S: 'SK_a' },
+								facet: { S: 'Item' },
+								pk: { S: 'a' },
+								sk: { S: 'a' },
+								value: { S: 'current' },
+							},
+						},
+					],
+				}),
+			),
+		);
+
+		const result = await transactWrite([
+			facet.transaction.put({ pk: 'a', sk: 'a', value: 'attempted' }),
+		]);
+
+		const [failure] = result.failures ?? [];
+		expect(failure?.conflictingItem).toEqual({
+			pk: 'a',
+			sk: 'a',
+			value: 'current',
+		});
+		expect(failure?.conflictingItemRaw).toBeDefined();
+	});
+
+	test('an empty conflicting item map is treated as absent', async () => {
+		const { facet, mockedDdb } = buildMockedFacet();
+		spyOnTransactWrite(mockedDdb, () =>
+			Promise.reject(
+				new TransactionCanceledException({
+					message: 'Transaction cancelled',
+					$metadata: {},
+					CancellationReasons: [{ Code: 'ConditionalCheckFailed', Item: {} }],
+				}),
+			),
+		);
+
+		const result = await transactWrite([
+			facet.transaction.put({ pk: 'a', sk: 'a' }),
+		]);
+
+		const [failure] = result.failures ?? [];
+		expect(failure?.conflictingItem).toBeUndefined();
+		expect(failure?.conflictingItemRaw).toBeUndefined();
+	});
+
+	test('a conflicting item that fails validation keeps only the raw item', async () => {
+		const mockedDdb = new DynamoDB({
+			region: 'us-east-1',
+			endpoint: 'http://localhost:8000',
+		});
+		const strictFacet = new Facet<Item, 'pk', 'sk'>({
+			name: 'Item',
+			PK: { keys: ['pk'], prefix: 'PK' },
+			SK: { keys: ['sk'], prefix: 'SK' },
+			validator: () => {
+				throw new Error('invalid record');
+			},
+			connection: { dynamoDb: mockedDdb, tableName },
+		});
+		const rawItem = {
+			PK: { S: 'PK_a' },
+			SK: { S: 'SK_a' },
+			pk: { S: 'a' },
+			sk: { S: 'a' },
+		};
+		spyOnTransactWrite(mockedDdb, () =>
+			Promise.reject(
+				new TransactionCanceledException({
+					message: 'Transaction cancelled',
+					$metadata: {},
+					CancellationReasons: [
+						{ Code: 'ConditionalCheckFailed', Item: rawItem },
+					],
+				}),
+			),
+		);
+
+		const result = await transactWrite([
+			strictFacet.transaction.delete({ pk: 'a', sk: 'a' }),
+		]);
+
+		const [failure] = result.failures ?? [];
+		expect(failure?.conflictingItem).toBeUndefined();
+		expect(failure?.conflictingItemRaw).toEqual(rawItem);
 	});
 
 	test('an empty op list resolves without a network call', async () => {
@@ -459,9 +608,25 @@ describe('transactGet with a mocked client', () => {
 		expect(result.wasSuccessful).toBe(false);
 		expect(result.error).toBeInstanceOf(TransactionCanceledException);
 		expect(result.items).toEqual([null, null]);
-		expect(result.cancellationReasons).toEqual([
+		expect(result.failures).toEqual([
 			{ index: 0, code: 'TransactionConflict', message: 'Conflict' },
+			null,
 		]);
+	});
+
+	test('a non-cancellation error carries no failures', async () => {
+		const { facet, mockedDdb } = buildMockedFacet();
+		const failure = new Error('socket hang up');
+		spyOnTransactGet(mockedDdb, () => Promise.reject(failure));
+
+		const result = await transactGet(
+			facet.transaction.get({ pk: 'a', sk: 'a' }),
+		);
+
+		expect(result.wasSuccessful).toBe(false);
+		expect(result.error).toBe(failure);
+		expect(result.failures).toBeUndefined();
+		expect(result.items).toEqual([null]);
 	});
 
 	test('zero ops resolve without a network call', async () => {
@@ -496,6 +661,13 @@ describe('transaction op builders', () => {
 		expect(putOp.pk).toBe('PK_a');
 		expect(putOp.sk).toBe('SK_b');
 		expect(putOp.item.Put?.Item?.value).toEqual({ S: 'v' });
+		expect(putOp.item.Put?.ReturnValuesOnConditionCheckFailure).toBe('ALL_OLD');
+		// `out` converts a raw item back into the model.
+		expect(putOp.out(putOp.item.Put?.Item ?? {})).toEqual({
+			pk: 'a',
+			sk: 'b',
+			value: 'v',
+		});
 
 		const deleteOp = facet.transaction.delete({ pk: 'a', sk: 'b' });
 		expect(deleteOp.kind).toBe('delete');
@@ -503,6 +675,9 @@ describe('transaction op builders', () => {
 			PK: { S: 'PK_a' },
 			SK: { S: 'SK_b' },
 		});
+		expect(deleteOp.item.Delete?.ReturnValuesOnConditionCheckFailure).toBe(
+			'ALL_OLD',
+		);
 	});
 
 	test('delete only carries a condition when one is given', () => {
@@ -538,6 +713,19 @@ describe('transaction op builders', () => {
 		expect(op.item.ConditionCheck?.ExpressionAttributeValues).toEqual(
 			compiled.values,
 		);
+		expect(op.item.ConditionCheck?.ReturnValuesOnConditionCheckFailure).toBe(
+			'ALL_OLD',
+		);
+		// `out` converts a raw conflicting item back into the model.
+		expect(
+			op.out({
+				PK: { S: 'PK_a' },
+				SK: { S: 'SK_b' },
+				facet: { S: 'Item' },
+				pk: { S: 'a' },
+				sk: { S: 'b' },
+			}),
+		).toEqual({ pk: 'a', sk: 'b' });
 	});
 
 	test('check omits the value map when the condition produces no values', () => {

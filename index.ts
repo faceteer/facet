@@ -54,12 +54,12 @@ export type {
 
 export type {
 	FacetTransactionBuilders,
-	TransactCancellationReason,
 	TransactCheckOptions,
 	TransactDeleteOptions,
 	TransactFacet,
 	TransactGetOp,
 	TransactGetResult,
+	TransactOpFailure,
 	TransactPutOptions,
 	TransactWriteOp,
 	TransactWriteOptions,

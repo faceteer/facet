@@ -10,7 +10,7 @@ npm dist-tags track the most recent publish in each channel: `latest` points at 
 
 ### Added
 
-- DynamoDB transaction support. Each facet exposes `transaction.put`, `transaction.delete`, `transaction.check`, and `transaction.get` builders, and the new `transactWrite` and `transactGet` functions execute the built operations atomically across facets and tables. Failures resolve with `wasSuccessful: false` instead of throwing; a canceled transaction also carries a `cancellationReasons` array that maps each failed operation back to its position ([#25](https://github.com/faceteer/facet/issues/25)).
+- DynamoDB transaction support. Each facet exposes `transaction.put`, `transaction.delete`, `transaction.check`, and `transaction.get` builders, and the new `transactWrite` and `transactGet` functions execute the built operations atomically across facets and tables. Failures resolve with `wasSuccessful: false` instead of throwing; a canceled transaction also carries a `failures` array with one entry per operation, typed per position for array literals, including the conflicting item parsed from DynamoDB's `ReturnValuesOnConditionCheckFailure` response when one is returned ([#25](https://github.com/faceteer/facet/issues/25)).
 
 ### Infrastructure
 

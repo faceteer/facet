@@ -44,12 +44,16 @@ export interface TransactFacet<T extends WithoutReservedAttributes<T>> {
  * by a facet's `transaction.put`, `transaction.delete`, and
  * `transaction.check` builders.
  *
+ * `T` is the type of the record the operation was built from. `Model`
+ * is the facet's full record type, which is what DynamoDB returns as
+ * the conflicting item when a condition fails.
+ *
  * Builders marshall the record and compile the condition when they are
  * called. If the record contains a reserved attribute, the builder
  * throws immediately instead of reporting the error through the
  * `transactWrite` result.
  */
-export interface TransactWriteOp<T = unknown> {
+export interface TransactWriteOp<T = unknown, Model = T> {
 	readonly kind: 'put' | 'delete' | 'check';
 	readonly tableName: string;
 	readonly dynamoDb: Pick<DynamoDB, 'transactWriteItems'>;
@@ -64,10 +68,14 @@ export interface TransactWriteOp<T = unknown> {
 	/**
 	 * The record the operation was built from: the full model for
 	 * `put`, and the key fields for `delete` and `check`. This value
-	 * is not sent to DynamoDB. Use it to correlate a cancellation
-	 * reason with the record that caused it.
+	 * is not sent to DynamoDB.
 	 */
 	readonly record: T;
+	/**
+	 * Converts a raw DynamoDB item into the facet's full record type.
+	 * Used to parse the conflicting item on a canceled transaction.
+	 */
+	readonly out: (item: Record<string, AttributeValue>) => Model;
 }
 
 /**
@@ -119,7 +127,7 @@ export interface FacetTransactionBuilders<
 	delete(
 		record: Pick<T, PartitionKey | SortKey> & Partial<T>,
 		options?: TransactDeleteOptions<T>,
-	): TransactWriteOp<Pick<T, PartitionKey | SortKey> & Partial<T>>;
+	): TransactWriteOp<Pick<T, PartitionKey | SortKey> & Partial<T>, T>;
 	/**
 	 * Asserts a condition against the record's item without writing to
 	 * it. If the condition fails, DynamoDB cancels the whole
@@ -128,7 +136,7 @@ export interface FacetTransactionBuilders<
 	check(
 		record: Pick<T, PartitionKey | SortKey> & Partial<T>,
 		options: TransactCheckOptions<T>,
-	): TransactWriteOp<Pick<T, PartitionKey | SortKey> & Partial<T>>;
+	): TransactWriteOp<Pick<T, PartitionKey | SortKey> & Partial<T>, T>;
 	/**
 	 * Reads the record's item in a {@link transactGet} call.
 	 */
@@ -143,6 +151,7 @@ export function buildTransactPutOp<T extends WithoutReservedAttributes<T>>(
 	const put: Put = {
 		Item: facet.in(record),
 		TableName: facet.connection.tableName,
+		ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
 	};
 	if (options.condition) {
 		applyCondition(put, options.condition);
@@ -155,6 +164,7 @@ export function buildTransactPutOp<T extends WithoutReservedAttributes<T>>(
 		sk: facet.sk(record),
 		item: { Put: put },
 		record,
+		out: (item) => facet.out(item),
 	};
 }
 
@@ -165,7 +175,7 @@ export function buildTransactDeleteOp<
 	facet: TransactFacet<T>,
 	record: U,
 	options: TransactDeleteOptions<T> = {},
-): TransactWriteOp<U> {
+): TransactWriteOp<U, T> {
 	const pk = facet.pk(record);
 	const sk = facet.sk(record);
 	const del: Delete = {
@@ -174,6 +184,7 @@ export function buildTransactDeleteOp<
 			[SK]: { S: sk },
 		},
 		TableName: facet.connection.tableName,
+		ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
 	};
 	if (options.condition) {
 		applyCondition(del, options.condition);
@@ -186,6 +197,7 @@ export function buildTransactDeleteOp<
 		sk,
 		item: { Delete: del },
 		record,
+		out: (item) => facet.out(item),
 	};
 }
 
@@ -196,7 +208,7 @@ export function buildTransactCheckOp<
 	facet: TransactFacet<T>,
 	record: U,
 	options: TransactCheckOptions<T>,
-): TransactWriteOp<U> {
+): TransactWriteOp<U, T> {
 	const pk = facet.pk(record);
 	const sk = facet.sk(record);
 	/**
@@ -213,6 +225,7 @@ export function buildTransactCheckOp<
 		},
 		TableName: facet.connection.tableName,
 		ConditionExpression: compiled.expression,
+		ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
 	};
 	/* v8 ignore next 3 */
 	if (Object.keys(compiled.names).length > 0) {
@@ -229,6 +242,7 @@ export function buildTransactCheckOp<
 		sk,
 		item: { ConditionCheck: check },
 		record,
+		out: (item) => facet.out(item),
 	};
 }
 
@@ -261,30 +275,52 @@ export interface TransactWriteOptions {
 }
 
 /**
- * A failed operation in a canceled transaction, parsed from
- * `TransactionCanceledException.CancellationReasons`. Operations with
- * a reason code of `None` did not cause the cancellation and are
- * omitted.
+ * The failure detail for one operation in a canceled transaction,
+ * parsed from `TransactionCanceledException.CancellationReasons`.
  */
-export interface TransactCancellationReason {
+export interface TransactOpFailure<Model = unknown> {
 	/**
-	 * The position of the failed operation in the `ops` array.
+	 * The position of the operation in the `ops` array.
 	 */
-	index: number;
+	readonly index: number;
 	/**
 	 * The DynamoDB cancellation code, such as `ConditionalCheckFailed`.
 	 */
-	code?: string;
-	message?: string;
+	readonly code: string;
+	readonly message?: string;
+	/**
+	 * The item as it currently exists in the table, parsed with the
+	 * facet's validator.
+	 *
+	 * DynamoDB only returns the item when the failed condition's
+	 * target item exists. A condition that fails because the item is
+	 * missing, such as an `exists` guard, produces no item. Unset when
+	 * DynamoDB returned no item or when the raw item did not parse;
+	 * in the second case `conflictingItemRaw` still holds the data.
+	 */
+	readonly conflictingItem?: Model;
+	/**
+	 * The raw conflicting item, set whenever DynamoDB returned one.
+	 */
+	readonly conflictingItemRaw?: Record<string, AttributeValue>;
 }
 
-export interface TransactWriteResult {
+export interface TransactWriteResult<
+	Ops extends readonly TransactWriteOp[] = readonly TransactWriteOp[],
+> {
 	wasSuccessful: boolean;
 	error?: unknown;
 	/**
 	 * Set only when the failure is a `TransactionCanceledException`.
+	 * One entry per operation, aligned with `ops`: `null` for
+	 * operations that did not cause the cancellation, and a
+	 * {@link TransactOpFailure} for each one that did.
 	 */
-	cancellationReasons?: TransactCancellationReason[];
+	failures?: {
+		[K in keyof Ops]: TransactOpFailure<
+			Ops[K] extends TransactWriteOp<unknown, infer Model> ? Model : never
+		> | null;
+	};
 }
 
 /**
@@ -293,14 +329,19 @@ export interface TransactWriteResult {
  * different facets and target different tables, but every facet must
  * share the same DynamoDB client.
  *
+ * The `ops` parameter preserves per-position types for array
+ * literals, so `failures` can be destructured positionally with each
+ * entry typed by its facet. A dynamically built array widens every
+ * position to the union of the operations' types.
+ *
  * This function does not throw. Failures resolve with
- * `wasSuccessful: false`, and a canceled transaction also carries the
- * parsed `cancellationReasons`.
+ * `wasSuccessful: false`; a canceled transaction also carries a
+ * positional `failures` array.
  */
-export async function transactWrite(
-	ops: readonly TransactWriteOp[],
+export async function transactWrite<Ops extends readonly TransactWriteOp[]>(
+	ops: readonly [...Ops],
 	options: TransactWriteOptions = {},
-): Promise<TransactWriteResult> {
+): Promise<TransactWriteResult<Ops>> {
 	if (ops.length === 0) {
 		return { wasSuccessful: true };
 	}
@@ -357,11 +398,14 @@ export async function transactWrite(
 		await dynamoDb.transactWriteItems(input);
 		return { wasSuccessful: true };
 	} catch (error) {
-		return {
-			wasSuccessful: false,
+		const failures = transactFailuresOf(
 			error,
-			...cancellationReasonsOf(error),
-		};
+			ops,
+		) as TransactWriteResult<Ops>['failures'];
+		if (failures) {
+			return { wasSuccessful: false, error, failures };
+		}
+		return { wasSuccessful: false, error };
 	}
 }
 
@@ -377,7 +421,16 @@ export interface TransactGetResult<Ops extends readonly TransactGetOp[]> {
 			| null;
 	};
 	error?: unknown;
-	cancellationReasons?: TransactCancellationReason[];
+	/**
+	 * Set only when the failure is a `TransactionCanceledException`.
+	 * One entry per operation, aligned with the arguments: `null` for
+	 * operations that did not cause the cancellation.
+	 */
+	failures?: {
+		[K in keyof Ops]: TransactOpFailure<
+			Ops[K] extends TransactGetOp<infer T> ? T : never
+		> | null;
+	};
 }
 
 /**
@@ -437,36 +490,61 @@ export async function transactGet<Ops extends readonly TransactGetOp[]>(
 		});
 		return { wasSuccessful: true, items: items as Items };
 	} catch (error) {
-		return {
-			wasSuccessful: false,
-			items: nullItems,
+		const failures = transactFailuresOf(
 			error,
-			...cancellationReasonsOf(error),
-		};
+			ops,
+		) as TransactGetResult<Ops>['failures'];
+		if (failures) {
+			return { wasSuccessful: false, items: nullItems, error, failures };
+		}
+		return { wasSuccessful: false, items: nullItems, error };
 	}
 }
 
 /**
- * Parses `CancellationReasons` from a `TransactionCanceledException`.
- * The SDK orders reasons to match the requested items and uses the
- * code `None` for items that did not cause the cancellation, so
- * filtering out `None` yields the failed operations indexed by
- * position.
+ * Parses a `TransactionCanceledException` into a positional failures
+ * array. The SDK orders `CancellationReasons` to match the requested
+ * items and uses the code `None` for items that did not cause the
+ * cancellation, so those positions become `null`. When a reason
+ * carries the conflicting item, the entry parses it with the
+ * operation's `out` converter; a parse error leaves only the raw item.
  */
-function cancellationReasonsOf(
+function transactFailuresOf(
 	error: unknown,
-): { cancellationReasons: TransactCancellationReason[] } | undefined {
+	ops: readonly {
+		readonly out: (item: Record<string, AttributeValue>) => unknown;
+	}[],
+): (TransactOpFailure | null)[] | undefined {
 	if (
 		!(error instanceof TransactionCanceledException) ||
 		!error.CancellationReasons
 	) {
 		return undefined;
 	}
-	return {
-		cancellationReasons: error.CancellationReasons.map((reason, index) => ({
+	const reasons = error.CancellationReasons;
+	return ops.map((op, index) => {
+		const reason = reasons.at(index);
+		if (reason?.Code === undefined || reason.Code === 'None') {
+			return null;
+		}
+		const raw =
+			reason.Item && Object.keys(reason.Item).length > 0
+				? reason.Item
+				: undefined;
+		let conflictingItem: unknown;
+		if (raw) {
+			try {
+				conflictingItem = op.out(raw);
+			} catch {
+				// The raw item stays available on conflictingItemRaw.
+			}
+		}
+		return {
 			index,
 			code: reason.Code,
 			message: reason.Message,
-		})).filter((reason) => reason.code !== undefined && reason.code !== 'None'),
-	};
+			conflictingItem,
+			conflictingItemRaw: raw,
+		};
+	});
 }
