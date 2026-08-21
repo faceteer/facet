@@ -64,6 +64,14 @@ describe('consistent reads', () => {
 			PK: { keys: ['pk'], prefix: 'PK' },
 			SK: { keys: ['sk'], prefix: 'SK' },
 			validator: (input) => input as Item,
+			pickValidator: (keys) => (input) => {
+				const record = input as Record<string, unknown>;
+				const picked: Record<string, unknown> = {};
+				for (const key of keys) {
+					picked[key as string] = record[key as string];
+				}
+				return picked as Pick<Item, (typeof keys)[number]>;
+			},
 			connection: {
 				dynamoDb: ddb,
 				tableName: TABLE_NAME,
@@ -87,6 +95,15 @@ describe('consistent reads', () => {
 		const { facet, calls } = buildQueryFacet();
 		await facet.query({ pk: 'x' }).list();
 		expect(calls[0].ConsistentRead).toBeUndefined();
+	});
+
+	test('a projected query combines select with ConsistentRead', async () => {
+		const { facet, calls } = buildQueryFacet();
+		await facet
+			.query({ pk: 'x' })
+			.list({ select: ['pk'], consistentRead: true });
+		expect(calls[0].ConsistentRead).toBe(true);
+		expect(calls[0].ProjectionExpression).toBeDefined();
 	});
 
 	test('an index query with consistentRead forced past the types throws', async () => {

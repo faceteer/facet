@@ -698,7 +698,7 @@ Projection reduces the data DynamoDB sends over the wire, which shrinks payload 
 
 ### Consistent reads
 
-DynamoDB reads are eventually consistent by default: a read that closely follows a write can return the item's older state. When you need read-after-write guarantees, pass `consistentRead: true` to opt into a strongly consistent read, which reflects every write that succeeded before the read.
+DynamoDB reads are eventually consistent by default: a read that closely follows a write can return the item's older state. When you need read-after-write guarantees, pass `consistentRead: true` to opt into a strongly consistent read, which reflects every write that succeeded before the read. On a global table, that guarantee holds only within one region: a strongly consistent read can return stale data for an item that was last updated in a different region.
 
 The option is available on single gets, batch gets, and base-table queries:
 
@@ -712,7 +712,7 @@ const teams = await TeamFacet.get([{ teamId: 'a' }, { teamId: 'b' }], {
 });
 
 // Base-table query
-const { records } = await PostFacet.query({ pageId }).list({
+const { records } = await TeamFacet.query({ teamId }).list({
 	consistentRead: true,
 });
 ```
@@ -724,7 +724,7 @@ DynamoDB does not support consistent reads on global secondary indexes, so index
 await PostFacet.GSIPostByTitle.query({ pageId }).list({ consistentRead: true });
 ```
 
-`transactGet` needs no option: DynamoDB transactions are serializable, so a transactional read is already at least as strong as a consistent read.
+`transactGet` needs no option: DynamoDB transactions are serializable, so a transactional read is already at least as strong as a consistent read. It's also the most expensive way to read: DynamoDB bills a transactional read at twice the rate of a strongly consistent read, so use `transactGet` for atomic multi-item snapshots, not as a substitute for `consistentRead`.
 
 Strongly consistent reads cost twice the read capacity of eventually consistent reads and can have higher latency. Reserve them for paths that read their own writes, and let everything else use the default.
 

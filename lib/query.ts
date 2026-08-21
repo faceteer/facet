@@ -134,7 +134,7 @@ export interface QueryOptions<
 	/**
 	 * Use a strongly consistent read instead of DynamoDB's default
 	 * eventually consistent read. A strongly consistent read reflects
-	 * every write that succeeded before the read, at roughly twice the
+	 * every write that succeeded before the read, at twice the
 	 * read-capacity cost.
 	 *
 	 * Only available on base-table queries; DynamoDB does not support

@@ -503,6 +503,30 @@ describe('Facet', () => {
 			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
 				// @ts-expect-error consistentRead is not available on index queries
 				.first({ consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.greaterThan({ postTitle: 'x' }, { consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.greaterThanOrEqual({ postTitle: 'x' }, { consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.lessThan({ postTitle: 'x' }, { consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.lessThanOrEqual({ postTitle: 'x' }, { consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.beginsWith({ postTitle: 'x' }, { consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.between(
+					{ postTitle: 'a' },
+					{ postTitle: 'z' },
+					{
+						consistentRead: true,
+					},
+				);
 		});
 
 		expect<0>(0 satisfies 0).toBe(0);

@@ -299,4 +299,44 @@ describe('consistent reads', () => {
 		await facet.get([{ pk: 'a', sk: 'a' }]);
 		expect(calls[0].RequestItems?.[TABLE_NAME].ConsistentRead).toBeUndefined();
 	});
+
+	test('a projected get combines select with ConsistentRead', async () => {
+		const calls: GetItemCommandInput[] = [];
+		const ddb = new DynamoDB({
+			region: 'us-east-1',
+			endpoint: 'http://localhost:8000',
+		});
+		vi.spyOn(ddb, 'getItem').mockImplementation(
+			async (input: GetItemCommandInput): Promise<GetItemCommandOutput> => {
+				calls.push(input);
+				return { Item: storedItem('a'), $metadata: {} };
+			},
+		);
+		const facet = new Facet<Item, 'pk', 'sk'>({
+			name: 'Item',
+			PK: { keys: ['pk'], prefix: 'PK' },
+			SK: { keys: ['sk'], prefix: 'SK' },
+			validator: (input) => input as Item,
+			pickValidator: (keys) => (input) => {
+				const record = input as Record<string, unknown>;
+				const picked: Record<string, unknown> = {};
+				for (const key of keys) {
+					picked[key as string] = record[key as string];
+				}
+				return picked as Pick<Item, (typeof keys)[number]>;
+			},
+			connection: {
+				dynamoDb: ddb,
+				tableName: TABLE_NAME,
+			},
+		});
+
+		await facet.get(
+			{ pk: 'a', sk: 'a' },
+			{ select: ['pk'], consistentRead: true },
+		);
+
+		expect(calls[0].ConsistentRead).toBe(true);
+		expect(calls[0].ProjectionExpression).toBeDefined();
+	});
 });

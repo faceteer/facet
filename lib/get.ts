@@ -33,7 +33,7 @@ export interface GetOptions<T, K extends keyof T = keyof T> {
 	/**
 	 * Use a strongly consistent read instead of DynamoDB's default
 	 * eventually consistent read. A strongly consistent read reflects
-	 * every write that succeeded before the read, at roughly twice the
+	 * every write that succeeded before the read, at twice the
 	 * read-capacity cost.
 	 */
 	consistentRead?: boolean;
