@@ -164,12 +164,7 @@ export type PickValidator<T> = <K extends keyof T>(
  * the synthetic value — see {@link Facet.in}.
  */
 export type ReservedAttributeName =
-	| 'PK'
-	| 'SK'
-	| 'facet'
-	| 'ttl'
-	| `GSI${number}PK`
-	| `GSI${number}SK`;
+	'PK' | 'SK' | 'facet' | 'ttl' | `GSI${number}PK` | `GSI${number}SK`;
 
 /**
  * Constraint used on `T` to forbid reserved attribute names at the type
@@ -680,8 +675,7 @@ class FacetImpl<
 	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>>;
 	async delete(
 		records:
-			| (Pick<T, PK | SK> & Partial<T>)[]
-			| (Pick<T, PK | SK> & Partial<T>),
+			(Pick<T, PK | SK> & Partial<T>)[] | (Pick<T, PK | SK> & Partial<T>),
 		options?: DeleteOptions<Pick<T, PK | SK> & Partial<T>>,
 	): Promise<DeleteResponse<Pick<T, PK | SK> & Partial<T>>> {
 		if (Array.isArray(records)) {
