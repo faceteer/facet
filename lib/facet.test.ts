@@ -482,6 +482,56 @@ describe('Facet', () => {
 		expect<0>(0 satisfies 0).toBe(0);
 	});
 
+	test('consistentRead is gated off on index queries at the type level', () => {
+		void (async () => {
+			// Base-table queries accept the option on every operator.
+			await PostFacet.query({ pageId: 'p' }).equals(
+				{ postId: 'x' },
+				{ consistentRead: true },
+			);
+			await PostFacet.query({ pageId: 'p' }).list({ consistentRead: true });
+			await PostFacet.query({ pageId: 'p' }).first({ consistentRead: true });
+
+			// DynamoDB rejects ConsistentRead on GSI queries, so passing the
+			// option on an index query is a compile error.
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.equals({ postTitle: 'x' }, { consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.list({ consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.first({ consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.greaterThan({ postTitle: 'x' }, { consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.greaterThanOrEqual({ postTitle: 'x' }, { consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.lessThan({ postTitle: 'x' }, { consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.lessThanOrEqual({ postTitle: 'x' }, { consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.beginsWith({ postTitle: 'x' }, { consistentRead: true });
+			await PostFacet.GSIPostByTitle.query({ pageId: 'p' })
+				// @ts-expect-error consistentRead is not available on index queries
+				.between(
+					{ postTitle: 'a' },
+					{ postTitle: 'z' },
+					{
+						consistentRead: true,
+					},
+				);
+		});
+
+		expect<0>(0 satisfies 0).toBe(0);
+	});
+
 	test('reserved attribute names fail the type-level constraint', () => {
 		// Type-only assertions — `npm run typecheck` (which covers tests via
 		// the base tsconfig.json) is the real check. At runtime this is a no-op.

@@ -30,6 +30,13 @@ export interface GetOptions<T, K extends keyof T = keyof T> {
 	 * starting capacity and let adaptive-capacity scale up from there.
 	 */
 	concurrency?: number;
+	/**
+	 * Use a strongly consistent read instead of DynamoDB's default
+	 * eventually consistent read. A strongly consistent read reflects
+	 * every write that succeeded before the read, at twice the
+	 * read-capacity cost.
+	 */
+	consistentRead?: boolean;
 }
 
 export async function getSingleItem<
@@ -52,6 +59,7 @@ export async function getSingleItem<
 				S: facet.sk(query),
 			},
 		},
+		ConsistentRead: options.consistentRead,
 	};
 
 	const projectedKeys = options.select
@@ -124,7 +132,12 @@ export async function getBatch<
 		};
 	});
 
-	const results = await getBatchKeys(keysToGet, facet, projectedKeys);
+	const results = await getBatchKeys(
+		keysToGet,
+		facet,
+		projectedKeys,
+		options.consistentRead,
+	);
 	const { Responses, UnprocessedKeys } = results;
 	gatherItems(Responses);
 
@@ -140,7 +153,12 @@ export async function getBatch<
 			await wait(10 * 2 ** attempts);
 
 			const { Responses: RetriedResponses, UnprocessedKeys: StillUnprocessed } =
-				await getBatchKeys(unprocessed.splice(0), facet, projectedKeys);
+				await getBatchKeys(
+					unprocessed.splice(0),
+					facet,
+					projectedKeys,
+					options.consistentRead,
+				);
 
 			gatherItems(RetriedResponses);
 
@@ -206,9 +224,11 @@ async function getBatchKeys<
 	keys: KeysAndAttributes['Keys'],
 	facet: Facet<T, PartitionKey, SortKey>,
 	projectedKeys?: readonly PropertyKey[],
+	consistentRead?: boolean,
 ) {
 	const tableRequest: KeysAndAttributes = {
 		Keys: keys,
+		ConsistentRead: consistentRead,
 	};
 	if (projectedKeys) {
 		const projection = buildProjectionExpression(projectedKeys);
