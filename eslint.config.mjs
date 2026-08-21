@@ -14,6 +14,7 @@ export default defineConfig(
 			'coverage/**',
 			'docs/**',
 			'_scratch/**',
+			'skills/faceteer-facet/evals/sandbox-template/**',
 			'*.tsbuildinfo',
 		],
 	},
