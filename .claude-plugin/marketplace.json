@@ -8,7 +8,7 @@
 		{
 			"name": "faceteer-facet",
 			"source": "./plugins/faceteer-facet",
-			"description": "Develop with @faceteer/facet 6.0, the TypeScript DynamoDB single-table library.",
+			"description": "Develop with @faceteer/facet 6.x, the TypeScript DynamoDB single-table library.",
 			"category": "development"
 		}
 	]

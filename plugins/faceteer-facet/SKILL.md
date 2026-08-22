@@ -1,7 +1,7 @@
 ---
 name: faceteer-facet
 description: >-
-  Develop with @faceteer/facet 6.0, the TypeScript DynamoDB single-table
+  Develop with @faceteer/facet 6.x, the TypeScript DynamoDB single-table
   library. Use this skill whenever you write, review, or debug code that
   imports @faceteer/facet — defining a Facet, adding a GSI with addIndex,
   querying with .query()/.list()/.beginsWith(), putting or deleting records,
@@ -13,13 +13,13 @@ description: >-
   small changes.
 ---
 
-# Developing with @faceteer/facet 6.0
+# Developing with @faceteer/facet 6.x
 
 Faceteer wraps `@aws-sdk/client-dynamodb` for single-table design. One
 `Facet<T>` represents one record type in a shared table. The facet computes
 synthetic composite keys (`PK`, `SK`, `GSI1PK`…`GSI20SK`) from model fields on
 write, and strips and validates them on read. This skill covers the released
-6.0.0 API.
+6.x API, current as of 6.1.0.
 
 Rules that prevent the most damage, in order:
 
@@ -264,8 +264,8 @@ library major version (v5 cursors don't decode in v6).
 ## Conditional writes
 
 `put` and `delete` accept `{ condition }` on the **single-item form only**
-(the batch overloads don't accept one). Conditions are tuple trees from
-`@faceteer/expression-builder`:
+(the batch overloads don't accept one). Conditions are tuple trees; the types
+(`ConditionExpression` and friends) are exported from the package root:
 
 ```ts
 ['status', '=', 'open'][
@@ -280,9 +280,13 @@ library major version (v5 cursors don't decode in v6).
 }
 ```
 
-- **Never use the `size` operator.** It compiles with an unbalanced
-  parenthesis and every request that includes it fails with a
-  `ValidationException`.
+- **The `size` operator requires 6.1.0 or later.** It takes a comparator and
+  a number: `['tags', 'size', '>=', 2]`. On 6.0.0 it compiled with an
+  unbalanced parenthesis, so every request that included it failed with a
+  `ValidationException` — check the installed version before reaching for it.
+- **`in` needs a non-empty list.** From 6.1.0 an empty list throws a
+  descriptive error at compile time; on 6.0.0 it sent `IN ()`, which DynamoDB
+  rejects with an opaque syntax error.
 - A failed condition is not an exception. It comes back as
   `wasSuccessful: false` with `error.name === 'ConditionalCheckFailedException'`.
   Handle the two failure classes differently: a conditional failure is the
