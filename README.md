@@ -676,9 +676,7 @@ On an index query, Faceteer auto-includes both the base-table PK/SK fields and t
 Projection is unavailable at the type level on facets constructed without a `pickValidator`. Passing `select` on those facets is a compile error, not a runtime error.
 
 ```ts
-const PlainFacet = new Facet({
-	/* no pickValidator */
-});
+const PlainFacet = new Facet({/* no pickValidator */});
 
 // Type error: this overload requires pickValidator on the facet.
 await PlainFacet.get({ teamId }, { select: ['teamName'] });

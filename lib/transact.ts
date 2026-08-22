@@ -422,8 +422,7 @@ export interface TransactGetResult<
 	 */
 	items: {
 		[K in keyof Ops]:
-			| (Ops[K] extends TransactGetOp<infer T> ? T : never)
-			| null;
+			(Ops[K] extends TransactGetOp<infer T> ? T : never) | null;
 	};
 	error?: unknown;
 	/**
