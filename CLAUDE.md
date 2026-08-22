@@ -26,7 +26,7 @@ The big idea: one `Facet<T, PK, SK>` represents one logical record type in a sha
 
 - **`lib/keys.ts`** — `buildKey()` is the single source of truth for composite keys. Format: `prefix` + (optional shard id in hex, zero-padded to fit `count-1`) + each `keys[i]` value, joined by `delimiter` (default `_`). Values are stringified if primitive; `Date` becomes ISO string; anything else is omitted. There are 20 GSI slots (`GSI1`..`GSI20`) with a fixed `GSInPK`/`GSInSK` attribute naming convention — tables must pre-declare these.
 
-- **`lib/query.ts`** — `PartitionQuery` builds `QueryInput`. `equals/greaterThan/greaterThanOrEqual/lessThan/lessThanOrEqual` all share `compare()`; `beginsWith` / `list` (== `beginsWith({})`) / `first` / `between` each build their own expression. Filters use `@faceteer/expression-builder` and are merged into the generated `ExpressionAttributeNames`/`Values`. Sort key args can also be raw strings to bypass key construction.
+- **`lib/query.ts`** — `PartitionQuery` builds `QueryInput`. `equals/greaterThan/greaterThanOrEqual/lessThan/lessThanOrEqual` all share `compare()`; `beginsWith` / `list` (== `beginsWith({})`) / `first` / `between` each build their own expression. Filters use the expression builder in `lib/expression/condition.ts` and are merged into the generated `ExpressionAttributeNames`/`Values`. Sort key args can also be raw strings to bypass key construction.
 
 - **`lib/put.ts`** — Single-item put returns `PutSingleItemResponse` (with `wasSuccessful`); array put returns `PutResponse` and batches via `batchWriteItem` in chunks of 25 (DynamoDB's hard limit). Duplicate PK+SK within a batch are deduped. `UnprocessedItems` are retried up to 5 times with exponential backoff (`wait(10 * 2 ** retries)`); whatever remains after retries ends up in `failed`.
 
@@ -35,6 +35,10 @@ The big idea: one `Facet<T, PK, SK>` represents one logical record type in a sha
 - **`lib/cursor.ts`** — pagination cursors encode DynamoDB's `LastEvaluatedKey` in a domain-specific binary format: `(code:u8)(len:varint)(utf8:bytes)` tuples, base64url'd. Exploits the invariants that every key value is a string and attribute names come from the fixed 42-name set (`PK`, `SK`, `GSI1PK..GSI20SK`). Opaque to callers.
 
 - **`lib/hash/crc-shard.ts`** — CRC-32 based shard id when a `KeyConfiguration.shard` is present. On write, shard id is computed from the model's shard keys; on query, the caller passes `shard` explicitly to target one group.
+
+- **`lib/expression/condition.ts`** — compiles condition/filter tuples (`['age', '>=', 21]`, `AND`/`OR` pairs, `{ NOT: ... }`) into DynamoDB expression strings with `#C_<hex>`-prefixed name and `:C_<hex>`-prefixed value placeholders (`#F_`/`:F_` for filters). Vendored from the retired `@faceteer/expression-builder` package.
+
+- **`lib/converter/`** — marshalls models to DynamoDB `AttributeValue` maps and back (`marshall`/`unmarshall`). Dates become `S` strings (ISO or epoch seconds per `dateFormat`); native JS `Set`s become `SS`/`NS`/`BS` by member type and unmarshall back to `Set`s. Vendored from the retired `@faceteer/converter` package.
 
 ### Mental model when editing
 

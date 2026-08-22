@@ -247,7 +247,7 @@ export async function createNewUsers(usersToCreate: Omit<User, 'userId'>[]) {
 
 #### Conditional puts
 
-Pass a `condition` with a single-item `put` to guard against writes that would clobber existing data. Conditions use the tuple syntax from [`@faceteer/expression-builder`](https://github.com/faceteer/expression-builder).
+Pass a `condition` with a single-item `put` to guard against writes that would clobber existing data. Conditions are tuples of a field name, an operator, and the operator's operands: comparators (`=`, `<>`, `<`, `<=`, `>`, `>=`), `between`, `begins_with`, `contains`, `size`, `in`, `exists`, and `not_exists`. Expressions compose with `[left, 'AND' | 'OR', right]` pairs and `{ NOT: expression }`.
 
 ```ts
 // Only create the user if one with this partition/sort key doesn't already exist
@@ -350,7 +350,7 @@ You can query in the following ways:
 
 The results will always be ordered by the sort key.
 
-Every query operator accepts a shared `options` argument where you can pass a `filter`, a `limit`, a `cursor` for pagination, `scanForward: false` to reverse order, and (for sharded keys) a `shard` number. Filters use tuple syntax from [`@faceteer/expression-builder`](https://github.com/faceteer/expression-builder) and run on the server after key conditions, so they shrink the response but not the read cost.
+Every query operator accepts a shared `options` argument where you can pass a `filter`, a `limit`, a `cursor` for pagination, `scanForward: false` to reverse order, and (for sharded keys) a `shard` number. Filters use the same tuple syntax as [conditional puts](#conditional-puts) (limited to comparators, `between`, and `begins_with`) and run on the server after key conditions, so they shrink the response but not the read cost.
 
 ```ts
 // Everything in the partition except failed tasks
@@ -676,7 +676,9 @@ On an index query, Faceteer auto-includes both the base-table PK/SK fields and t
 Projection is unavailable at the type level on facets constructed without a `pickValidator`. Passing `select` on those facets is a compile error, not a runtime error.
 
 ```ts
-const PlainFacet = new Facet({/* no pickValidator */});
+const PlainFacet = new Facet({
+	/* no pickValidator */
+});
 
 // Type error: this overload requires pickValidator on the facet.
 await PlainFacet.get({ teamId }, { select: ['teamName'] });
@@ -974,7 +976,7 @@ if (!result.wasSuccessful) {
 
 When a condition fails against an existing item, DynamoDB returns that item and Faceteer parses it into `conflictingItem` with the facet's validator. This is the item as it currently exists in the table, which is what optimistic-concurrency retries need. Two caveats: a condition that fails because the item does not exist, such as an `exists` guard, returns no item; and if the returned item fails validation, `conflictingItem` is unset while `conflictingItemRaw` still holds the raw attribute map.
 
-Like single-item `put` and `delete`, each operation accepts a `condition` using the tuple syntax from [`@faceteer/expression-builder`](https://github.com/faceteer/expression-builder). For `check` the condition is required.
+Like single-item `put` and `delete`, each operation accepts a `condition` using the same tuple syntax as [conditional puts](#conditional-puts). For `check` the condition is required.
 
 A transaction accepts up to 100 operations. Operations can come from different facets, including facets on different tables, as long as every facet uses the same DynamoDB client. Two operations that target the same item are rejected before the network call.
 
