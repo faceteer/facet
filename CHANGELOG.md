@@ -8,6 +8,8 @@ npm dist-tags track the most recent publish in each channel: `latest` points at 
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-08-22
+
 ### Added
 
 - Opt-in strongly consistent reads. Single gets, batch gets, and base-table queries accept `consistentRead: true`, which sets DynamoDB's `ConsistentRead` flag on the request (including batch-get retry requests). Index queries reject the option at compile time and with a runtime error, because DynamoDB does not support consistent reads on global secondary indexes.
@@ -31,6 +33,7 @@ npm dist-tags track the most recent publish in each channel: `latest` points at 
 - Test coverage raised to 100% (statements, branches, functions, lines). New tests pin batch write/get failure and retry handling, `validateInput`, TTL edge cases, shard-hash placement, raw-string sort keys, and value-comparing conditions.
 - Every condition operator now executes against DynamoDB Local in the integration suite (`in`, `begins_with`, `contains`, `between`, all comparators, and nested `AND`/`OR`/`NOT`), so a malformed compiled expression fails tests rather than shipping — the gap that let the `size` bug through.
 - `prettier`, `typescript`, and `eslint` are pinned to exact versions. `package-lock.json` is gitignored, so caret ranges made CI resolve different versions than local machines; upgrades now go through an explicit commit.
+- The repository now doubles as a Claude Code plugin marketplace. The `faceteer-facet` plugin ships a skill that teaches coding agents the library's key-construction and error-handling conventions; install it with `/plugin marketplace add faceteer/facet` followed by `/plugin install faceteer-facet@faceteer`.
 
 ## [6.0.0] - 2026-04-20
 
@@ -94,6 +97,7 @@ First publish of the v6 line. Breaking changes from v5 touch module format, the 
 - Widened `@aws-sdk/client-dynamodb` peer dep range to `^3.0.0`.
 - Shared VS Code workspace setting makes IDE auto-imports insert the required `.js` extension for NodeNext module resolution.
 
-[unreleased]: https://github.com/faceteer/facet/compare/v6.0.0...HEAD
+[unreleased]: https://github.com/faceteer/facet/compare/v6.1.0...HEAD
+[6.1.0]: https://github.com/faceteer/facet/compare/v6.0.0...v6.1.0
 [6.0.0]: https://github.com/faceteer/facet/compare/v6.0.0-alpha.0...v6.0.0
 [6.0.0-alpha.0]: https://github.com/faceteer/facet/releases/tag/v6.0.0-alpha.0
