@@ -268,13 +268,11 @@ library major version (v5 cursors don't decode in v6).
 `@faceteer/expression-builder`:
 
 ```ts
-['status', '=', 'open'][
-	('assigneeId', 'not_exists')
-] // also: 'exists'
-[('subject', 'begins_with', 'urgent')][('priority', 'between', 1, 3)][
-	('status', 'in', ['open', 'pending'])
-] // conditions only, not filters
-[(['a', '=', 1], 'AND', ['b', '=', 2])]; // also 'OR'; nest arbitrarily
+['status', '=', 'open'][('assigneeId', 'not_exists')][ // also: 'exists'
+	('subject', 'begins_with', 'urgent')
+][('priority', 'between', 1, 3)][('status', 'in', ['open', 'pending'])][ // conditions only, not filters
+	(['a', '=', 1], 'AND', ['b', '=', 2])
+]; // also 'OR'; nest arbitrarily
 {
 	NOT: ['status', '=', 'closed'];
 }

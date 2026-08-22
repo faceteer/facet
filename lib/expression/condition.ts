@@ -52,7 +52,9 @@ export type LogicEvaluation<T> = [
 ];
 
 export type ConditionExpression<T> =
-	Condition<T> | LogicEvaluation<T> | NotExpression<T>;
+	| Condition<T>
+	| LogicEvaluation<T>
+	| NotExpression<T>;
 export interface NotExpression<T> {
 	NOT: ConditionExpression<T>;
 }
@@ -209,10 +211,13 @@ function getValue(data: unknown): AttributeValue {
 }
 
 export type FilterCondition<T> =
-	ComparatorCondition<T> | BetweenCondition<T> | BeginsWithCondition<T>;
+	| ComparatorCondition<T>
+	| BetweenCondition<T>
+	| BeginsWithCondition<T>;
 
 export type FilterConditionExpression<T> =
-	FilterCondition<T> | FilterLogicEvaluation<T>;
+	| FilterCondition<T>
+	| FilterLogicEvaluation<T>;
 
 export type FilterLogicEvaluation<T> = [
 	FilterConditionExpression<T>,
