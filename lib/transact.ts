@@ -9,10 +9,7 @@ import type {
 	TransactWriteItemsInput,
 } from '@aws-sdk/client-dynamodb';
 import { TransactionCanceledException } from '@aws-sdk/client-dynamodb';
-import {
-	condition,
-	type ConditionExpression,
-} from '@faceteer/expression-builder';
+import { condition, type ConditionExpression } from './expression/condition.js';
 import type { WithoutReservedAttributes } from './facet.js';
 import { applyCondition } from './condition.js';
 import { PK, SK } from './keys.js';

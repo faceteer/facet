@@ -1,6 +1,6 @@
 import type { DeleteItemInput } from '@aws-sdk/client-dynamodb';
 import type { Facet, WithoutReservedAttributes } from './facet.js';
-import type { ConditionExpression } from '@faceteer/expression-builder';
+import type { ConditionExpression } from './expression/condition.js';
 import { PK, SK, Keys } from './keys.js';
 import { batchWriteWithRetry, type BatchWriteAdapter } from './batch-write.js';
 import { applyCondition } from './condition.js';

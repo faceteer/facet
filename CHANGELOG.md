@@ -13,9 +13,24 @@ npm dist-tags track the most recent publish in each channel: `latest` points at 
 - Opt-in strongly consistent reads. Single gets, batch gets, and base-table queries accept `consistentRead: true`, which sets DynamoDB's `ConsistentRead` flag on the request (including batch-get retry requests). Index queries reject the option at compile time and with a runtime error, because DynamoDB does not support consistent reads on global secondary indexes.
 - DynamoDB transaction support. Each facet exposes `transaction.put`, `transaction.delete`, `transaction.check`, and `transaction.get` builders, and the new `transactWrite` and `transactGet` functions execute the built operations atomically across facets and tables. Failures resolve with `wasSuccessful: false` instead of throwing; a canceled transaction also carries a `failures` array with one entry per operation, typed per position for array literals, including the conflicting item parsed from DynamoDB's `ReturnValuesOnConditionCheckFailure` response when one is returned ([#25](https://github.com/faceteer/facet/issues/25)).
 
+### Changed
+
+- `@faceteer/expression-builder` and `@faceteer/converter` are no longer dependencies — their code now lives in this package (`lib/expression/`, `lib/converter/`), leaving `@faceteer/facet` with zero runtime dependencies. The condition and filter types (`ConditionExpression`, `FilterConditionExpression`, `Condition` and its variants, `ConverterOptions`, `AttributeMap`) are now exported from the package root; the standalone packages will be deprecated.
+- DynamoDB sets marshall from and unmarshall to native JavaScript `Set` objects (`SS`/`NS`/`BS` chosen by member type). The former `DynamoDBSet` wrapper class was never constructible — a bug made its constructor always throw — so set support effectively did not exist before this change. Mixed-type and empty sets throw a `TypeError`; with `convertEmptyValues` enabled, empty sets marshall as `NULL`.
+
+### Fixed
+
+- Conditions and filters using the `size` operator no longer fail with a `ValidationException`. The compiled expression contained an unbalanced closing parenthesis, so every request using `size` was rejected by DynamoDB.
+- A condition using `in` with an empty list throws a descriptive error at compile time instead of sending `IN ()`, which DynamoDB rejects with an opaque syntax error.
+- Marshalling `NaN` or `Infinity` (as a field or a set member) throws a `TypeError` instead of producing a value DynamoDB rejects at request time.
+- Unmarshalling an unrecognized `AttributeValue` shape now throws a descriptive error instead of silently producing `undefined`.
+- Marshalling a list containing `undefined` or a function now throws a `TypeError` instead of producing a malformed request.
+
 ### Infrastructure
 
 - Test coverage raised to 100% (statements, branches, functions, lines). New tests pin batch write/get failure and retry handling, `validateInput`, TTL edge cases, shard-hash placement, raw-string sort keys, and value-comparing conditions.
+- Every condition operator now executes against DynamoDB Local in the integration suite (`in`, `begins_with`, `contains`, `between`, all comparators, and nested `AND`/`OR`/`NOT`), so a malformed compiled expression fails tests rather than shipping — the gap that let the `size` bug through.
+- `prettier`, `typescript`, and `eslint` are pinned to exact versions. `package-lock.json` is gitignored, so caret ranges made CI resolve different versions than local machines; upgrades now go through an explicit commit.
 
 ## [6.0.0] - 2026-04-20
 

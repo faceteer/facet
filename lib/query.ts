@@ -8,7 +8,7 @@ import {
 import {
 	filter as buildFilterExpression,
 	type FilterConditionExpression,
-} from '@faceteer/expression-builder';
+} from './expression/condition.js';
 import { IndexKeyNameMap, PK, SK, Keys } from './keys.js';
 import { buildProjectionExpression } from './projection.js';
 import type { QueryInput } from '@aws-sdk/client-dynamodb';

@@ -1,6 +1,10 @@
-import { Converter } from '@faceteer/converter';
-import type { ConverterOptions } from '@faceteer/converter/converter-options.js';
-import type { DynamoDB, AttributeValue } from '@aws-sdk/client-dynamodb';
+import {
+	marshall,
+	unmarshall,
+	type AttributeMap,
+} from './converter/converter.js';
+import type { ConverterOptions } from './converter/converter-options.js';
+import type { DynamoDB } from '@aws-sdk/client-dynamodb';
 import {
 	deleteItems,
 	DeleteOptions,
@@ -33,7 +37,7 @@ import {
 	FacetTransactionBuilders,
 } from './transact.js';
 
-export type AttributeMap = Record<string, AttributeValue>;
+export type { AttributeMap } from './converter/converter.js';
 
 /**
  * A `Validator` is a function that is used by Faceteer whenever
@@ -437,8 +441,7 @@ class FacetImpl<
 			ttl: ttlAttribute,
 		};
 
-		return Converter.marshall(dynamoDbRecord, {
-			wrapNumbers: true,
+		return marshall(dynamoDbRecord, {
 			dateFormat: this.#dateFormat,
 			convertEmptyValues: this.#convertEmptyValues,
 		});
@@ -465,7 +468,7 @@ class FacetImpl<
 				`Facet "${this.name}" has no pickValidator; projected reads require one. This call bypassed the compile-time gate on Facet.get — configure a pickValidator in the facet options.`,
 			);
 		}
-		const unmarshalled: unknown = Converter.unmarshall(record);
+		const unmarshalled: unknown = unmarshall(record);
 		return this.#pickValidator(keys)(unmarshalled);
 	}
 
@@ -473,10 +476,7 @@ class FacetImpl<
 	 * Convert and validate a dynamo DB record
 	 */
 	out(record: AttributeMap): T {
-		const recordToValidate = Converter.unmarshall(record) as Record<
-			string,
-			unknown
-		>;
+		const recordToValidate = unmarshall(record) as Record<string, unknown>;
 
 		/**
 		 * Delete any constructed keys from the model before
