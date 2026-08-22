@@ -21,12 +21,16 @@ npm dist-tags track the most recent publish in each channel: `latest` points at 
 ### Fixed
 
 - Conditions and filters using the `size` operator no longer fail with a `ValidationException`. The compiled expression contained an unbalanced closing parenthesis, so every request using `size` was rejected by DynamoDB.
+- A condition using `in` with an empty list throws a descriptive error at compile time instead of sending `IN ()`, which DynamoDB rejects with an opaque syntax error.
+- Marshalling `NaN` or `Infinity` (as a field or a set member) throws a `TypeError` instead of producing a value DynamoDB rejects at request time.
 - Unmarshalling an unrecognized `AttributeValue` shape now throws a descriptive error instead of silently producing `undefined`.
 - Marshalling a list containing `undefined` or a function now throws a `TypeError` instead of producing a malformed request.
 
 ### Infrastructure
 
 - Test coverage raised to 100% (statements, branches, functions, lines). New tests pin batch write/get failure and retry handling, `validateInput`, TTL edge cases, shard-hash placement, raw-string sort keys, and value-comparing conditions.
+- Every condition operator now executes against DynamoDB Local in the integration suite (`in`, `begins_with`, `contains`, `between`, all comparators, and nested `AND`/`OR`/`NOT`), so a malformed compiled expression fails tests rather than shipping — the gap that let the `size` bug through.
+- `prettier`, `typescript`, and `eslint` are pinned to exact versions. `package-lock.json` is gitignored, so caret ranges made CI resolve different versions than local machines; upgrades now go through an explicit commit.
 
 ## [6.0.0] - 2026-04-20
 

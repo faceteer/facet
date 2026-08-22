@@ -179,6 +179,11 @@ export function condition<T = unknown>(
 			return compiledExpression;
 		}
 		case 'in': {
+			if (expression[2].length === 0) {
+				throw new Error(
+					"The 'in' operator requires at least one value; DynamoDB rejects an empty IN list",
+				);
+			}
 			const placeholder = nextPrefix();
 			const namePlaceholder = `#${placeholder}`;
 			compiledExpression.names[namePlaceholder] = String(expression[0]);

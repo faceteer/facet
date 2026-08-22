@@ -9,6 +9,9 @@ export interface ConverterOptions {
 	 * Whether to return numbers as a NumberValue object instead of
 	 * converting them to native JavaScript numbers. This allows for the
 	 * safe round-trip transport of numbers of arbitrary size.
+	 *
+	 * Only read on the unmarshall path. Facet does not expose this
+	 * option: records read through a Facet always carry plain numbers.
 	 */
 	wrapNumbers?: boolean;
 

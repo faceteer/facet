@@ -177,6 +177,12 @@ describe('condition.ts', () => {
 		});
 	});
 
+	test('throws on an empty in list', () => {
+		expect(() => condition<User>(['name', 'in', []])).toThrow(
+			"The 'in' operator requires at least one value",
+		);
+	});
+
 	test('throws on an unknown operator', () => {
 		expect(() => condition(['name', 'bogus', 10] as never)).toThrow(
 			'Operator bogus is not defined',

@@ -34,7 +34,7 @@ export function toAttributeValue(
 		}
 		return { S: data as string };
 	} else if (type === 'Number' || type === 'NumberValue') {
-		return { N: String(data) };
+		return { N: marshallNumber(data) };
 	} else if (type === 'Binary') {
 		if ((data as Uint8Array).length === 0 && options.convertEmptyValues) {
 			return { NULL: true };
@@ -200,14 +200,44 @@ function formatSet(
 	data: Set<unknown>,
 	options: ConverterOptions,
 ): AttributeValue {
-	let values = [...data];
+	const members = [...data];
+
+	/**
+	 * Homogeneity is checked on the full member list before any
+	 * convertEmptyValues filtering, so a type-mixed set always throws
+	 * instead of being silently truncated to whichever members survive
+	 * the filter. NumberValue wraps a number, so it counts as Number.
+	 */
+	const memberTypes = new Set(
+		members.map((value) => {
+			const type = typeOf(value);
+			return type === 'NumberValue' ? 'Number' : type;
+		}),
+	);
+	if (memberTypes.size > 1) {
+		throw new TypeError(
+			`Set members must be all strings, all numbers, or all binary values; got: ${[
+				...memberTypes,
+			].join(', ')}`,
+		);
+	}
+	let memberType: 'String' | 'Number' | 'Binary' | undefined;
+	for (const type of memberTypes) {
+		if (type !== 'String' && type !== 'Number' && type !== 'Binary') {
+			throw new TypeError(
+				`Set members must be all strings, all numbers, or all binary values; got: ${type}`,
+			);
+		}
+		memberType = type;
+	}
+
+	let values = members;
 	if (options.convertEmptyValues) {
-		values = values.filter(
-			(value) => typeOf(value) !== 'Binary' || (value as Uint8Array).length > 0,
-		);
-		values = values.filter(
-			(value) => typeof value !== 'string' || value.length > 0,
-		);
+		if (memberType === 'String') {
+			values = values.filter((value) => (value as string).length > 0);
+		} else if (memberType === 'Binary') {
+			values = values.filter((value) => (value as Uint8Array).length > 0);
+		}
 		if (values.length === 0) {
 			return { NULL: true };
 		}
@@ -218,25 +248,26 @@ function formatSet(
 		);
 	}
 
-	const memberTypes = new Set(values.map((value) => typeOf(value)));
-	if (memberTypes.size === 1 && memberTypes.has('String')) {
+	if (memberType === 'String') {
 		return { SS: values as string[] };
 	}
-	if (
-		[...memberTypes].every(
-			(type) => type === 'Number' || type === 'NumberValue',
-		)
-	) {
-		return { NS: values.map((value) => String(value)) };
+	if (memberType === 'Number') {
+		return { NS: values.map((value) => marshallNumber(value)) };
 	}
-	if (memberTypes.size === 1 && memberTypes.has('Binary')) {
-		return { BS: values as Uint8Array[] };
+	return { BS: values as Uint8Array[] };
+}
+
+/**
+ * Stringify a number for DynamoDB's N type, rejecting values DynamoDB
+ * has no representation for. Accepts NumberValue as well as number.
+ */
+function marshallNumber(value: unknown): string {
+	if (typeof value === 'number' && !Number.isFinite(value)) {
+		throw new TypeError(
+			`Cannot marshall ${String(value)}: DynamoDB numbers must be finite`,
+		);
 	}
-	throw new TypeError(
-		`Set members must be all strings, all numbers, or all binary values; got: ${[
-			...memberTypes,
-		].join(', ')}`,
-	);
+	return String(value);
 }
 
 /**

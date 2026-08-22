@@ -1,6 +1,7 @@
 import { DynamoDB, ResourceInUseException } from '@aws-sdk/client-dynamodb';
 import { vi } from 'vitest';
 import { Facet, PickValidator } from './facet.js';
+import type { ConditionExpression } from './expression/condition.js';
 import { crcShard } from './hash/crc-shard.js';
 import { Index } from './keys.js';
 import * as keysModule from './keys.js';
@@ -764,6 +765,131 @@ describe('Facet', () => {
 		expect((failedPut.error as Error).name).toBe(
 			'ConditionalCheckFailedException',
 		);
+	});
+
+	test('Every condition operator compiles to expressions DynamoDB accepts', async () => {
+		const testPage: Page = {
+			accessToken: 'operator-check-token',
+			pageId: 'OPERATOR-CHECK-PAGE',
+			pageName: 'Operator check page',
+			tokenStatus: TokenStatus.Active,
+		};
+		const seeded = await PageFacet.put(testPage);
+		expect(seeded.wasSuccessful).toBe(true);
+
+		/**
+		 * Each condition below is true for the seeded record, so the
+		 * conditional put must succeed. A malformed expression would
+		 * instead fail with a ValidationException — the failure mode the
+		 * size operator shipped with, which its string-shape unit test
+		 * could not catch.
+		 */
+		const passingConditions: ConditionExpression<Page>[] = [
+			['tokenStatus', 'in', ['active', 'failed']],
+			['pageName', 'begins_with', 'Operator'],
+			['pageName', 'contains', 'check'],
+			['accessToken', 'between', 'a', 'z'],
+			['accessToken', '<', 'zzz'],
+			['accessToken', '<=', 'operator-check-token'],
+			['accessToken', '>', 'a'],
+			['accessToken', '>=', 'a'],
+			[
+				['pageId', 'exists'],
+				'AND',
+				{ NOT: ['pageName', '=', 'some other name'] },
+			],
+			[['pageName', '=', 'nope'], 'OR', ['tokenStatus', '=', 'active']],
+		];
+		for (const condition of passingConditions) {
+			const result = await PageFacet.put(testPage, { condition });
+			expect(
+				result.wasSuccessful,
+				`condition ${JSON.stringify(condition)} should pass: ${String(
+					result.error,
+				)}`,
+			).toBe(true);
+		}
+
+		// A false condition must fail as a condition check, proving the
+		// expression executed rather than erroring.
+		const failing = await PageFacet.put(testPage, {
+			condition: ['tokenStatus', 'in', ['failed']],
+		});
+		expect(failing.wasSuccessful).toBe(false);
+		expect((failing.error as Error).name).toBe(
+			'ConditionalCheckFailedException',
+		);
+	});
+
+	test('An empty in list throws before reaching DynamoDB', () => {
+		expect(() =>
+			PageFacet.transaction.check(
+				{ pageId: 'OPERATOR-CHECK-PAGE' },
+				{ condition: ['tokenStatus', 'in', []] },
+			),
+		).toThrow("The 'in' operator requires at least one value");
+	});
+
+	test('Sets round-trip through a Facet', async () => {
+		interface Article {
+			articleId: string;
+			tags: Set<string>;
+			ratings: Set<number>;
+		}
+		const ArticleFacet = new Facet<Article, 'articleId'>({
+			name: 'Article',
+			validator: (input) => input as Article,
+			PK: { keys: ['articleId'], prefix: 'ARTICLE' },
+			SK: { keys: [], prefix: 'ARTICLE' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+
+		const article: Article = {
+			articleId: 'set-round-trip-1',
+			tags: new Set(['dynamo', 'sets']),
+			ratings: new Set([1, 4.5]),
+		};
+		const putResult = await ArticleFacet.put(article);
+		expect(putResult.wasSuccessful, String(putResult.error)).toBe(true);
+
+		const raw = await ddb.getItem({
+			TableName: tableName,
+			Key: {
+				PK: { S: ArticleFacet.pk({ articleId: article.articleId }) },
+				SK: { S: ArticleFacet.sk({ articleId: article.articleId }) },
+			},
+		});
+		expect(raw.Item?.tags).toEqual({ SS: ['dynamo', 'sets'] });
+		expect(raw.Item?.ratings).toEqual({ NS: ['1', '4.5'] });
+
+		const fetched = await ArticleFacet.get({ articleId: article.articleId });
+		expect(fetched?.tags).toEqual(new Set(['dynamo', 'sets']));
+		expect(fetched?.ratings).toEqual(new Set([1, 4.5]));
+	});
+
+	test('Numbers read back through a Facet as plain numbers', async () => {
+		interface Counter {
+			counterId: string;
+			count: number;
+		}
+		const CounterFacet = new Facet<Counter, 'counterId'>({
+			name: 'Counter',
+			validator: (input) => input as Counter,
+			PK: { keys: ['counterId'], prefix: 'COUNTER' },
+			SK: { keys: [], prefix: 'COUNTER' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+
+		const putResult = await CounterFacet.put({
+			counterId: 'plain-number-1',
+			count: 9007199254740991,
+		});
+		expect(putResult.wasSuccessful).toBe(true);
+
+		const fetched = await CounterFacet.get({ counterId: 'plain-number-1' });
+		// Reads never wrap numbers: validators receive plain JS numbers.
+		expect(typeof fetched?.count).toBe('number');
+		expect(fetched?.count).toBe(9007199254740991);
 	});
 
 	test('TTL Date fields are written as epoch-seconds numbers', async () => {

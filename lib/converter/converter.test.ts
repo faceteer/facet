@@ -120,6 +120,60 @@ describe('converter.ts', () => {
 		expect(() => marshall({ mixed: new Set(['a', 1]) })).toThrow(
 			/all strings, all numbers, or all binary/,
 		);
+		expect(() => marshall({ mixed: new Set(['a', Buffer.from('b')]) })).toThrow(
+			/all strings, all numbers, or all binary/,
+		);
+		expect(() => marshall({ bools: new Set([true, false]) })).toThrow(
+			/all strings, all numbers, or all binary/,
+		);
+	});
+
+	test('throws on a mixed-type set even when convertEmptyValues filters a member', () => {
+		// The homogeneity check runs before empty-member filtering, so an
+		// empty member of one type mixed with members of another type is
+		// an error, not a silently truncated set.
+		expect(() =>
+			marshall(
+				{ mixed: new Set([Buffer.from(''), 'hello']) },
+				{ convertEmptyValues: true },
+			),
+		).toThrow(/all strings, all numbers, or all binary/);
+	});
+
+	test('marshalls empty strings and buffers literally without convertEmptyValues', () => {
+		const emptyBuffer = Buffer.from('');
+		expect(marshall({ s: '', b: emptyBuffer })).toEqual({
+			s: { S: '' },
+			b: { B: emptyBuffer },
+		});
+	});
+
+	test('unix dates truncate fractional seconds toward zero', () => {
+		expect(
+			marshall(
+				{ at: new Date('2021-07-09T21:44:07.999Z') },
+				{ dateFormat: 'unix' },
+			),
+		).toEqual({ at: { S: '1625867047' } });
+	});
+
+	test('throws on non-finite numbers', () => {
+		expect(() => marshall({ bad: NaN })).toThrow(/must be finite/);
+		expect(() => marshall({ bad: Infinity })).toThrow(/must be finite/);
+		expect(() => marshall({ bad: new Set([-Infinity, 5]) })).toThrow(
+			/must be finite/,
+		);
+	});
+
+	test('marshalls a set of wrapped numbers as NS', () => {
+		const unmarshalled = unmarshall(
+			{ scores: { NS: ['9007199254740993'] } },
+			{ wrapNumbers: true },
+		) as { scores: Set<unknown> };
+
+		expect(marshall({ scores: unmarshalled.scores })).toEqual({
+			scores: { NS: ['9007199254740993'] },
+		});
 	});
 
 	test('throws on an empty set without convertEmptyValues', () => {

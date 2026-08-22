@@ -442,7 +442,6 @@ class FacetImpl<
 		};
 
 		return marshall(dynamoDbRecord, {
-			wrapNumbers: true,
 			dateFormat: this.#dateFormat,
 			convertEmptyValues: this.#convertEmptyValues,
 		});

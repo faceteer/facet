@@ -26,7 +26,7 @@ Install with npm. `@aws-sdk/client-dynamodb` is a peer dependency, so install bo
 npm i @faceteer/facet @aws-sdk/client-dynamodb --save
 ```
 
-Faceteer requires Node.js 20 or newer.
+Faceteer requires Node.js 22.12 or newer.
 
 ### Access Patterns
 
