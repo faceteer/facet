@@ -71,7 +71,6 @@ export type {
 	BetweenCondition,
 	Comparator,
 	ComparatorCondition,
-	CompiledExpression,
 	Condition,
 	ConditionExpression,
 	ContainsCondition,
