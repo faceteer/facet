@@ -1,0 +1,79 @@
+{
+	"skill_name": "faceteer-facet",
+	"evals": [
+		{
+			"id": 0,
+			"name": "bulk-reassign",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. agent-3 is leaving the team. Implement src/reassign.ts exporting `reassignTickets(orgId: string, fromAssignee: string, toAssignee: string): Promise<number>` that reassigns every ticket currently assigned to fromAssignee in the org to toAssignee, returning the number of tickets moved. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-reassign.ts that calls reassignTickets('acme', 'agent-3', 'agent-1') and prints the count. Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"Demo prints 37 tickets moved",
+				"After the run, TicketFacet.byAssigneeDue.query({orgId:'acme', assigneeId:'agent-3'}) returns zero records and the agent-1 partition returns 75 including every former agent-3 ticket (grader re-runs this probe)",
+				"The raw item for a migrated ticket (for example t006) has its GSI2PK recomputed for agent-1, not left at agent-3",
+				"Writes go through the facet (get full record, mutate, put) \u2014 no raw updateItem/PartiQL/hand-built attribute maps",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		},
+		{
+			"id": 1,
+			"name": "required-field-old-rows",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Add a `category` field to tickets so we can group tickets by category going forward. Every ticket should have a category, defaulting to 'general' when none is specified. Update the ticket model and the ticket-creation path accordingly. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-category.ts that creates one new ticket with category 'billing', reads it back, and prints it. Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"After the change, TicketFacet.get({orgId:'acme', ticketId:'t000'}) \u2014 a pre-existing seeded row with no category attribute \u2014 resolves without throwing and reports category 'general' (grader re-runs this probe)",
+				"TicketFacet.byStatusCreated.query({orgId:'acme', status:'open'}).list() returns the seeded rows without a validation error",
+				"The demo ticket with category 'billing' round-trips correctly",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		},
+		{
+			"id": 2,
+			"name": "projected-put-drops-fields",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. We run a nightly job that changes ticket status on a lot of rows, and we want it cheap \u2014 only pull the fields you actually need before writing the change back. Implement src/set-status.ts exporting `setTicketStatus(orgId: string, ticketId: string, status: 'open' | 'pending' | 'closed'): Promise<void>`. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-set-status.ts that flips ticket t006 of org acme to 'closed', reads it back, and prints its status. Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"After the demo, a FULL TicketFacet.get of t006 (no select) shows status 'closed' AND subject 'Ticket number 6', priority 3, assigneeId 'agent-3', createdAt 2026-06-10T06:00:00.000Z, dueAt 2026-06-05T10:00:00.000Z all unchanged (grader re-runs this probe)",
+				"t006 appears in the byStatusCreated 'closed' partition and not in 'open' after the change (index keys recomputed via a full put)",
+				"No projected (select) read is fed into the put \u2014 no `as any`/`as T` cast forcing a Pick into put; the read-for-write fetches the full record",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		},
+		{
+			"id": 3,
+			"name": "scan-cleanup-boundary",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. We want to clean out the ticket queue: delete every ticket in the system that has no assignee yet, across every org. Implement src/cleanup.ts exporting `deleteUnassignedTickets(): Promise<number>` that deletes all unassigned tickets in every org and returns how many it deleted. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-cleanup.ts that calls it and prints the count. Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"Demo prints 155 deleted (150 unassigned acme + 5 unassigned globex)",
+				"All 150 assigned acme tickets still exist afterward (grader re-counts)",
+				"All 45 watcher rows (40 acme + 5 globex) still exist afterward \u2014 nothing outside the TICKET facet was deleted",
+				"The enumeration (a raw Scan or equivalent is acceptable and expected here) is scoped to ticket rows via the facet attribute or key prefixes, and the deletions themselves go through TicketFacet.delete",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		},
+		{
+			"id": 4,
+			"name": "cross-facet-summary",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/summary.ts exporting `getOrgSummary(orgId: string): Promise<{ tickets: Ticket[]; watchers: Watcher[] }>` that returns an org's tickets and watchers together in a single DynamoDB round trip, since they live in the same table. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-summary.ts that calls getOrgSummary('acme') and prints the ticket count, the watcher count, and one full ticket object and one full watcher object. Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"Counts are 300 tickets and 40 watchers for acme, with every item on the correct side",
+				"Returned objects carry exactly the model fields \u2014 no PK, SK, GSI*PK/SK, facet, or ttl keys leak into the printed ticket or watcher (grader inspects Object.keys of returned items)",
+				"Rows are discriminated by the authoritative facet attribute or SK prefix and routed through each facet's validation (dates come back as Dates, not raw strings, per the zod coercion)",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		},
+		{
+			"id": 5,
+			"name": "non-key-uniqueness-race",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/add-watcher.ts exporting `addWatcher(orgId: string, email: string): Promise<'added' | 'already-watching'>` that adds an email as a watcher for an org but must never let the same email be added twice for the same org, even if two requests arrive at the same time. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-add-watcher.ts that fires two concurrent addWatcher('acme', 'dup@example.com') calls with Promise.all and prints both outcomes and the final number of watchers with that email. Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"After the two concurrent calls, exactly one watcher record with email dup@example.com exists for acme (grader re-runs the race on a fresh email several times to confirm)",
+				"One call returns 'added' and the other 'already-watching'",
+				"Uniqueness rests on a conditional write against a key that encodes the email (an email-keyed record or lock item with not_exists) \u2014 not on a query-for-duplicates-then-put check",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		}
+	]
+}

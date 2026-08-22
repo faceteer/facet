@@ -14,6 +14,7 @@ export default defineConfig(
 			'coverage/**',
 			'docs/**',
 			'_scratch/**',
+			'skill-evals/**',
 			'*.tsbuildinfo',
 		],
 	},

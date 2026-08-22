@@ -1,0 +1,73 @@
+{
+	"skill_name": "faceteer-facet",
+	"evals": [
+		{
+			"id": 0,
+			"name": "urgent-open-filter",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/urgent.ts exporting `getUrgentOpenTickets(orgId: string): Promise<Ticket[]>` that returns ALL tickets with status 'open' and priority 5 for the org. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-urgent.ts that prints the ticketIds returned for org 'acme'. Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"Demo output contains exactly the ticket ids t024, t099, t174, t249 (all four, nothing else)",
+				"If a filter expression is used, pagination loops while a cursor is returned (never stops on an empty or short page); a per-status GSI query with a cursor loop is equally acceptable",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		},
+		{
+			"id": 1,
+			"name": "tickets-from-id",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/from-id.ts exporting `getTicketsFromId(orgId: string, fromTicketId: string): Promise<Ticket[]>` that returns every ticket whose ticketId is lexicographically >= fromTicketId (ticket ids are zero-padded so lexicographic order is id order). Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-from.ts that prints the count and first/last ticketId for getTicketsFromId('acme', 't250'). Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"Demo output shows exactly 50 tickets, from t250 to t299",
+				"The key condition is bounded (between, or an explicit upper bound / prefix strategy) rather than a bare unbounded greaterThanOrEqual left in the shipped code",
+				"The function does not crash on non-ticket rows sharing the partition (watcher records)",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		},
+		{
+			"id": 2,
+			"name": "latest-ticket",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/latest.ts exporting `getMostRecentTicket(orgId: string): Promise<Ticket | null>` that returns the single ticket with the greatest createdAt in the org. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-latest.ts that prints the ticketId and createdAt of the result for org 'acme'. Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"Demo output shows ticketId t227 (createdAt 2026-06-13T11:00:00.000Z), not t299 or any other id",
+				"The implementation queries a createdAt-sorted index descending (scanForward: false) for each status partition and takes the max across statuses \u2014 not the base table, whose sort key is ticketId, not recency",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		},
+		{
+			"id": 3,
+			"name": "status-counts",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/counts.ts exporting `getStatusCounts(orgId: string): Promise<{ open: number; pending: number; closed: number }>` counting the org's tickets per status. The org may have far more tickets than fit in one query page. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-counts.ts printing the result for org 'acme'. Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"Demo output shows open: 100, pending: 100, closed: 100",
+				"Each status query supplies BOTH orgId and status to the byStatusCreated index (no partial-partition-key query), and pagination loops while a cursor is returned",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		},
+		{
+			"id": 4,
+			"name": "import-fixture-dedup",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/import.ts exporting `importTickets(tickets: Ticket[]): Promise<{ written: number; failedTicketIds: string[] }>` where `written` is the number of tickets actually persisted to DynamoDB and `failedTicketIds` lists tickets that failed to persist \u2014 a caller must be able to trust both numbers. Then run `npx tsx setup-table.ts`, and write and run demo-import.ts that loads the 60 entries from import-fixture.json (in the project root; its date fields are ISO strings, so parse them into the Ticket shape), imports them, and prints the result. Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"Demo output reports written: 58 and failedTicketIds: [] (the fixture contains 60 entries but two are duplicate ticketIds within the same partition, which DynamoDB batch writes collapse)",
+				"Failures are detected from the batch put result (failed / hasFailures / put arrays), not from try/catch, and never by zipping input order against result order",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		},
+		{
+			"id": 5,
+			"name": "session-ttl-string",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Our public API exchanges sessions as JSON: { sessionId: string; userId: string; createdAt: string; expiresAt: string } where createdAt/expiresAt are ISO-8601 strings. Create src/session.ts with a Zod-validated Session model matching that contract, a SessionFacet keyed only by sessionId, configured so DynamoDB automatically deletes each session once its expiresAt passes, and an exported `createSession(userId: string): Promise<Session>` that writes a session expiring 24 hours from now and returns it, throwing if the write failed. Then run `npx tsx setup-table.ts`, and write and run demo-session.ts that creates a session, fetches it back with SessionFacet.get, and prints it. Typecheck with `npx tsc --noEmit`.",
+			"assertions": [
+				"The raw DynamoDB item's ttl attribute is an N-type epoch-seconds value within 15 minutes of now+86400 \u2014 not a 1970-era number produced by parseInt on an ISO string, and not absent",
+				"The session read back via SessionFacet.get matches what createSession returned (validator handles the stored representation)",
+				"createSession inspects the put result (wasSuccessful) and throws on failure",
+				"npx tsc --noEmit passes in the sandbox"
+			],
+			"files": ["sandbox"]
+		}
+	]
+}

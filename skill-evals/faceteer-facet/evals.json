@@ -1,0 +1,89 @@
+{
+	"skill_name": "faceteer-facet",
+	"evals": [
+		{
+			"id": 0,
+			"name": "recent-open-tickets",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement a new file src/recent-tickets.ts exporting `getRecentOpenTickets(orgId: string, limit: number): Promise<Ticket[]>` that returns the most recently created tickets with status 'open', newest first, at most `limit` of them. Then run `npx tsx setup-table.ts`, `npx tsx seed.ts`, and write and run a small script demo-recent.ts that prints the result of getRecentOpenTickets('acme', 5) as JSON so you can confirm it works. Typecheck with `npx tsc --noEmit`.",
+			"expected_output": "Uses TicketFacet.byStatusCreated.query({ orgId, status: 'open' }) with scanForward: false and limit, not a filter on the base table and not a JS-side sort of .list(). Demo prints 5 open tickets newest-first (t027, t024, t021, t018, t015).",
+			"files": ["sandbox"],
+			"assertions": [
+				"Queries the byStatusCreated GSI (TicketFacet.byStatusCreated or TicketFacet.GSI1), not the base table",
+				"Passes scanForward: false so results are newest-first",
+				"Does not use a filter expression to select the status",
+				"Demo output is exactly the 5 newest open acme tickets, newest first: t027, t024, t021, t018, t015",
+				"npx tsc --noEmit passes in the sandbox"
+			]
+		},
+		{
+			"id": 1,
+			"name": "claim-ticket-conditional",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/claim.ts exporting `claimTicket(orgId: string, ticketId: string, agentId: string): Promise<'claimed' | 'already-assigned' | 'not-found'>`. It must assign the ticket to agentId only if the ticket currently has no assignee \u2014 two agents racing to claim the same ticket must not both win. DynamoDB errors that are not part of the claim race should propagate as thrown errors. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-claim.ts that claims ticket t001 twice with different agent ids and prints both outcomes. Typecheck with `npx tsc --noEmit`.",
+			"expected_output": "Reads the ticket, writes the full updated record with TicketFacet.put(record, { condition: ['assigneeId', 'not_exists'] }) (or equivalent), checks result.wasSuccessful, maps error.name === 'ConditionalCheckFailedException' to 'already-assigned' and rethrows other errors. Demo prints 'claimed' then 'already-assigned'.",
+			"files": ["sandbox"],
+			"assertions": [
+				"Writes with the single-item put and a condition that guards assigneeId absence (for example ['assigneeId','not_exists'])",
+				"Branches on result.wasSuccessful instead of wrapping put in try/catch for the race",
+				"Maps error.name === 'ConditionalCheckFailedException' to 'already-assigned' and rethrows other errors",
+				"Demo prints 'claimed' for the first call and 'already-assigned' for the second",
+				"npx tsc --noEmit passes in the sandbox"
+			]
+		},
+		{
+			"id": 2,
+			"name": "bulk-import-failures",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/import.ts exporting `importTickets(tickets: Ticket[]): Promise<{ imported: number; failedTicketIds: string[] }>`. It must write all tickets (the caller may pass hundreds) and report exactly which ticket ids failed to persist; a caller seeing failedTicketIds: [] must be able to trust that every ticket is durably written. Then run `npx tsx setup-table.ts`, and write and run demo-import.ts that imports 60 generated tickets and prints the summary. Typecheck with `npx tsc --noEmit`.",
+			"expected_output": "Uses the batch form of TicketFacet.put, inspects the returned failed array / hasFailures rather than wrapping in try/catch, and derives failedTicketIds from result.failed by ticket id (never by zipping input order). Demo prints imported: 60, failedTicketIds: [].",
+			"files": ["sandbox"],
+			"assertions": [
+				"Uses the batch (array) form of TicketFacet.put",
+				"Detects failures from the returned failed array / hasFailures, not from a thrown exception",
+				"Builds failedTicketIds from the failed records' own ticket ids, never by zipping input order or index",
+				"Demo prints imported: 60 and an empty failedTicketIds for clean input",
+				"npx tsc --noEmit passes in the sandbox"
+			]
+		},
+		{
+			"id": 3,
+			"name": "due-date-window",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/due-window.ts exporting `getTicketsDueBetween(orgId: string, assigneeId: string, start: Date, end: Date): Promise<Ticket[]>` returning every ticket assigned to that agent whose dueAt falls in [start, end]. Also export `getTicketsDueBefore(orgId: string, assigneeId: string, end: Date): Promise<Ticket[]>` for everything due up to and including `end`. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-due.ts that prints results for agent-0 of acme for June 2026 and for everything due before 2026-07-01. Typecheck with `npx tsc --noEmit`.",
+			"expected_output": "Both functions query TicketFacet.byAssigneeDue. The window uses .between({ dueAt: start }, { dueAt: end }). The open-ended one must still be bounded (between with a floor, or beginsWith on the prefix then JS filter) \u2014 an unbounded .lessThanOrEqual is acceptable here only because the partition is single-facet, but the between/bounded form is preferred. Results contain only agent-0 acme tickets in range.",
+			"files": ["sandbox"],
+			"assertions": [
+				"Both functions query the byAssigneeDue index with both orgId and assigneeId",
+				"The window function uses .between with both Date bounds",
+				"getTicketsDueBefore uses a bounded key condition (between from a floor, or beginsWith) rather than an unbounded lessThan/greaterThan",
+				"Demo June 2026 window for agent-0 returns exactly t000, t004, t008, t012; due-before 2026-07-01 returns those plus t016",
+				"npx tsc --noEmit passes in the sandbox"
+			]
+		},
+		{
+			"id": 4,
+			"name": "session-facet-ttl",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Add a new record type: sessions. Create src/session.ts defining a Session model (sessionId, userId, createdAt, expiresAt) with a Zod validator, a SessionFacet keyed only by sessionId, configured so DynamoDB automatically deletes sessions after they expire, and an exported `createSession(userId: string): Promise<Session>` that writes a session expiring 24 hours from now and returns it, throwing if the write failed. Then run `npx tsx setup-table.ts`, and write and run demo-session.ts that creates a session, fetches it back with SessionFacet.get, and prints it. Typecheck with `npx tsc --noEmit`.",
+			"expected_output": "Facet configured with ttl: 'expiresAt' where expiresAt is a Date (or epoch-seconds number) \u2014 never an ISO string. Validator coerces date fields (z.coerce.date or equivalent) so the read-back get succeeds. createSession checks result.wasSuccessful and throws on failure. Demo prints the round-tripped session.",
+			"files": ["sandbox"],
+			"assertions": [
+				"SessionFacet is configured with ttl: 'expiresAt'",
+				"expiresAt is written as a Date or epoch-seconds number, never an ISO string; the stored ttl attribute is a future epoch-seconds value (roughly now + 86400)",
+				"The session validator coerces date fields so SessionFacet.get round-trips successfully",
+				"createSession checks the put result (wasSuccessful) and throws on failure",
+				"npx tsc --noEmit passes in the sandbox"
+			]
+		},
+		{
+			"id": 5,
+			"name": "multi-status-listing",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/active-tickets.ts exporting `getActiveTicketSubjects(orgId: string): Promise<string[]>` that returns the subjects of ALL tickets whose status is 'open' or 'pending' \u2014 the org may have tens of thousands of tickets, so the function must be complete even when results span many pages. Then run `npx tsx setup-table.ts` and `npx tsx seed.ts`, and write and run demo-active.ts that prints the count and subjects for org 'acme'. Typecheck with `npx tsc --noEmit`.",
+			"expected_output": "Either two byStatusCreated queries (one per status) each paginated by looping while a cursor is returned, or a base-table list with an OR-tree filter [['status','=','open'],'OR',['status','=','pending']] paginated on cursor presence. Must NOT use a filter ['status','in',...] (not in the filter grammar), must not loop on records.length, and must not return after the first page. Demo prints 20 subjects for acme.",
+			"files": ["sandbox"],
+			"assertions": [
+				"Does not attempt a filter with the 'in' operator (or any cast to force it)",
+				"Paginates by looping while a cursor is returned, not on page emptiness or a single page",
+				"Selects statuses via per-status GSI queries or an OR-tree filter of equality comparisons",
+				"Demo prints all 20 active acme subjects (10 open + 10 pending)",
+				"npx tsc --noEmit passes in the sandbox"
+			]
+		}
+	]
+}
