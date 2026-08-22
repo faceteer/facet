@@ -1,6 +1,6 @@
 # Helpdesk sandbox
 
-A small helpdesk backend built on `@faceteer/facet` 6.0 against DynamoDB Local
+A small helpdesk backend built on `@faceteer/facet` 6.1 against DynamoDB Local
 (already running on `localhost:8000`).
 
 ## Layout
