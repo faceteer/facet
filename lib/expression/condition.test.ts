@@ -177,6 +177,18 @@ describe('condition.ts', () => {
 		});
 	});
 
+	test('throws on an unknown operator', () => {
+		expect(() => condition(['name', 'bogus', 10] as never)).toThrow(
+			'Operator bogus is not defined',
+		);
+	});
+
+	test('throws when a condition value has no DynamoDB representation', () => {
+		expect(() =>
+			condition<User>(['name', '=', undefined as unknown as string]),
+		).toThrow('Unable to convert the value for the specified condition');
+	});
+
 	test('Filter Between', () => {
 		const compiled = filter<User>(['age', 'between', 30, 39]);
 

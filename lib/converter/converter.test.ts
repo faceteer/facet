@@ -131,4 +131,100 @@ describe('converter.ts', () => {
 			unmarshall({ bad: { $unknown: ['whatever', 1] } as never }),
 		).toThrow(/Unrecognized DynamoDB attribute value/);
 	});
+
+	test('marshalls unrepresentable input to an empty map', () => {
+		expect(marshall(undefined as never)).toEqual({});
+	});
+
+	test('round-trips booleans', () => {
+		const marshalled = marshall({ isActive: true, isDeleted: false });
+
+		expect(marshalled).toEqual({
+			isActive: { BOOL: true },
+			isDeleted: { BOOL: false },
+		});
+		expect(unmarshall(marshalled)).toEqual({
+			isActive: true,
+			isDeleted: false,
+		});
+	});
+
+	test('unmarshalls an empty N value to null', () => {
+		expect(unmarshall({ count: { N: '' } })).toEqual({ count: null });
+	});
+
+	test('omits undefined and function values from maps', () => {
+		const marshalled = marshall({
+			kept: 'value',
+			missing: undefined,
+			callback: () => 'nope',
+		});
+
+		expect(marshalled).toEqual({ kept: { S: 'value' } });
+	});
+
+	test('throws on a list member with no DynamoDB representation', () => {
+		expect(() => marshall({ items: ['fine', undefined] })).toThrow(
+			/List members of type undefined cannot be marshalled/,
+		);
+	});
+
+	test('NumberValue converts back to a number via toNumber and toJSON', () => {
+		const unmarshalled = unmarshall(
+			{ total: { N: '42' } },
+			{ wrapNumbers: true },
+		) as Record<string, { toNumber(): number }>;
+
+		expect(unmarshalled.total.toNumber()).toBe(42);
+		expect(JSON.stringify(unmarshalled)).toBe('{"total":42}');
+	});
+
+	test('marshalls class instances as maps', () => {
+		class Address {
+			constructor(
+				public streetNumber: number,
+				public streetName: string,
+			) {}
+		}
+
+		const marshalled = marshall({ address: new Address(112, 'Drive') });
+
+		expect(marshalled).toEqual({
+			address: {
+				M: { streetNumber: { N: '112' }, streetName: { S: 'Drive' } },
+			},
+		});
+	});
+
+	test('marshalls constructor-less objects as maps', () => {
+		const bare: Record<string, unknown> = Object.create(null) as Record<
+			string,
+			unknown
+		>;
+		bare.key = 'value';
+
+		expect(marshall({ bare })).toEqual({
+			bare: { M: { key: { S: 'value' } } },
+		});
+	});
+
+	test('marshalls typed arrays and DataViews as binary', () => {
+		const typedArray = new Uint8Array([1, 2, 3]);
+		const view = new DataView(new ArrayBuffer(2));
+
+		expect(marshall({ typedArray, view })).toEqual({
+			typedArray: { B: typedArray },
+			view: { B: view },
+		});
+	});
+
+	test('filters empty binary members from sets with convertEmptyValues', () => {
+		const kept = Buffer.from('kept');
+		const marshalled = marshall(
+			{ blobs: new Set([kept, Buffer.from('')]) },
+			{ convertEmptyValues: true },
+		);
+
+		expect(marshalled).toEqual({ blobs: { BS: [kept] } });
+	});
 });
