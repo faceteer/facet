@@ -734,6 +734,38 @@ describe('Facet', () => {
 		expect(failedPut.wasSuccessful).toBeFalsy();
 	});
 
+	test('Conditional Puts with a size condition execute against DynamoDB', async () => {
+		const testPage: Page = {
+			accessToken: 'short',
+			pageId: 'SIZE-CONDITION-PAGE',
+			pageName: 'Size condition page',
+			tokenStatus: TokenStatus.Active,
+		};
+
+		const seeded = await PageFacet.put(testPage);
+		expect(seeded.wasSuccessful).toBe(true);
+
+		// accessToken is 5 characters, so the condition holds and the
+		// write must succeed — proving the compiled size() expression is
+		// valid DynamoDB syntax, not just the expected string shape.
+		const successfulPut = await PageFacet.put(
+			{ ...testPage, pageName: 'Updated by size condition' },
+			{ condition: ['accessToken', 'size', '<=', 10] },
+		);
+		expect(successfulPut.wasSuccessful).toBe(true);
+
+		// The inverse condition must fail as a condition check, not as a
+		// malformed request.
+		const failedPut = await PageFacet.put(
+			{ ...testPage, pageName: 'Must not be written' },
+			{ condition: ['accessToken', 'size', '>', 10] },
+		);
+		expect(failedPut.wasSuccessful).toBe(false);
+		expect((failedPut.error as Error).name).toBe(
+			'ConditionalCheckFailedException',
+		);
+	});
+
 	test('TTL Date fields are written as epoch-seconds numbers', async () => {
 		interface Session {
 			sessionId: string;

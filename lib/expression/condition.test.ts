@@ -137,7 +137,7 @@ describe('condition.ts', () => {
 	test('Size', () => {
 		const compiled = condition<User>(['name', 'size', '<=', 10]);
 
-		expect(compiled.expression).toBe('size(#C_0) <= :C_0)');
+		expect(compiled.expression).toBe('size(#C_0) <= :C_0');
 		expect(compiled.values).toEqual({
 			':C_0': { N: '10' },
 		});

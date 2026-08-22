@@ -175,7 +175,7 @@ export function condition<T = unknown>(
 			const valuePlaceholder = `:${placeholder}`;
 			compiledExpression.names[namePlaceholder] = String(expression[0]);
 			compiledExpression.values[valuePlaceholder] = getValue(expression[3]);
-			compiledExpression.expression = `size(${namePlaceholder}) ${expression[2]} ${valuePlaceholder})`;
+			compiledExpression.expression = `size(${namePlaceholder}) ${expression[2]} ${valuePlaceholder}`;
 			return compiledExpression;
 		}
 		case 'in': {
