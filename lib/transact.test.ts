@@ -7,7 +7,7 @@ import {
 	type TransactWriteItemsCommandInput,
 	type TransactWriteItemsCommandOutput,
 } from '@aws-sdk/client-dynamodb';
-import { condition } from '@faceteer/expression-builder';
+import { condition } from './expression/condition.js';
 import { vi } from 'vitest';
 import { Facet } from './facet.js';
 import { transactGet, transactWrite } from './transact.js';

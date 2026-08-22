@@ -1,8 +1,8 @@
 import type { PutItemInput } from '@aws-sdk/client-dynamodb';
 import type { Facet, WithoutReservedAttributes } from './facet.js';
 import type { Keys } from './keys.js';
-import { Converter } from '@faceteer/converter';
-import type { ConditionExpression } from '@faceteer/expression-builder';
+import { unmarshall } from './converter/converter.js';
+import type { ConditionExpression } from './expression/condition.js';
 import { batchWriteWithRetry, type BatchWriteAdapter } from './batch-write.js';
 import { applyCondition } from './condition.js';
 import {
@@ -175,7 +175,7 @@ function putAdapter<
 			if (!request.PutRequest?.Item) {
 				return undefined;
 			}
-			const item = Converter.unmarshall(request.PutRequest.Item) as Record<
+			const item = unmarshall(request.PutRequest.Item) as Record<
 				string,
 				unknown
 			>;
