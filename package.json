@@ -63,9 +63,5 @@
 	},
 	"peerDependencies": {
 		"@aws-sdk/client-dynamodb": "^3.0.0"
-	},
-	"dependencies": {
-		"@faceteer/converter": "^2.0.3",
-		"@faceteer/expression-builder": "^2.0.1"
 	}
 }
