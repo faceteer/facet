@@ -65,3 +65,26 @@ export type {
 	TransactWriteOptions,
 	TransactWriteResult,
 } from './lib/transact.js';
+
+export type {
+	BeginsWithCondition,
+	BetweenCondition,
+	Comparator,
+	ComparatorCondition,
+	CompiledExpression,
+	Condition,
+	ConditionExpression,
+	ContainsCondition,
+	ExistsCondition,
+	FilterCondition,
+	FilterConditionExpression,
+	FilterLogicEvaluation,
+	InCondition,
+	LogicEvaluation,
+	NotExistsCondition,
+	NotExpression,
+	SizeCondition,
+} from './lib/expression/condition.js';
+
+export type { AttributeMap } from './lib/converter/converter.js';
+export type { ConverterOptions } from './lib/converter/converter-options.js';
