@@ -1,7 +1,7 @@
 {
 	"name": "faceteer-facet",
 	"description": "Develop with @faceteer/facet 6.x, the TypeScript DynamoDB single-table library. Teaches agents the facet mental model and the failure modes that produce silent data bugs.",
-	"version": "6.1.0",
+	"version": "6.1.1",
 	"author": {
 		"name": "Alex McKenzie"
 	},

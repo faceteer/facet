@@ -5,7 +5,8 @@ description: >-
   library. Use this skill whenever you write, review, or debug code that
   imports @faceteer/facet — defining a Facet, adding a GSI with addIndex,
   querying with .query()/.list()/.beginsWith(), putting or deleting records,
-  conditional writes, pagination cursors, TTL, sharding, or projected reads.
+  conditional writes, transactions (transactWrite/transactGet), consistent
+  reads, Set fields, pagination cursors, TTL, sharding, or projected reads.
   Also use it when a DynamoDB query through a facet returns empty or
   wrong-order results, when put/delete results go unchecked, or when designing
   key shapes for a new access pattern. Faceteer differs from other DynamoDB
@@ -125,6 +126,17 @@ const TicketFacet = new Facet({
   that requires a real `Date` instance rejects every record the facet reads
   back. Composite keys always use ISO encoding for dates, even when
   `dateFormat` is `'unix'`.
+- **Set fields need 6.1.0+ and a validator that expects `Set`.** A model
+  field holding a native JS `Set` marshalls to a DynamoDB set — `SS`, `NS`,
+  or `BS` chosen by member type — and unmarshalls back to a native `Set`,
+  so a Zod validator needs `z.set(z.string())`, not an array schema. Use an
+  array (a DynamoDB list) when order or duplicates matter; a set is
+  unordered and deduped. Mixed member types throw a `TypeError` on write.
+  **An empty set can't be stored**: it throws on write (or marshalls as
+  `NULL` under `convertEmptyValues`, which reads back as null, not an empty
+  set). Make set fields optional and unset the field when the last member
+  goes away. Before 6.1.0 sets were not supported at all — don't write
+  `Set` fields against a 6.0.0 install.
 - Reserved attribute names — `PK`, `SK`, `facet`, `ttl`, `GSI<n>PK`,
   `GSI<n>SK` — can't be model fields. TypeScript rejects them, and at runtime
   the write fails (reported through the put result, like any other write
@@ -231,6 +243,7 @@ library major version (v5 cursors don't decode in v6).
 | ------------------------------------- | --------------------------------------------- | --------------------------- |
 | `get` (single/batch), query terminals | **throws** (SDK error or validator rejection) | `null` / missing from array |
 | `put`, `delete` (single/batch)        | **returns** failure in the result object      | n/a                         |
+| `transactWrite`, `transactGet`        | **returns** `wasSuccessful: false`            | `null` entry in `items`     |
 
 - Result shapes differ: single `put` → `{ wasSuccessful, record, error? }`.
   Batch `put` → `{ hasFailures, put, failed }`. `delete` returns
@@ -318,6 +331,87 @@ library major version (v5 cursors don't decode in v6).
   pass. To make a non-key field unique (one email per org, say), model it
   into a key: a dedicated lock record keyed by that value, written with
   `not_exists` — the race then resolves on the conditional write.
+
+## Transactions (6.1.0+)
+
+When an invariant spans more than one record, a conditional put can't hold
+it — use a transaction. `Facet.transaction` builds operations;
+`transactWrite` and `transactGet` (exported from the package root) execute
+them atomically:
+
+```ts
+import { transactWrite } from '@faceteer/facet';
+
+const result = await transactWrite([
+	TicketFacet.transaction.put(closedTicket, {
+		condition: ['status', '<>', 'closed'],
+	}),
+	WatcherFacet.transaction.delete({ orgId, watcherId }),
+	AgentFacet.transaction.check(
+		{ orgId, agentId },
+		{
+			condition: ['status', '=', 'active'], // required on check
+		},
+	),
+]);
+if (!result.wasSuccessful) {
+	/* nothing was written */
+}
+```
+
+- All-or-nothing across up to 100 operations. Operations can come from
+  different facets and even different tables, but every facet must share
+  the same DynamoDB client instance. `transactWrite` takes an array;
+  `transactGet` takes rest arguments (`transactGet(op1, op2)`). Both keep
+  per-position result types when given literals.
+- **Transactions follow the writes-report rule — they never throw.** Check
+  `wasSuccessful`. On a canceled transaction, `failures` holds one entry
+  per operation, aligned by position: `null` for operations that didn't
+  cause the cancellation, and `{ index, code, message?, conflictingItem?,
+conflictingItemRaw? }` for each that did. A failed condition has
+  `code: 'ConditionalCheckFailed'`, with the item's current state parsed
+  into `conflictingItem` when DynamoDB returned one (a guard that failed
+  because the item doesn't exist returns no item).
+- **A failed transaction wrote nothing.** This is the opposite of a failed
+  single `put`, which may have persisted before its validator rejected the
+  read-back.
+- `check` asserts a condition against an item without writing it — that's
+  how a write is guarded on the state of a _different_ record. Its
+  `condition` option is required, because a check that can't fail does
+  nothing.
+- **One operation per item.** Two operations targeting the same table, PK,
+  and SK fail locally with a descriptive error before any request is sent.
+  Don't `check` and `put` the same item — put the condition on the `put`.
+- Builders marshall immediately: `transaction.put` throws at build time on
+  a record with a reserved attribute, instead of reporting through the
+  result like a plain `put`.
+- Pass `clientRequestToken` to `transactWrite` to make retrying the same
+  transaction idempotent.
+- `transactGet` reads up to 100 items as one consistent snapshot. `items`
+  is positional with `null` for missing rows — but every entry is also
+  `null` when `wasSuccessful` is false, so check the flag before treating
+  `null` as "not found".
+- The lock-record uniqueness pattern above composes naturally: write the
+  entity and its `not_exists`-guarded lock record in one transaction.
+- Prefer a plain conditional `put` when only one item is involved — a
+  transaction costs twice the write capacity of the same writes made
+  individually.
+
+## Consistent reads (6.1.0+)
+
+DynamoDB reads are eventually consistent by default: a `get` or query
+right after a successful write can return the old item, or nothing. When
+read-after-write correctness matters — the re-read in a CAS retry loop, a
+read-your-own-write flow — pass `consistentRead: true` in the options of
+`get` (single or batch) or any **base-table** query terminal.
+
+- GSI queries reject the option at compile time and throw at runtime,
+  because DynamoDB cannot serve consistent reads from a global secondary
+  index. If an index-shaped access pattern needs a consistent read, go
+  through the base table (or `transactGet`) for the specific keys instead.
+- A consistent read reflects every write that succeeded before it, at
+  twice the read-capacity cost — opt in where staleness is a bug, don't
+  set it by default.
 
 ## TTL
 
@@ -407,3 +501,6 @@ Work down this list; each step is a distinct failure mode:
    a validator that can't coerce stored date strings.
 9. Sharded key? A query without an explicit shard read one hashed bucket,
    not the whole partition.
+10. Reading immediately after a write? Eventually consistent reads can miss
+    the newest write — retry, or use `consistentRead: true` (base table
+    only) where staleness is a bug.

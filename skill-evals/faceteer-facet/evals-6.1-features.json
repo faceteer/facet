@@ -1,0 +1,50 @@
+{
+	"skill_name": "faceteer-facet",
+	"description": "6.1.0 feature coverage: transactions, consistent reads, native Set fields. Baseline is the pre-6.1-features skill.",
+	"evals": [
+		{
+			"id": 0,
+			"eval_name": "transactional-close",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/close-ticket.ts exporting `closeTicket(orgId: string, ticketId: string, watcherId: string): Promise<'closed' | 'conflict' | 'not-found'>`. Closing a ticket sets its status to 'closed' and deletes the watcher record for watcherId. Ops got burned by a partial close last month (ticket closed but the watcher left behind kept emailing the customer), so it must be impossible for one write to land without the other, even when two agents close the same ticket concurrently. Return 'conflict' when the ticket was already closed, and log the ticket's current assignee in the conflict case if that information is available from the failure. Return 'not-found' when the ticket doesn't exist. Verify your implementation end to end against the local table with a small script, and make sure `npx tsc --noEmit` passes.",
+			"expected_output": "src/close-ticket.ts using facet transaction builders in one transactWrite with a status condition, branching on wasSuccessful and reading failures/conflictingItem on conflict.",
+			"files": [],
+			"assertions": [
+				"Uses the facet transaction builders with transactWrite, not raw transactWriteItems and not separate non-atomic put/delete calls",
+				"The ticket status write and the watcher delete are in one atomic transaction",
+				"The ticket write carries a condition (status not already closed), not a read-then-write race",
+				"Branches on the transactWrite result's wasSuccessful instead of wrapping it in try/catch expecting a throw",
+				"The conflict path reads the failures array (conflictingItem or code) to identify the already-closed ticket",
+				"npx tsc --noEmit passes in the sandbox"
+			]
+		},
+		{
+			"id": 1,
+			"eval_name": "consistent-cas-reassign",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md and src/facets.ts first. Implement src/reassign.ts exporting `reassignTicket(orgId: string, ticketId: string, fromAgentId: string, toAgentId: string): Promise<'reassigned' | 'stale' | 'not-found'>`. It reads the ticket, verifies it is currently assigned to fromAgentId, and writes it back assigned to toAgentId, guarding against a concurrent reassignment landing between the read and the write. This function runs in a tight retry loop right after other services write the same ticket, and on real DynamoDB we have seen the read return stale data, so the read must always observe the latest committed write. Verify end to end against the local table and make sure `npx tsc --noEmit` passes.",
+			"expected_output": "src/reassign.ts using a consistentRead: true base-table get and a conditional put on assigneeId, mapping ConditionalCheckFailedException to 'stale' via the put result.",
+			"files": [],
+			"assertions": [
+				"The ticket read passes consistentRead: true",
+				"The write is a conditional put guarding on the current assigneeId (compare-and-set), not a blind put",
+				"A failed condition maps to 'stale' via the put result's error name, not via try/catch around the put",
+				"Does not attempt consistentRead on a GSI query",
+				"npx tsc --noEmit passes in the sandbox"
+			]
+		},
+		{
+			"id": 2,
+			"eval_name": "string-set-tags",
+			"prompt": "You are working in an existing TypeScript project (a helpdesk backend) that uses @faceteer/facet with DynamoDB Local already running on localhost:8000. Read README.md, src/models.ts, and src/facets.ts first. Add tagging to tickets: a `tags` field stored in DynamoDB as a native string set (the SS attribute type, not a list), since tags are unordered and never contain duplicates. Update the Ticket model, then implement src/tags.ts exporting `addTags(orgId: string, ticketId: string, tags: string[]): Promise<Ticket>` and `removeTag(orgId: string, ticketId: string, tag: string): Promise<Ticket>`, each returning the updated ticket. Removing the last tag must work. Existing tickets in the table have no tags field and must keep loading fine. Verify end to end against the local table \u2014 including that the stored attribute really is the SS type on the raw item \u2014 and make sure `npx tsc --noEmit` passes.",
+			"expected_output": "tags as z.set(z.string()).optional() in the Ticket model, read-modify-write add/remove functions, and the field unset (never an empty set) when the last tag is removed.",
+			"files": [],
+			"assertions": [
+				"The Ticket model types tags as an optional Set<string> with a validator that accepts a native Set",
+				"Verification confirms the stored attribute is the SS type on the raw item, not L",
+				"Removing the last tag unsets the field instead of writing an empty set",
+				"Tag updates are full read-modify-write through the facet (get, mutate, put) with no raw UpdateExpression ADD/DELETE",
+				"Existing tickets without a tags field still load through the validator",
+				"npx tsc --noEmit passes in the sandbox"
+			]
+		}
+	]
+}
