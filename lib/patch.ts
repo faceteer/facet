@@ -18,10 +18,10 @@ import { normalizeTtl } from './ttl.js';
  * Computed per union member of `T` (the `T extends T` distribution
  * idiom, same as `Keys<T>` in keys.ts) so a facet over a discriminated
  * union keeps every variant's own fields patchable. Known limit: an
- * object literal that omits the discriminant can mix fields from two
- * variants, because a property is excess only when no union member
- * declares it. Include the discriminant in the patch to get full
- * per-variant checking.
+ * object literal can mix fields from two variants, because each field
+ * name and value type is checked against the members that declare it,
+ * not against one coherent variant. The validator running on the
+ * post-patch record is the backstop for incoherent mixes.
  */
 export type PatchOf<
 	T extends WithoutReservedAttributes<T>,
@@ -40,12 +40,13 @@ export interface PatchOptions<T> {
 	 * What to do when an affected composite key can't be recomputed
 	 * from `query` and `patch` alone.
 	 *
-	 * - `'read'` (default): read the record and recompute every
-	 *   affected key from its current values. Two round trips.
-	 * - `'strict'`: never read. An incomplete patch fails to compile
-	 *   at the call site, and a {@link PatchMissingKeyInputsError} is
-	 *   reported if one gets through anyway (for example through a
+	 * - `'strict'` (default): never read. An incomplete patch fails to
+	 *   compile at the call site, and a
+	 *   {@link PatchMissingKeyInputsError} is reported if one gets
+	 *   through anyway (for example through a widened argument or a
 	 *   type-erased facet).
+	 * - `'read'`: read the record and recompute every affected key
+	 *   from its current values. Two round trips.
 	 */
 	missingKeyInputs?: 'read' | 'strict';
 }
@@ -95,26 +96,26 @@ export type MissingPatchKeyInputs<
 	: never;
 
 /**
- * Brands the strict-mode demand property so no options object can
+ * Brands the strict-mode demand property so no patch object can
  * satisfy it. The symbol is never exported and has no runtime value.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- declared only to source the unique symbol type for the brand
 declare const patchDemandBrand: unique symbol;
 
 /**
- * The options shape of a strict-mode patch. When the patch leaves a
- * touched key's inputs unresolved, the required
- * `'Supply these key inputs in query or patch'` property makes the
- * call fail to compile, naming the missing fields in the error. The
- * property is branded with an unexported symbol, so it can't be
- * supplied to bypass the check.
+ * The compile-time demand a strict patch places on its `patch`
+ * argument. `unknown` (no constraint) when nothing is missing;
+ * otherwise one required property per missing field, named
+ * `` `Missing key input: ${field}` ``, so the compile error lists
+ * exactly what to supply. Each property is branded with an unexported
+ * symbol, so it can't be supplied to bypass the check.
  */
-export type StrictPatchOptions<D extends PropertyKey> = [D] extends [never]
-	? { missingKeyInputs: 'strict' }
+export type PatchDemands<D extends PropertyKey> = [D] extends [never]
+	? unknown
 	: {
-			missingKeyInputs: 'strict';
-			'Supply these key inputs in query or patch': readonly D[] & {
-				readonly [patchDemandBrand]: typeof patchDemandBrand;
-			};
+			readonly [
+				K in D as `Missing key input: ${K & string}`
+			]: typeof patchDemandBrand;
 		};
 
 /**
@@ -163,10 +164,11 @@ export interface PatchFailure<T> {
 export type PatchSingleItemResponse<T> = PatchSuccess<T> | PatchFailure<T>;
 
 /**
- * Reported when `missingKeyInputs: 'strict'` is set and an affected
- * composite key can't be recomputed from `query` and `patch` alone.
- * Strict mode normally rejects such a patch at compile time; this is
- * the runtime backstop for calls the compiler can't see, such as a
+ * Reported when an affected composite key can't be recomputed from
+ * `query` and `patch` alone and the patch didn't opt into
+ * `missingKeyInputs: 'read'`. Strict mode (the default) normally
+ * rejects such a patch at compile time; this is the runtime backstop
+ * for calls the compiler can't see, such as a widened argument or a
  * facet widened to a type without its index accessors.
  */
 export class PatchMissingKeyInputsError extends Error {
@@ -343,7 +345,7 @@ export async function patchSingleItem<T extends WithoutReservedAttributes<T>>(
 		let readItem: AttributeMap | undefined;
 
 		if (missing.length > 0) {
-			if (options.missingKeyInputs === 'strict') {
+			if (options.missingKeyInputs !== 'read') {
 				const missingSet = new Set(missing);
 				const dependents = affected
 					.filter((target) =>

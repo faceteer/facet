@@ -239,6 +239,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		const result = await PatchPostFacet.patch(
 			{ pageId: post.pageId, postId: post.postId },
 			{ sendAt: newSendAt },
+			{ missingKeyInputs: 'read' },
 		);
 
 		if (!result.wasSuccessful) {
@@ -277,7 +278,6 @@ describe('Facet.patch against DynamoDB Local', () => {
 		const result = await ErasedPostFacet.patch(
 			{ pageId: post.pageId, postId: post.postId },
 			{ sendAt: new Date('2026-04-05T00:00:00.000Z') },
-			{ missingKeyInputs: 'strict' },
 		);
 
 		expect(result.wasSuccessful).toBe(false);
@@ -369,6 +369,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		const result = await PatchPostFacet.patch(
 			{ pageId: post.pageId, postId: post.postId },
 			{ postStatus: PostStatus.Published, sendAt: newSendAt },
+			{ missingKeyInputs: 'read' },
 		);
 
 		if (!result.wasSuccessful) {
@@ -496,6 +497,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		const result = await StalePostFacet.patch(
 			{ pageId: post.pageId, postId: post.postId },
 			{ sendAt: new Date('2026-04-08T00:00:00.000Z') },
+			{ missingKeyInputs: 'read' },
 		);
 
 		expect(result.wasSuccessful).toBe(false);
@@ -559,6 +561,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		const viaRead = await PatchPostFacet.patch(
 			{ pageId: ghost.pageId, postId: ghost.postId },
 			{ sendAt: new Date('2026-04-09T00:00:00.000Z') },
+			{ missingKeyInputs: 'read' },
 		);
 		expect(viaRead.wasSuccessful).toBe(false);
 		if (viaRead.wasSuccessful) {
@@ -584,6 +587,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		const result = await PatchPostFacet.patch(
 			{ pageId: post.pageId, postId: post.postId },
 			{ sendAt },
+			{ missingKeyInputs: 'read' },
 		);
 
 		if (!result.wasSuccessful) {
@@ -797,7 +801,11 @@ describe('Facet.patch against DynamoDB Local', () => {
 			throw put.error;
 		}
 
-		const result = await UnixFacet.patch({ eventId: 'unix-1' }, { label: 'y' });
+		const result = await UnixFacet.patch(
+			{ eventId: 'unix-1' },
+			{ label: 'y' },
+			{ missingKeyInputs: 'read' },
+		);
 		if (!result.wasSuccessful) {
 			throw result.error;
 		}
@@ -860,7 +868,11 @@ describe('Facet.patch against DynamoDB Local', () => {
 		});
 		expect(before.Item?.note.NULL).toBe(true);
 
-		const result = await TagFacet.patch({ tagId: 'tag-1' }, { label: 'b' });
+		const result = await TagFacet.patch(
+			{ tagId: 'tag-1' },
+			{ label: 'b' },
+			{ missingKeyInputs: 'read' },
+		);
 		if (!result.wasSuccessful) {
 			throw result.error;
 		}
@@ -1153,16 +1165,21 @@ describe('Facet.patch against DynamoDB Local', () => {
 			await LedgerFacet.patch({ eventId: 'e' }, { target: 'acct' });
 			await LedgerFacet.patch({ eventId: 'e' }, { kind: 'deposit', amount: 5 });
 
-			// Known limit, pinned deliberately: without the discriminant,
-			// a literal may mix fields from different variants.
+			// Known limit, pinned deliberately: a literal may mix fields
+			// from different variants (with or without the discriminant);
+			// the validator on the post-patch record is the backstop.
 			await LedgerFacet.patch({ eventId: 'e' }, { amount: 5, target: 'x' });
-
-			// With the discriminant present, mixing is rejected.
 			await LedgerFacet.patch(
 				{ eventId: 'e' },
-				// @ts-expect-error target does not exist on the deposit variant
 				{ kind: 'deposit', target: 'x' },
 			);
+
+			// Wrong value types stay rejected on both variant-specific
+			// and shared fields.
+			// @ts-expect-error amount must be a number
+			await LedgerFacet.patch({ eventId: 'e' }, { amount: 'x' });
+			// @ts-expect-error kind must be a variant literal
+			await LedgerFacet.patch({ eventId: 'e' }, { kind: 'nope' });
 
 			// @ts-expect-error eventId composes the PK and is not patchable
 			await LedgerFacet.patch({ eventId: 'e' }, { eventId: 'other' });
@@ -1298,6 +1315,7 @@ describe('patchSingleItem expression assembly', () => {
 			new Set(['pageId', 'postId']),
 			{ pageId: 'p1', postId: 'a1' },
 			{ sendAt: new Date('2026-01-01T00:00:00.000Z') },
+			{ missingKeyInputs: 'read' },
 		);
 		expect(result.wasSuccessful).toBe(true);
 

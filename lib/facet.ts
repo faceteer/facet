@@ -31,10 +31,10 @@ import {
 	type PatchFacet,
 	type PatchKeyInputGroups,
 	type PatchKeyTarget,
+	type PatchDemands,
 	type PatchOf,
 	type PatchOptions,
 	type PatchSingleItemResponse,
-	type StrictPatchOptions,
 } from './patch.js';
 import {
 	putItems,
@@ -778,11 +778,12 @@ class FacetImpl<
 	 * omitted it. The patch never upserts: patching a missing record
 	 * reports a failure.
 	 *
-	 * The strict overload (`missingKeyInputs: 'strict'`) enforces key
-	 * completeness at compile time: if the patch touches an input of
-	 * any registered index key, every other input of that key must be
-	 * present in `query` or `patch`, or the call does not compile. The
-	 * compile error names the missing fields.
+	 * Strict mode is the default and enforces key completeness at
+	 * compile time: if the patch touches an input of any registered
+	 * index key, every other input of that key must be present in
+	 * `query` or `patch`, or the call does not compile. The compile
+	 * error lists one required property per missing field, named
+	 * `` `Missing key input: ${field}` ``, on the `patch` argument.
 	 *
 	 * The check reads the keys of the argument types the compiler
 	 * infers at the call site, so it is strongest with inline object
@@ -792,7 +793,9 @@ class FacetImpl<
 	 * mode never issues a fallback read: any incomplete call the
 	 * compiler couldn't check (a widened argument, or a facet widened
 	 * to a type without its index accessors) reports a
-	 * {@link PatchMissingKeyInputsError} at runtime instead.
+	 * {@link PatchMissingKeyInputsError} at runtime instead. To read
+	 * missing inputs from the record instead, opt into the
+	 * `missingKeyInputs: 'read'` overload.
 	 *
 	 * Values that come from outside the patch (extra `query` fields)
 	 * are asserted in the write's condition, so a stale value resolves
@@ -804,69 +807,6 @@ class FacetImpl<
 	 * {@link PatchIdentityFieldError}. Changing a record's identity
 	 * requires a delete and a put.
 	 *
-	 * The mode is picked per call site with a literal, so the compiler
-	 * can select the overload. To branch on a runtime value, call once
-	 * per mode inside the branch instead of passing a widened union.
-	 *
-	 * @param query - Object providing the PK and SK field values, plus
-	 * any key inputs the patched fields' keys need.
-	 * @param patch - The fields to change. `undefined` removes the
-	 * attribute; omitted fields stay untouched.
-	 * @param options - {@link PatchOptions} with
-	 * `missingKeyInputs: 'strict'`.
-	 * @returns A {@link PatchSingleItemResponse}. The promise never
-	 * rejects.
-	 *
-	 * @example
-	 * ```ts
-	 * // Compiles: postStatus and the shard key postId cover GSI1PK.
-	 * await PostFacet.patch(
-	 *   { pageId: 'p1', postId: 'abc' },
-	 *   { postStatus: PostStatus.Published },
-	 *   { missingKeyInputs: 'strict' },
-	 * );
-	 * // Does not compile when GSI1SK also needs authorId:
-	 * // "Supply these key inputs in query or patch: authorId".
-	 * ```
-	 */
-	async patch<
-		This extends FacetImpl<T, PK, SK, PV>,
-		Q extends Pick<T, PK | SK> & Partial<T>,
-		P extends PatchOf<T, PK, SK>,
-	>(
-		this: This,
-		query: Q,
-		patch: P,
-		options: Omit<PatchOptions<T>, 'missingKeyInputs'> &
-			StrictPatchOptions<
-				MissingPatchKeyInputs<PatchKeyInputGroups<This>, P, Q, PK, SK>
-			>,
-	): Promise<PatchSingleItemResponse<T>>;
-	/**
-	 * Partially update a single record, reading the record first when
-	 * a recomputed key needs a field the call doesn't supply.
-	 *
-	 * When every input of every affected key is present in `query` or
-	 * `patch`, this is a single `UpdateItem`. Otherwise the record is
-	 * read (one extra round trip, reported through
-	 * `usedFallbackRead: true` on the response) and the affected keys
-	 * recompute from its current values. Use `patchInputs` to see
-	 * which fields a patch needs, or the strict overload to enforce
-	 * them at compile time.
-	 *
-	 * Values that come from outside the patch (extra `query` fields,
-	 * or the fallback read) are asserted in the write's condition, so
-	 * a concurrent change to a key input resolves as
-	 * `wasSuccessful: false` instead of writing a stale key.
-	 *
-	 * @remarks
-	 * The fallback read runs the record through the facet's
-	 * `validator` and recomputes keys from the validated values. A
-	 * validator that transforms or defaults a key field recomputes
-	 * from the rewritten value while the stored field keeps its old
-	 * representation; supply such fields in `query` or `patch`, or use
-	 * strict mode.
-	 *
 	 * Like `put`, a patch can land and still report a failure when the
 	 * post-update record fails the validator. A
 	 * `ConditionalCheckFailedException` without a `conflictingItemRaw`
@@ -875,9 +815,12 @@ class FacetImpl<
 	 * on a `Date` field always compares an ISO string regardless of
 	 * `dateFormat`, matching `put` and `delete` conditions.
 	 *
-	 * @param query - Object providing the PK and SK field values. Extra
-	 * fields are used (and verified) as key inputs when a patched field
-	 * shares a composite key with them.
+	 * The mode is picked per call site with a literal, so the compiler
+	 * can select the overload. To branch on a runtime value, call once
+	 * per mode inside the branch instead of passing a widened union.
+	 *
+	 * @param query - Object providing the PK and SK field values, plus
+	 * any key inputs the patched fields' keys need.
 	 * @param patch - The fields to change. `undefined` removes the
 	 * attribute; omitted fields stay untouched.
 	 * @param options - Optional {@link PatchOptions}, e.g. a
@@ -889,21 +832,81 @@ class FacetImpl<
 	 *
 	 * @example
 	 * ```ts
-	 * const result = await PostFacet.patch(
+	 * // Compiles: postStatus and the base keys cover GSI1PK and GSI2PK.
+	 * await PostFacet.patch(
 	 *   { pageId: 'p1', postId: 'abc' },
 	 *   { postStatus: PostStatus.Published },
-	 *   { condition: ['postStatus', '=', PostStatus.Draft] },
 	 * );
-	 * if (result.wasSuccessful) {
-	 *   console.log(result.record.postStatus);
+	 * // Does not compile when GSI1SK also needs authorId; the error
+	 * // demands the property "Missing key input: authorId".
+	 * ```
+	 */
+	async patch<
+		This extends FacetImpl<T, PK, SK, PV>,
+		Q extends Pick<T, PK | SK> & Partial<T>,
+		P extends PatchOf<T, PK, SK>,
+	>(
+		this: This,
+		query: Q,
+		patch: { [K in keyof P]: P[K] } & PatchDemands<
+			MissingPatchKeyInputs<PatchKeyInputGroups<This>, P, Q, PK, SK>
+		>,
+		options?: Omit<PatchOptions<T>, 'missingKeyInputs'> & {
+			missingKeyInputs?: 'strict';
+		},
+	): Promise<PatchSingleItemResponse<T>>;
+	/**
+	 * Partially update a single record, reading the record first when
+	 * a recomputed key needs a field the call doesn't supply.
+	 *
+	 * Opting into `missingKeyInputs: 'read'` trades the default
+	 * compile-time check for an implicit read: when every input of
+	 * every affected key is present in `query` or `patch`, this is a
+	 * single `UpdateItem`; otherwise the record is read (one extra
+	 * round trip, reported through `usedFallbackRead: true` on the
+	 * response) and the affected keys recompute from its current
+	 * values. Use `patchInputs` to see which fields a patch needs.
+	 *
+	 * Values that come from outside the patch (extra `query` fields,
+	 * or the fallback read) are asserted in the write's condition, so
+	 * a concurrent change to a key input resolves as
+	 * `wasSuccessful: false` instead of writing a stale key.
+	 *
+	 * @remarks
+	 * The fallback read runs the record through the facet's
+	 * `validator` and recomputes keys from the validated values. A
+	 * validator that transforms or defaults a key field recomputes
+	 * from the rewritten value while the stored field keeps its old
+	 * representation; supply such fields in `query` or `patch`, or
+	 * stay in the default strict mode.
+	 *
+	 * @param query - Object providing the PK and SK field values. Extra
+	 * fields are used (and verified) as key inputs when a patched field
+	 * shares a composite key with them.
+	 * @param patch - The fields to change. `undefined` removes the
+	 * attribute; omitted fields stay untouched.
+	 * @param options - {@link PatchOptions} with
+	 * `missingKeyInputs: 'read'`.
+	 * @returns A {@link PatchSingleItemResponse}. The promise never
+	 * rejects.
+	 *
+	 * @example
+	 * ```ts
+	 * const result = await PostFacet.patch(
+	 *   { pageId: 'p1', postId: 'abc' },
+	 *   { sendAt: new Date() },
+	 *   { missingKeyInputs: 'read' },
+	 * );
+	 * if (result.wasSuccessful && result.usedFallbackRead) {
+	 *   console.log('authorId was read to recompute GSI1SK');
 	 * }
 	 * ```
 	 */
 	async patch(
 		query: Pick<T, PK | SK> & Partial<T>,
 		patch: PatchOf<T, PK, SK>,
-		options?: Omit<PatchOptions<T>, 'missingKeyInputs'> & {
-			missingKeyInputs?: 'read';
+		options: Omit<PatchOptions<T>, 'missingKeyInputs'> & {
+			missingKeyInputs: 'read';
 		},
 	): Promise<PatchSingleItemResponse<T>>;
 	async patch(
@@ -992,9 +995,9 @@ class FacetImpl<
 	 * inputs that come from neither the patch fields nor the base key
 	 * fields, including shard keys. Supply those fields in the patch
 	 * call's `query` to keep the patch to a single round trip; without
-	 * them, the default `missingKeyInputs: 'read'` mode issues a
-	 * fallback read, and strict mode rejects the call. An empty result
-	 * means a patch of these fields never needs a fallback read.
+	 * them, strict mode (the default) rejects the call, and
+	 * `missingKeyInputs: 'read'` issues a fallback read. An empty
+	 * result means a patch of these fields is always self-sufficient.
 	 *
 	 * @param fields - The fields the patch would change.
 	 * @returns Affected synthetic key attribute names mapped to the
