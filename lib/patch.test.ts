@@ -16,6 +16,8 @@ import {
 	PatchItemNotFoundError,
 	PatchMissingKeyInputsError,
 	patchSingleItem,
+	type MissingPatchKeyInputs,
+	type PatchDemands,
 	type PatchFacet,
 	type PatchKeyInputGroups,
 	type PatchKeyTarget,
@@ -224,6 +226,14 @@ describe('Facet.patch against DynamoDB Local', () => {
 		expect(
 			queried.records.some((record) => record.postId === post.postId),
 		).toBe(true);
+
+		// The row left its old partition when the key moved.
+		const stillDraft = await PatchPostFacet.byStatus
+			.query({ postStatus: PostStatus.Draft }, shard)
+			.list();
+		expect(
+			stillDraft.records.some((record) => record.postId === post.postId),
+		).toBe(false);
 	});
 
 	test('reads the record to resolve a missing key input and recomputes from its current values', async () => {
@@ -441,6 +451,10 @@ describe('Facet.patch against DynamoDB Local', () => {
 		expect((result.error as Error).name).toBe(
 			'ConditionalCheckFailedException',
 		);
+		// A guard failure on an existing row carries the conflicting
+		// record, same as a caller condition failure.
+		expect(result.conflictingItemRaw).toBeDefined();
+		expect(result.conflictingItem?.authorId).toBe('author-real');
 
 		const after = await rawItem(post);
 		expect(after.GSI1SK).toEqual(before.GSI1SK);
@@ -508,6 +522,8 @@ describe('Facet.patch against DynamoDB Local', () => {
 			'ConditionalCheckFailedException',
 		);
 		expect(result.usedFallbackRead).toBe(true);
+		expect(result.conflictingItemRaw).toBeDefined();
+		expect(result.conflictingItem?.authorId).toBe('author-current');
 
 		const after = await rawItem(post);
 		expect(after.GSI1SK).toEqual(before.GSI1SK);
@@ -891,6 +907,310 @@ describe('Facet.patch against DynamoDB Local', () => {
 		expect(after.Item?.GSI2SK.S).toBe('#PNOTE__b');
 	});
 
+	test('a conflicting record the validator rejects still surfaces the raw item', async () => {
+		interface StrictDoc {
+			strictDocId: string;
+			body?: string;
+			flag?: string;
+		}
+		const StrictDocFacet = new Facet({
+			name: 'PATCH_STRICT_DOC',
+			validator: (input: unknown): StrictDoc => {
+				const record = input as Record<string, unknown>;
+				if (typeof record.body !== 'string') {
+					throw new Error('body is required');
+				}
+				return record as unknown as StrictDoc;
+			},
+			PK: { keys: ['strictDocId'], prefix: '#PSDOC' },
+			SK: { keys: [], prefix: '#PSDOC' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+		// Seed a row the validator rejects, as written by an older schema
+		// that had no body field.
+		await ddb.putItem({
+			TableName: tableName,
+			Item: {
+				PK: { S: StrictDocFacet.pk({ strictDocId: 'strict-doc-1' }) },
+				SK: { S: StrictDocFacet.sk({}) },
+				facet: { S: 'PATCH_STRICT_DOC' },
+				strictDocId: { S: 'strict-doc-1' },
+			},
+		});
+
+		const result = await StrictDocFacet.patch(
+			{ strictDocId: 'strict-doc-1' },
+			{ flag: 'x' },
+			{ condition: ['body', 'exists'] },
+		);
+
+		expect(result.wasSuccessful).toBe(false);
+		if (result.wasSuccessful) {
+			throw new Error('Expected the patch to report a failure');
+		}
+		// The conflicting item fails the validator, so the parsed field
+		// stays unset while the raw item remains available, and the call
+		// resolves instead of throwing.
+		expect((result.error as Error).name).toBe(
+			'ConditionalCheckFailedException',
+		);
+		expect(result.conflictingItemRaw).toBeDefined();
+		expect(result.conflictingItem).toBeUndefined();
+	});
+
+	test('a non-conditional error from the update reports without conflict details', async () => {
+		const post = await putPost();
+		const boom = new Error('socket hang up');
+		vi.spyOn(ddb, 'updateItem').mockImplementationOnce(() => {
+			throw boom;
+		});
+
+		const result = await PatchPostFacet.patch(
+			{ pageId: post.pageId, postId: post.postId },
+			{ postTitle: 'Never lands' },
+		);
+
+		expect(result.wasSuccessful).toBe(false);
+		if (result.wasSuccessful) {
+			throw new Error('Expected the patch to report a failure');
+		}
+		expect(result.error).toBe(boom);
+		expect(result.conflictingItem).toBeUndefined();
+		expect(result.conflictingItemRaw).toBeUndefined();
+		expect(result.usedFallbackRead).toBe(false);
+	});
+
+	test('a failed fallback read reports the error with usedFallbackRead set', async () => {
+		const post = await putPost();
+		const boom = new Error('read timed out');
+		vi.spyOn(ddb, 'getItem').mockImplementationOnce(() => {
+			throw boom;
+		});
+
+		const result = await PatchPostFacet.patch(
+			{ pageId: post.pageId, postId: post.postId },
+			{ sendAt: new Date('2026-05-01T00:00:00.000Z') },
+			{ missingKeyInputs: 'read' },
+		);
+
+		expect(result.wasSuccessful).toBe(false);
+		if (result.wasSuccessful) {
+			throw new Error('Expected the patch to report a failure');
+		}
+		expect(result.error).toBe(boom);
+		expect(result.usedFallbackRead).toBe(true);
+	});
+
+	test('numeric and boolean key inputs rebuild keys and guard against DynamoDB', async () => {
+		interface Task {
+			taskId: string;
+			queue?: string;
+			priority?: number;
+			pinned?: boolean;
+		}
+		const TaskFacet = new Facet({
+			name: 'PATCH_TASK',
+			validator: (input: unknown): Task => input as Task,
+			PK: { keys: ['taskId'], prefix: '#PTASK' },
+			SK: { keys: [], prefix: '#PTASK' },
+			connection: { dynamoDb: ddb, tableName },
+		}).addIndex({
+			index: Index.GSI3,
+			PK: { keys: ['queue'], prefix: '#PTQ' },
+			SK: { keys: ['priority', 'pinned'], prefix: '#PTP' },
+		});
+		const put = await TaskFacet.put({
+			taskId: 'task-num-1',
+			queue: 'q1',
+			priority: 5,
+			pinned: true,
+		});
+		if (!put.wasSuccessful) {
+			throw put.error;
+		}
+		const rawKey = {
+			PK: { S: TaskFacet.pk({ taskId: 'task-num-1' }) },
+			SK: { S: TaskFacet.sk({}) },
+		};
+
+		// The read fallback resolves priority as a number and guards it
+		// with the stored N value.
+		const viaRead = await TaskFacet.patch(
+			{ taskId: 'task-num-1' },
+			{ pinned: false },
+			{ missingKeyInputs: 'read' },
+		);
+		if (!viaRead.wasSuccessful) {
+			throw viaRead.error;
+		}
+		let item = (await ddb.getItem({ TableName: tableName, Key: rawKey })).Item;
+		expect(item?.GSI3SK.S).toBe(
+			TaskFacet.GSI3.sk({ priority: 5, pinned: false }),
+		);
+
+		// A numeric hint marshals to the same N guard in one round trip.
+		const getSpy = vi.spyOn(ddb, 'getItem');
+		const viaHint = await TaskFacet.patch(
+			{ taskId: 'task-num-1', priority: 5 },
+			{ pinned: true },
+		);
+		if (!viaHint.wasSuccessful) {
+			throw viaHint.error;
+		}
+		expect(getSpy).not.toHaveBeenCalled();
+		item = (await ddb.getItem({ TableName: tableName, Key: rawKey })).Item;
+		expect(item?.GSI3SK.S).toBe(
+			TaskFacet.GSI3.sk({ priority: 5, pinned: true }),
+		);
+		expect(item?.GSI3SK.S).toContain('_5_true');
+
+		// A stale numeric hint fails its guard.
+		const stale = await TaskFacet.patch(
+			{ taskId: 'task-num-1', priority: 6 },
+			{ pinned: false },
+		);
+		expect(stale.wasSuccessful).toBe(false);
+		if (stale.wasSuccessful) {
+			throw new Error('Expected the patch to report a failure');
+		}
+		expect((stale.error as Error).name).toBe('ConditionalCheckFailedException');
+	});
+
+	test('patching a GSI shard key input moves the row to its new shard', async () => {
+		interface Sensor {
+			sensorId: string;
+			zone?: string;
+			deviceId?: string;
+		}
+		const SensorFacet = new Facet({
+			name: 'PATCH_SENSOR',
+			validator: (input: unknown): Sensor => input as Sensor,
+			PK: { keys: ['sensorId'], prefix: '#PSEN' },
+			SK: { keys: [], prefix: '#PSEN' },
+			connection: { dynamoDb: ddb, tableName },
+		}).addIndex({
+			index: Index.GSI3,
+			PK: {
+				keys: ['zone'],
+				shard: { count: 8, keys: ['deviceId'] },
+				prefix: '#PSZ',
+			},
+			SK: { keys: ['sensorId'], prefix: '#PSZ' },
+		});
+		const oldShard = parseInt(crcShard('device-a', 8), 16);
+		const newShard = parseInt(crcShard('device-b', 8), 16);
+		expect(oldShard).not.toBe(newShard);
+
+		const put = await SensorFacet.put({
+			sensorId: 'sensor-1',
+			zone: 'z1',
+			deviceId: 'device-a',
+		});
+		if (!put.wasSuccessful) {
+			throw put.error;
+		}
+
+		const result = await SensorFacet.patch(
+			{ sensorId: 'sensor-1', zone: 'z1' },
+			{ deviceId: 'device-b' },
+		);
+		if (!result.wasSuccessful) {
+			throw result.error;
+		}
+
+		const inNew = await SensorFacet.GSI3.query({ zone: 'z1' }, newShard).list();
+		expect(inNew.records.some((record) => record.sensorId === 'sensor-1')).toBe(
+			true,
+		);
+		const inOld = await SensorFacet.GSI3.query({ zone: 'z1' }, oldShard).list();
+		expect(inOld.records.some((record) => record.sensorId === 'sensor-1')).toBe(
+			false,
+		);
+	});
+
+	test('a patch backfills index keys on a row that predates addIndex', async () => {
+		interface Order {
+			orderId: string;
+			status?: string;
+			region?: string;
+			carrier?: string;
+		}
+		const BareOrderFacet = new Facet({
+			name: 'PATCH_ORDER',
+			validator: (input: unknown): Order => input as Order,
+			PK: { keys: ['orderId'], prefix: '#PORD' },
+			SK: { keys: [], prefix: '#PORD' },
+			connection: { dynamoDb: ddb, tableName },
+		});
+		const IndexedOrderFacet = new Facet({
+			name: 'PATCH_ORDER',
+			validator: (input: unknown): Order => input as Order,
+			PK: { keys: ['orderId'], prefix: '#PORD' },
+			SK: { keys: [], prefix: '#PORD' },
+			connection: { dynamoDb: ddb, tableName },
+		}).addIndex({
+			index: Index.GSI3,
+			PK: { keys: ['status'], prefix: '#PORS' },
+			SK: { keys: ['region', 'carrier'], prefix: '#PORR' },
+		});
+
+		// A row written before the index existed has no GSI3 attributes.
+		const put = await BareOrderFacet.put({ orderId: 'order-legacy-1' });
+		if (!put.wasSuccessful) {
+			throw put.error;
+		}
+		const legacyKey = {
+			PK: { S: IndexedOrderFacet.pk({ orderId: 'order-legacy-1' }) },
+			SK: { S: IndexedOrderFacet.sk({}) },
+		};
+		let item = (await ddb.getItem({ TableName: tableName, Key: legacyKey }))
+			.Item;
+		expect(item?.GSI3PK).toBeUndefined();
+		expect(item?.GSI3SK).toBeUndefined();
+
+		// A patch supplying every input of both keys backfills them and
+		// makes the row queryable through the new index.
+		const backfill = await IndexedOrderFacet.patch(
+			{ orderId: 'order-legacy-1' },
+			{ status: 'open', region: 'eu', carrier: 'dhl' },
+		);
+		if (!backfill.wasSuccessful) {
+			throw backfill.error;
+		}
+		const queried = await IndexedOrderFacet.GSI3.query({
+			status: 'open',
+		}).list();
+		expect(
+			queried.records.some((record) => record.orderId === 'order-legacy-1'),
+		).toBe(true);
+
+		// The read fallback tolerates a legacy row whose optional inputs
+		// are absent and recomputes only the touched key.
+		const put2 = await BareOrderFacet.put({ orderId: 'order-legacy-2' });
+		if (!put2.wasSuccessful) {
+			throw put2.error;
+		}
+		const partial = await IndexedOrderFacet.patch(
+			{ orderId: 'order-legacy-2' },
+			{ region: 'apac' },
+			{ missingKeyInputs: 'read' },
+		);
+		if (!partial.wasSuccessful) {
+			throw partial.error;
+		}
+		item = (
+			await ddb.getItem({
+				TableName: tableName,
+				Key: {
+					PK: { S: IndexedOrderFacet.pk({ orderId: 'order-legacy-2' }) },
+					SK: { S: IndexedOrderFacet.sk({}) },
+				},
+			})
+		).Item;
+		expect(item?.GSI3SK.S).toBe(IndexedOrderFacet.GSI3.sk({ region: 'apac' }));
+		expect(item?.GSI3PK).toBeUndefined();
+	});
+
 	test('patch response and parameters hold their compile-time contracts', () => {
 		void (async () => {
 			const result = await PatchPostFacet.patch(
@@ -966,6 +1286,13 @@ describe('Facet.patch against DynamoDB Local', () => {
 				// @ts-expect-error auto is not a valid missingKeyInputs value
 				{ missingKeyInputs: 'auto' },
 			);
+			const widenMode = (mode: 'read' | 'strict'): string => mode;
+			await PatchPostFacet.patch(
+				{ pageId: 'p', postId: 'a' },
+				{ postTitle: 't' },
+				// @ts-expect-error a widened string does not select a mode
+				{ missingKeyInputs: widenMode('read') },
+			);
 
 			// Both response branches expose the fallback-read flag.
 			const flag: boolean = result.usedFallbackRead;
@@ -1023,6 +1350,23 @@ describe('Facet.patch against DynamoDB Local', () => {
 
 	test('strict mode enforces key-input completeness at compile time', () => {
 		void (async () => {
+			// Strict is the default: a bare two-argument call that touches
+			// a GSI key input without its co-input does not compile.
+			await PatchPostFacet.patch(
+				{ pageId: 'p', postId: 'a' },
+				// @ts-expect-error strict demands authorId for GSI1SK
+				{ sendAt: new Date() },
+			);
+
+			// Options that carry only a condition stay on the strict
+			// overload and keep the check.
+			// @ts-expect-error strict demands authorId for GSI1SK
+			await PatchPostFacet.patch(
+				{ pageId: 'p', postId: 'a' },
+				{ sendAt: new Date() },
+				{ condition: ['postTitle', 'exists'] },
+			);
+
 			// Touching a GSI key input without its co-input is rejected;
 			// the required property in the error names the missing field.
 			// @ts-expect-error strict demands authorId for GSI1SK
@@ -1092,16 +1436,66 @@ describe('Facet.patch against DynamoDB Local', () => {
 				{ missingKeyInputs: 'strict' },
 			);
 
-			// The demand property is branded, so supplying it cannot
-			// bypass the check.
-			// @ts-expect-error the demand carries an unexported brand
+			// A patch missing several inputs demands each one, and the
+			// demand clears only when every one is supplied.
+			interface Wide {
+				wideId: string;
+				a?: string;
+				b?: string;
+				c?: string;
+			}
+			const WideFacet = new Facet({
+				name: 'PATCH_WIDE',
+				validator: (input: unknown): Wide => input as Wide,
+				PK: { keys: ['wideId'], prefix: '#PW' },
+				SK: { keys: [], prefix: '#PW' },
+				connection: { dynamoDb: ddb, tableName },
+			}).addIndex({
+				index: Index.GSI3,
+				PK: { keys: ['wideId'], prefix: '#PWX' },
+				SK: { keys: ['a', 'b', 'c'], prefix: '#PWS' },
+			});
+			await WideFacet.patch(
+				{ wideId: 'w' },
+				// @ts-expect-error strict demands both b and c
+				{ a: 'x' },
+			);
+			await WideFacet.patch(
+				{ wideId: 'w' },
+				// @ts-expect-error strict still demands c
+				{ a: 'x', b: 'y' },
+			);
+			await WideFacet.patch({ wideId: 'w' }, { a: 'x', b: 'y', c: 'z' });
+			await WideFacet.patch({ wideId: 'w', c: 'z' }, { a: 'x', b: 'y' });
+
+			// Each missing field surfaces as its own named property.
+			type WideDemands = keyof PatchDemands<
+				MissingPatchKeyInputs<
+					PatchKeyInputGroups<typeof WideFacet>,
+					{ a: string },
+					{ wideId: string },
+					'wideId',
+					never
+				>
+			>;
+			const bothDemandsSurface: [WideDemands] extends [
+				'Missing key input: b' | 'Missing key input: c',
+			]
+				? ['Missing key input: b' | 'Missing key input: c'] extends [
+						WideDemands,
+					]
+					? true
+					: false
+				: false = true;
+			void bothDemandsSurface;
+
+			// The demand property is branded: supplying it under its exact
+			// name with a plausible value still fails on the unexported
+			// brand, so the check cannot be bypassed.
 			await PatchPostFacet.patch(
 				{ pageId: 'p', postId: 'a' },
-				{ sendAt: new Date() },
-				{
-					missingKeyInputs: 'strict',
-					'Supply these key inputs in query or patch': ['authorId'],
-				},
+				// @ts-expect-error the demand value is an unexported brand
+				{ sendAt: new Date(), 'Missing key input: authorId': ['authorId'] },
 			);
 
 			// Documented limit, pinned deliberately: a widened patch or
@@ -1133,6 +1527,29 @@ describe('Facet.patch against DynamoDB Local', () => {
 			? true
 			: false = true;
 		void groupsHaveNoUndefined;
+
+		// The demand computed for this facet names the missing field: a
+		// patch touching only sendAt demands exactly authorId, surfaced
+		// as a property named for the field.
+		type SendAtDemands = MissingPatchKeyInputs<
+			PatchKeyInputGroups<typeof PatchPostFacet>,
+			{ sendAt: Date },
+			{ pageId: string; postId: string },
+			'pageId',
+			'postId'
+		>;
+		const demandsExactlyAuthorId: [SendAtDemands] extends ['authorId']
+			? ['authorId'] extends [SendAtDemands]
+				? true
+				: false
+			: false = true;
+		void demandsExactlyAuthorId;
+		const demandNameSurfaces: [keyof PatchDemands<SendAtDemands>] extends [
+			'Missing key input: authorId',
+		]
+			? true
+			: false = true;
+		void demandNameSurfaces;
 
 		expect<0>(0 satisfies 0).toBe(0);
 	});
@@ -1264,6 +1681,71 @@ describe('patchSingleItem expression assembly', () => {
 		expect(Object.values(values)).toContainEqual({ N: '1893456000' });
 		// The recomputed key is set to the builder's output.
 		expect(Object.values(values)).toContainEqual({ S: '#PSEND_rebuilt' });
+
+		// Guards never cover an attribute the patch writes, so patch's
+		// own conditions stay idempotent under SDK auto-retry.
+		const setSection = updateExpression.slice(
+			'SET '.length,
+			updateExpression.indexOf(' REMOVE '),
+		);
+		const setAttributes = [...setSection.matchAll(/#U_\d+/g)].map(
+			(match) => names[match[0]],
+		);
+		const guardAttributes = Object.entries(names)
+			.filter(([placeholder]) => placeholder.startsWith('#G_'))
+			.map(([, attribute]) => attribute);
+		expect(setAttributes.length).toBeGreaterThan(0);
+		expect(guardAttributes.length).toBeGreaterThan(0);
+		expect(
+			setAttributes.filter((attribute) => guardAttributes.includes(attribute)),
+		).toEqual([]);
+	});
+
+	test('a self-sufficient patch carries only the existence condition', async () => {
+		const captured: UpdateItemInput[] = [];
+		const stub: PatchFacet<Post> = {
+			pk: () => '#PPAGE_p1',
+			sk: () => '#PPOST_a1',
+			out: (record) => record as unknown as Post,
+			marshalValue: (value) => toAttributeValue(value),
+			connection: {
+				dynamoDb: {
+					updateItem: (input: UpdateItemInput) => {
+						captured.push(input);
+						const attributes: AttributeMap = { PK: { S: '#PPAGE_p1' } };
+						return Promise.resolve({ Attributes: attributes });
+					},
+				} as unknown as DynamoDB,
+				tableName: tableName,
+			},
+		};
+		const targets: PatchKeyTarget<Post>[] = [
+			{
+				attributeName: 'GSI1SK',
+				inputs: ['sendAt', 'authorId'],
+				build: () => '#PSEND_rebuilt',
+			},
+		];
+
+		const result = await patchSingleItem(
+			stub,
+			targets,
+			new Set(['pageId', 'postId']),
+			{ pageId: 'p1', postId: 'a1' },
+			{
+				sendAt: new Date('2026-01-01T00:00:00.000Z'),
+				authorId: 'author-new',
+			},
+		);
+		expect(result.wasSuccessful).toBe(true);
+
+		// Every key input came from the patch or the base identity, so
+		// the only condition is the never-upsert existence check and no
+		// guard is emitted.
+		const input = captured[0];
+		expect(input.ConditionExpression).toBe('attribute_exists (#PK_GUARD)');
+		const names = Object.keys(input.ExpressionAttributeNames ?? {});
+		expect(names.filter((name) => name.startsWith('#G_'))).toHaveLength(0);
 	});
 
 	test('read guards cover scalar attribute types and skip document and set attributes', async () => {
@@ -1304,7 +1786,7 @@ describe('patchSingleItem expression assembly', () => {
 		const targets: PatchKeyTarget<Post>[] = [
 			{
 				attributeName: 'GSI1SK',
-				inputs: ['sendAt', 'authorId', 'postTitle', 'deleteAt'],
+				inputs: ['sendAt', 'authorId', 'postTitle', 'deleteAt', 'label'],
 				build: () => '#PSEND_rebuilt',
 			},
 		];
@@ -1332,6 +1814,12 @@ describe('patchSingleItem expression assembly', () => {
 		expect(Object.values(values)).toContainEqual({ BOOL: true });
 		// Set attributes never feed a composite key, so no guard.
 		expect(guardedAttributes).not.toContain('deleteAt');
+		// An input the read shows as absent is asserted absent at write
+		// time.
+		expect(guardedAttributes).toContain('label');
+		expect(input.ConditionExpression ?? '').toMatch(
+			/attribute_not_exists \(#G_\d+\)/,
+		);
 	});
 
 	test('a query hint that cannot feed a composite key is not guarded', async () => {
