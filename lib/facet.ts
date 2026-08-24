@@ -1,5 +1,6 @@
 import {
 	marshall,
+	toAttributeValue,
 	unmarshall,
 	type AttributeMap,
 } from './converter/converter.js';
@@ -22,12 +23,23 @@ import {
 	Keys,
 } from './keys.js';
 import {
+	EmptyPatchError,
+	PatchIdentityFieldError,
+	patchSingleItem,
+	type PatchFacet,
+	type PatchKeyTarget,
+	type PatchOf,
+	type PatchOptions,
+	type PatchSingleItemResponse,
+} from './patch.js';
+import {
 	putItems,
 	PutOptions,
 	PutResponse,
 	putSingleItem,
 	PutSingleItemResponse,
 } from './put.js';
+import { normalizeTtl } from './ttl.js';
 import { PartitionQuery } from './query.js';
 import {
 	buildTransactCheckOp,
@@ -419,20 +431,7 @@ class FacetImpl<
 		 * attributes, so normalise Date and numeric-string inputs
 		 * before marshalling.
 		 */
-		let ttlAttribute: number | undefined;
-		if (this.ttl) {
-			const raw: unknown = model[this.ttl];
-			if (raw instanceof Date) {
-				ttlAttribute = Math.floor(raw.getTime() / 1000);
-			} else if (typeof raw === 'number') {
-				ttlAttribute = raw;
-			} else if (typeof raw === 'string') {
-				ttlAttribute = parseInt(raw, 10);
-			}
-			if (ttlAttribute !== undefined && Number.isNaN(ttlAttribute)) {
-				ttlAttribute = undefined;
-			}
-		}
+		const ttlAttribute = this.ttl ? normalizeTtl(model[this.ttl]) : undefined;
 
 		const dynamoDbRecord = {
 			...attributes,
@@ -762,6 +761,146 @@ class FacetImpl<
 	}
 
 	/**
+	 * Partially update a single record by its exact partition and sort
+	 * key, without rewriting the fields the patch doesn't mention.
+	 *
+	 * Issues a Dynamo DB `UpdateItem` that sets the patched fields and
+	 * recomputes every synthetic key attribute (`GSI*PK`/`GSI*SK`, and
+	 * the `ttl` attribute) whose inputs the patch touches, so indexes
+	 * never silently drift from the record. A patched field set to
+	 * `undefined` removes the attribute, matching a `put` whose model
+	 * omitted it. The patch never upserts: patching a missing record
+	 * reports a failure.
+	 *
+	 * When a recomputed key needs a field the call doesn't supply, the
+	 * behavior follows `options.missingKeyInputs`: read the record and
+	 * recompute from its current values (`'read'`, the default, two
+	 * round trips), or report a {@link PatchMissingKeyInputsError}
+	 * (`'error'`, no network call). Values that come from outside the
+	 * patch (extra `query` fields, or the fallback read) are asserted
+	 * in the write's condition, so a concurrent change to a key input
+	 * resolves as `wasSuccessful: false` instead of writing a stale
+	 * key.
+	 *
+	 * @remarks
+	 * Fields that compose the base `PK` or `SK` (including base shard
+	 * keys) can't be patched, and report a
+	 * {@link PatchIdentityFieldError}. Changing a record's identity
+	 * requires a delete and a put.
+	 *
+	 * The `'read'` fallback runs the record through the facet's
+	 * `validator` and recomputes keys from the validated values. A
+	 * validator that transforms or defaults a key field recomputes
+	 * from the rewritten value while the stored field keeps its old
+	 * representation; supply such fields in `query` or `patch`, or use
+	 * `'error'` mode.
+	 *
+	 * Like `put`, a patch can land and still report a failure when the
+	 * post-update record fails the validator. A
+	 * `ConditionalCheckFailedException` without a `conflictingItemRaw`
+	 * means the record doesn't exist; with one, a condition or an
+	 * internal guard failed against that state. A caller `condition`
+	 * on a `Date` field always compares an ISO string regardless of
+	 * `dateFormat`, matching `put` and `delete` conditions.
+	 *
+	 * @param query - Object providing the PK and SK field values. Extra
+	 * fields are used (and verified) as key inputs when a patched field
+	 * shares a composite key with them.
+	 * @param patch - The fields to change. `undefined` removes the
+	 * attribute; omitted fields stay untouched.
+	 * @param options - Optional {@link PatchOptions}: a `condition` and
+	 * the `missingKeyInputs` mode.
+	 * @returns A {@link PatchSingleItemResponse}. `wasSuccessful: true`
+	 * narrows to the full post-patch `record`; `wasSuccessful: false`
+	 * narrows to `error` plus the conflicting item when DynamoDB
+	 * returned one. The promise never rejects.
+	 *
+	 * @example
+	 * ```ts
+	 * const result = await PostFacet.patch(
+	 *   { pageId: 'p1', postId: 'abc' },
+	 *   { postStatus: PostStatus.Published },
+	 *   { condition: ['postStatus', '=', PostStatus.Draft] },
+	 * );
+	 * if (result.wasSuccessful) {
+	 *   console.log(result.record.postStatus);
+	 * }
+	 * ```
+	 */
+	async patch(
+		query: Pick<T, PK | SK> & Partial<T>,
+		patch: PatchOf<T, PK, SK>,
+		options?: PatchOptions<T>,
+	): Promise<PatchSingleItemResponse<T>> {
+		// PatchOf<T, PK, SK> is a per-union-member Partial<Omit<...>>;
+		// the compiler can't relate it to Partial<T> while T is generic.
+		const patchRecord = patch as unknown as Partial<T>;
+		const patchFields = Object.keys(patchRecord);
+		if (patchFields.length === 0) {
+			return { wasSuccessful: false, error: new EmptyPatchError() };
+		}
+		try {
+			assertNoReservedAttributes(patchRecord);
+		} catch (error) {
+			return { wasSuccessful: false, error };
+		}
+
+		const identityInputs = new Set<PropertyKey>([
+			...this.#PK.keys,
+			...(this.#PK.shard?.keys ?? []),
+			...this.#SK.keys,
+			...(this.#SK.shard?.keys ?? []),
+		]);
+		const touchedIdentity = patchFields.filter((field) =>
+			identityInputs.has(field),
+		);
+		if (touchedIdentity.length > 0) {
+			return {
+				wasSuccessful: false,
+				error: new PatchIdentityFieldError(touchedIdentity),
+			};
+		}
+
+		const gsiTargets: PatchKeyTarget<T>[] = [];
+		for (const facetIndex of this.#indexes.values()) {
+			gsiTargets.push(...facetIndex.patchTargets);
+		}
+		/**
+		 * Base key fields are trusted without a guard. They addressed
+		 * the row, and key attributes never change for the life of a
+		 * row. Base shard keys are not: a shard id is a many-to-one
+		 * hash, so addressing the row doesn't prove a shard key's
+		 * value.
+		 */
+		const identityFields = new Set<PropertyKey>([
+			...this.#PK.keys,
+			...this.#SK.keys,
+		]);
+
+		const patchFacet: PatchFacet<T> = {
+			pk: (model) => this.pk(model),
+			sk: (model) => this.sk(model),
+			out: (record) => this.out(record),
+			marshalValue: (value) =>
+				toAttributeValue(value, {
+					dateFormat: this.#dateFormat,
+					convertEmptyValues: this.#convertEmptyValues,
+				}),
+			ttl: this.ttl,
+			connection: this.connection,
+		};
+
+		return patchSingleItem(
+			patchFacet,
+			gsiTargets,
+			identityFields,
+			query,
+			patchRecord,
+			options,
+		);
+	}
+
+	/**
 	 * Begin a query over a single partition on the base table.
 	 *
 	 * Returns a {@link PartitionQuery} builder that exposes the sort-key
@@ -1004,6 +1143,27 @@ export class FacetIndex<
 	 */
 	get keyFields(): readonly (GSIPK | GSISK)[] {
 		return [...this.#PK.keys, ...this.#SK.keys];
+	}
+
+	/**
+	 * @internal Used by `Facet.patch` to enumerate this index's key
+	 * inputs (key fields plus shard keys) and recompute its synthetic
+	 * attributes. Not part of the public API.
+	 */
+	get patchTargets(): readonly PatchKeyTarget<T>[] {
+		const indexKeyNames = IndexKeyNameMap[this.indexName];
+		return [
+			{
+				attributeName: indexKeyNames.PK,
+				inputs: [...this.#PK.keys, ...(this.#PK.shard?.keys ?? [])],
+				build: (model) => this.pk(model),
+			},
+			{
+				attributeName: indexKeyNames.SK,
+				inputs: [...this.#SK.keys, ...(this.#SK.shard?.keys ?? [])],
+				build: (model) => this.sk(model),
+			},
+		];
 	}
 
 	/**

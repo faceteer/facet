@@ -8,6 +8,12 @@
 export { Facet } from './lib/facet.js';
 export { FacetIndex } from './lib/facet.js';
 export { buildKey, Index, IndexKeyNameMap, PK, SK } from './lib/keys.js';
+export {
+	EmptyPatchError,
+	PatchIdentityFieldError,
+	PatchItemNotFoundError,
+	PatchMissingKeyInputsError,
+} from './lib/patch.js';
 export { PartitionQuery } from './lib/query.js';
 export { transactGet, transactWrite } from './lib/transact.js';
 
@@ -38,6 +44,14 @@ export type {
 } from './lib/delete.js';
 
 export type { GetOptions } from './lib/get.js';
+
+export type {
+	PatchFailure,
+	PatchOf,
+	PatchOptions,
+	PatchSingleItemResponse,
+	PatchSuccess,
+} from './lib/patch.js';
 
 export type {
 	PutFailure,

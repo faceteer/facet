@@ -8,6 +8,10 @@ npm dist-tags track the most recent publish in each channel: `latest` points at 
 
 ## [Unreleased]
 
+### Added
+
+- `Facet.patch` for partial updates without rewriting the full record ([#58](https://github.com/faceteer/facet/issues/58)). A patch issues a single DynamoDB `UpdateItem` that writes only the supplied fields and recomputes every GSI key and TTL attribute whose inputs it touches, so indexes never silently drift from the record. When a recomputed key needs a field the call doesn't supply, `patch` reads the record first (`missingKeyInputs: 'read'`, the default) or reports a `PatchMissingKeyInputsError` (`'error'`). Key inputs sourced from outside the patch are asserted in the write's condition, so a concurrent change fails the patch instead of writing a stale key. Patches never throw and never upsert. Results report through a `wasSuccessful` discriminated union: the success branch carries the validated post-patch record, and a condition failure carries the conflicting record when DynamoDB returns one. Setting a field to `undefined` removes the attribute.
+
 ## [6.1.0] - 2026-08-22
 
 ### Added
