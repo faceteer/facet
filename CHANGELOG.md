@@ -8,6 +8,10 @@ npm dist-tags track the most recent publish in each channel: `latest` points at 
 
 ## [Unreleased]
 
+### Added
+
+- `Facet.patch` for partial updates without rewriting the full record ([#58](https://github.com/faceteer/facet/issues/58)). A patch issues a single DynamoDB `UpdateItem` that writes only the supplied fields and recomputes every GSI key and TTL attribute whose inputs it touches, so indexes never silently drift from the record. Key-input completeness is enforced at compile time by default: a patch that touches a key input without supplying the key's other inputs in `query` or `patch` does not compile, and the error lists one required property per missing field (`Missing key input: authorId`) on the patch argument. Shard key names are captured in `ShardConfiguration` and `KeyConfiguration` type parameters so the check covers them too. The check reads the argument types inferred at the call site, so arguments typed wider than their contents (or a facet widened to a type without its index accessors) fall back to a runtime `PatchMissingKeyInputsError` instead of a compile error. Opting into `missingKeyInputs: 'read'` trades the compile-time check for a fallback read that resolves missing inputs from the stored record, surfaced as `usedFallbackRead: true` on the response. Key inputs sourced from outside the patch are asserted in the write's condition, so a concurrent change fails the patch instead of writing a stale key. Patches never throw and never upsert. Results report through a `wasSuccessful` discriminated union: the success branch carries the validated post-patch record, and a condition failure carries the conflicting record when DynamoDB returns one. Setting a field to `undefined` removes the attribute. `Facet.patchInputs` reports which extra fields a patch of given fields needs, so requirements are discoverable in code and tooling.
+
 ## [6.1.0] - 2026-08-22
 
 ### Added

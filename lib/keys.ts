@@ -25,10 +25,18 @@ export type PrimitiveShardKey<T> = {
 }[Keys<T>];
 
 /**
- * How to shard a key into multiple groups
+ * How to shard a key into multiple groups.
+ *
+ * The `S` parameter captures the shard key field names so
+ * `Facet.patch` can enforce key-input completeness at compile time in
+ * strict mode. It is inferred from the `keys` array; annotations that
+ * omit it keep the wide default.
  */
-export interface ShardConfiguration<T> {
-	keys: PrimitiveShardKey<T>[];
+export interface ShardConfiguration<
+	T,
+	S extends PrimitiveShardKey<T> = PrimitiveShardKey<T>,
+> {
+	keys: S[];
 	count: number;
 }
 
@@ -84,7 +92,11 @@ export const IndexSet = new Set<Index>([
 /**
  * How to build a composite key from an object
  */
-export interface KeyConfiguration<T, U extends Keys<T>> {
+export interface KeyConfiguration<
+	T,
+	U extends Keys<T>,
+	S extends PrimitiveShardKey<T> = PrimitiveShardKey<T>,
+> {
 	/**
 	 * An array of object keys that will be used
 	 * to create the composite key.
@@ -102,7 +114,7 @@ export interface KeyConfiguration<T, U extends Keys<T>> {
 	 * shard a key into multiple groups. The group
 	 * id will be prefixed at the beginning of the
 	 */
-	shard?: ShardConfiguration<T>;
+	shard?: ShardConfiguration<T, S>;
 }
 
 export const IndexKeyNameMap = {

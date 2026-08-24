@@ -1,5 +1,6 @@
 import {
 	marshall,
+	toAttributeValue,
 	unmarshall,
 	type AttributeMap,
 } from './converter/converter.js';
@@ -20,7 +21,21 @@ import {
 	PK,
 	SK,
 	Keys,
+	PrimitiveShardKey,
 } from './keys.js';
+import {
+	EmptyPatchError,
+	PatchIdentityFieldError,
+	patchSingleItem,
+	type MissingPatchKeyInputs,
+	type PatchFacet,
+	type PatchKeyInputGroups,
+	type PatchKeyTarget,
+	type PatchDemands,
+	type PatchOf,
+	type PatchOptions,
+	type PatchSingleItemResponse,
+} from './patch.js';
 import {
 	putItems,
 	PutOptions,
@@ -28,6 +43,7 @@ import {
 	putSingleItem,
 	PutSingleItemResponse,
 } from './put.js';
+import { normalizeTtl } from './ttl.js';
 import { PartitionQuery } from './query.js';
 import {
 	buildTransactCheckOp,
@@ -194,8 +210,10 @@ export type FacetIndexKeys<
 	I extends Index,
 	A extends string = never,
 	PV extends PickValidator<T> | undefined = PickValidator<T> | undefined,
-> = Record<I, FacetIndex<T, PK, SK, GSIPK, GSISK, PV>> &
-	Record<A, FacetIndex<T, PK, SK, GSIPK, GSISK, PV>>;
+	GSIPKS extends PrimitiveShardKey<T> = PrimitiveShardKey<T>,
+	GSISKS extends PrimitiveShardKey<T> = PrimitiveShardKey<T>,
+> = Record<I, FacetIndex<T, PK, SK, GSIPK, GSISK, PV, GSIPKS, GSISKS>> &
+	Record<A, FacetIndex<T, PK, SK, GSIPK, GSISK, PV, GSIPKS, GSISKS>>;
 
 export type FacetWithIndex<F, K> = F & K;
 
@@ -419,20 +437,7 @@ class FacetImpl<
 		 * attributes, so normalise Date and numeric-string inputs
 		 * before marshalling.
 		 */
-		let ttlAttribute: number | undefined;
-		if (this.ttl) {
-			const raw: unknown = model[this.ttl];
-			if (raw instanceof Date) {
-				ttlAttribute = Math.floor(raw.getTime() / 1000);
-			} else if (typeof raw === 'number') {
-				ttlAttribute = raw;
-			} else if (typeof raw === 'string') {
-				ttlAttribute = parseInt(raw, 10);
-			}
-			if (ttlAttribute !== undefined && Number.isNaN(ttlAttribute)) {
-				ttlAttribute = undefined;
-			}
-		}
+		const ttlAttribute = this.ttl ? normalizeTtl(model[this.ttl]) : undefined;
 
 		const dynamoDbRecord = {
 			...attributes,
@@ -762,6 +767,282 @@ class FacetImpl<
 	}
 
 	/**
+	 * Partially update a single record by its exact partition and sort
+	 * key, without rewriting the fields the patch doesn't mention.
+	 *
+	 * Issues a Dynamo DB `UpdateItem` that sets the patched fields and
+	 * recomputes every synthetic key attribute (`GSI*PK`/`GSI*SK`, and
+	 * the `ttl` attribute) whose inputs the patch touches, so indexes
+	 * never silently drift from the record. A patched field set to
+	 * `undefined` removes the attribute, matching a `put` whose model
+	 * omitted it. The patch never upserts: patching a missing record
+	 * reports a failure.
+	 *
+	 * Strict mode is the default and enforces key completeness at
+	 * compile time: if the patch touches an input of any registered
+	 * index key, every other input of that key must be present in
+	 * `query` or `patch`, or the call does not compile. The compile
+	 * error lists one required property per missing field, named
+	 * `` `Missing key input: ${field}` ``, on the `patch` argument.
+	 *
+	 * The check reads the keys of the argument types the compiler
+	 * infers at the call site, so it is strongest with inline object
+	 * literals. A `query` or `patch` value typed wider (for example a
+	 * variable annotated `Partial<...>`) declares every field at the
+	 * type level, so the compiler can't see what's missing. Strict
+	 * mode never issues a fallback read: any incomplete call the
+	 * compiler couldn't check (a widened argument, or a facet widened
+	 * to a type without its index accessors) reports a
+	 * {@link PatchMissingKeyInputsError} at runtime instead. To read
+	 * missing inputs from the record instead, opt into the
+	 * `missingKeyInputs: 'read'` overload.
+	 *
+	 * Values that come from outside the patch (extra `query` fields)
+	 * are asserted in the write's condition, so a stale value resolves
+	 * as `wasSuccessful: false` instead of writing a stale key.
+	 *
+	 * @remarks
+	 * Fields that compose the base `PK` or `SK` (including base shard
+	 * keys) can't be patched, and report a
+	 * {@link PatchIdentityFieldError}. Changing a record's identity
+	 * requires a delete and a put.
+	 *
+	 * Like `put`, a patch can land and still report a failure when the
+	 * post-update record fails the validator. A
+	 * `ConditionalCheckFailedException` without a `conflictingItemRaw`
+	 * means the record doesn't exist; with one, a condition or an
+	 * internal guard failed against that state. A caller `condition`
+	 * on a `Date` field always compares an ISO string regardless of
+	 * `dateFormat`, matching `put` and `delete` conditions.
+	 *
+	 * The mode is picked per call site with a literal, so the compiler
+	 * can select the overload. To branch on a runtime value, call once
+	 * per mode inside the branch instead of passing a widened union.
+	 *
+	 * @param query - Object providing the PK and SK field values, plus
+	 * any key inputs the patched fields' keys need.
+	 * @param patch - The fields to change. `undefined` removes the
+	 * attribute; omitted fields stay untouched.
+	 * @param options - Optional {@link PatchOptions}, e.g. a
+	 * `condition`.
+	 * @returns A {@link PatchSingleItemResponse}. `wasSuccessful: true`
+	 * narrows to the full post-patch `record`; `wasSuccessful: false`
+	 * narrows to `error` plus the conflicting item when DynamoDB
+	 * returned one. The promise never rejects.
+	 *
+	 * @example
+	 * ```ts
+	 * // Compiles: postStatus and the base keys cover GSI1PK and GSI2PK.
+	 * await PostFacet.patch(
+	 *   { pageId: 'p1', postId: 'abc' },
+	 *   { postStatus: PostStatus.Published },
+	 * );
+	 * // Does not compile when GSI1SK also needs authorId; the error
+	 * // demands the property "Missing key input: authorId".
+	 * ```
+	 */
+	async patch<
+		This extends FacetImpl<T, PK, SK, PV>,
+		Q extends Pick<T, PK | SK> & Partial<T>,
+		P extends PatchOf<T, PK, SK>,
+	>(
+		this: This,
+		query: Q,
+		patch: { [K in keyof P]: P[K] } & PatchDemands<
+			MissingPatchKeyInputs<PatchKeyInputGroups<This>, P, Q, PK, SK>
+		>,
+		options?: Omit<PatchOptions<T>, 'missingKeyInputs'> & {
+			missingKeyInputs?: 'strict';
+		},
+	): Promise<PatchSingleItemResponse<T>>;
+	/**
+	 * Partially update a single record, reading the record first when
+	 * a recomputed key needs a field the call doesn't supply.
+	 *
+	 * Opting into `missingKeyInputs: 'read'` trades the default
+	 * compile-time check for an implicit read: when every input of
+	 * every affected key is present in `query` or `patch`, this is a
+	 * single `UpdateItem`; otherwise the record is read (one extra
+	 * round trip, reported through `usedFallbackRead: true` on the
+	 * response) and the affected keys recompute from its current
+	 * values. Use `patchInputs` to see which fields a patch needs.
+	 *
+	 * Values that come from outside the patch (extra `query` fields,
+	 * or the fallback read) are asserted in the write's condition, so
+	 * a concurrent change to a key input resolves as
+	 * `wasSuccessful: false` instead of writing a stale key.
+	 *
+	 * @remarks
+	 * The fallback read runs the record through the facet's
+	 * `validator` and recomputes keys from the validated values. A
+	 * validator that transforms or defaults a key field recomputes
+	 * from the rewritten value while the stored field keeps its old
+	 * representation; supply such fields in `query` or `patch`, or
+	 * stay in the default strict mode.
+	 *
+	 * @param query - Object providing the PK and SK field values. Extra
+	 * fields are used (and verified) as key inputs when a patched field
+	 * shares a composite key with them.
+	 * @param patch - The fields to change. `undefined` removes the
+	 * attribute; omitted fields stay untouched.
+	 * @param options - {@link PatchOptions} with
+	 * `missingKeyInputs: 'read'`.
+	 * @returns A {@link PatchSingleItemResponse}. The promise never
+	 * rejects.
+	 *
+	 * @example
+	 * ```ts
+	 * const result = await PostFacet.patch(
+	 *   { pageId: 'p1', postId: 'abc' },
+	 *   { sendAt: new Date() },
+	 *   { missingKeyInputs: 'read' },
+	 * );
+	 * if (result.wasSuccessful && result.usedFallbackRead) {
+	 *   console.log('authorId was read to recompute GSI1SK');
+	 * }
+	 * ```
+	 */
+	async patch(
+		query: Pick<T, PK | SK> & Partial<T>,
+		patch: PatchOf<T, PK, SK>,
+		options: Omit<PatchOptions<T>, 'missingKeyInputs'> & {
+			missingKeyInputs: 'read';
+		},
+	): Promise<PatchSingleItemResponse<T>>;
+	async patch(
+		query: Pick<T, PK | SK> & Partial<T>,
+		patch: PatchOf<T, PK, SK>,
+		options?: PatchOptions<T>,
+	): Promise<PatchSingleItemResponse<T>> {
+		// PatchOf<T, PK, SK> is a per-union-member Partial<Omit<...>>;
+		// the compiler can't relate it to Partial<T> while T is generic.
+		const patchRecord = patch as unknown as Partial<T>;
+		const patchFields = Object.keys(patchRecord);
+		if (patchFields.length === 0) {
+			return {
+				wasSuccessful: false,
+				error: new EmptyPatchError(),
+				usedFallbackRead: false,
+			};
+		}
+		try {
+			assertNoReservedAttributes(patchRecord);
+		} catch (error) {
+			return { wasSuccessful: false, error, usedFallbackRead: false };
+		}
+
+		const identityInputs = new Set<PropertyKey>([
+			...this.#PK.keys,
+			...(this.#PK.shard?.keys ?? []),
+			...this.#SK.keys,
+			...(this.#SK.shard?.keys ?? []),
+		]);
+		const touchedIdentity = patchFields.filter((field) =>
+			identityInputs.has(field),
+		);
+		if (touchedIdentity.length > 0) {
+			return {
+				wasSuccessful: false,
+				error: new PatchIdentityFieldError(touchedIdentity),
+				usedFallbackRead: false,
+			};
+		}
+
+		const gsiTargets: PatchKeyTarget<T>[] = [];
+		for (const facetIndex of this.#indexes.values()) {
+			gsiTargets.push(...facetIndex.patchTargets);
+		}
+		/**
+		 * Base key fields are trusted without a guard. They addressed
+		 * the row, and key attributes never change for the life of a
+		 * row. Base shard keys are not: a shard id is a many-to-one
+		 * hash, so addressing the row doesn't prove a shard key's
+		 * value.
+		 */
+		const identityFields = new Set<PropertyKey>([
+			...this.#PK.keys,
+			...this.#SK.keys,
+		]);
+
+		const patchFacet: PatchFacet<T> = {
+			pk: (model) => this.pk(model),
+			sk: (model) => this.sk(model),
+			out: (record) => this.out(record),
+			marshalValue: (value) =>
+				toAttributeValue(value, {
+					dateFormat: this.#dateFormat,
+					convertEmptyValues: this.#convertEmptyValues,
+				}),
+			ttl: this.ttl,
+			connection: this.connection,
+		};
+
+		return patchSingleItem(
+			patchFacet,
+			gsiTargets,
+			identityFields,
+			query,
+			patchRecord,
+			options,
+		);
+	}
+
+	/**
+	 * Report the extra fields a patch of the given fields needs before
+	 * it can recompute every affected composite key.
+	 *
+	 * The result maps each affected synthetic key attribute to the
+	 * inputs that come from neither the patch fields nor the base key
+	 * fields, including shard keys. Supply those fields in the patch
+	 * call's `query` to keep the patch to a single round trip; without
+	 * them, strict mode (the default) rejects the call, and
+	 * `missingKeyInputs: 'read'` issues a fallback read. An empty
+	 * result means a patch of these fields is always self-sufficient.
+	 *
+	 * @param fields - The fields the patch would change.
+	 * @returns Affected synthetic key attribute names mapped to the
+	 * fields to supply.
+	 *
+	 * @example
+	 * ```ts
+	 * PostFacet.patchInputs(['sendAt']);
+	 * // { GSI1SK: ['authorId'] }
+	 * ```
+	 */
+	patchInputs(
+		fields: readonly Exclude<Keys<T>, PK | SK>[],
+	): Record<string, readonly Exclude<Keys<T>, PK | SK>[]> {
+		const touched = new Set<PropertyKey>(fields);
+		const identityFields = new Set<PropertyKey>([
+			...this.#PK.keys,
+			...this.#SK.keys,
+		]);
+		const requirements: Record<string, readonly Exclude<Keys<T>, PK | SK>[]> =
+			{};
+		for (const facetIndex of this.#indexes.values()) {
+			for (const target of facetIndex.patchTargets) {
+				if (!target.inputs.some((field) => touched.has(field))) {
+					continue;
+				}
+				const missing = [
+					...new Set(
+						target.inputs.filter(
+							(field) => !touched.has(field) && !identityFields.has(field),
+						),
+					),
+				];
+				if (missing.length > 0) {
+					requirements[target.attributeName] = missing as Exclude<
+						Keys<T>,
+						PK | SK
+					>[];
+				}
+			}
+		}
+		return requirements;
+	}
+
+	/**
 	 * Begin a query over a single partition on the base table.
 	 *
 	 * Returns a {@link PartitionQuery} builder that exposes the sort-key
@@ -849,14 +1130,16 @@ class FacetImpl<
 		GSIPK extends Keys<T>,
 		GSISK extends Keys<T>,
 		A extends string,
+		GSIPKS extends PrimitiveShardKey<T> = never,
+		GSISKS extends PrimitiveShardKey<T> = never,
 	>({
 		PK,
 		SK,
 		index,
 		alias,
-	}: AddIndexOptions<T, I, GSIPK, GSISK, A>): FacetWithIndex<
+	}: AddIndexOptions<T, I, GSIPK, GSISK, A, GSIPKS, GSISKS>): FacetWithIndex<
 		this,
-		FacetIndexKeys<T, PK, SK, GSIPK, GSISK, I, A, PV>
+		FacetIndexKeys<T, PK, SK, GSIPK, GSISK, I, A, PV, GSIPKS, GSISKS>
 	> {
 		if (this.#indexes.has(index)) {
 			throw new Error(
@@ -887,7 +1170,7 @@ class FacetImpl<
 		 */
 		return this as unknown as FacetWithIndex<
 			this,
-			FacetIndexKeys<T, PK, SK, GSIPK, GSISK, I, A, PV>
+			FacetIndexKeys<T, PK, SK, GSIPK, GSISK, I, A, PV, GSIPKS, GSISKS>
 		>;
 	}
 }
@@ -943,10 +1226,12 @@ export interface AddIndexOptions<
 	GSIPK extends Keys<T>,
 	GSISK extends Keys<T>,
 	A extends string,
+	GSIPKS extends PrimitiveShardKey<T> = PrimitiveShardKey<T>,
+	GSISKS extends PrimitiveShardKey<T> = PrimitiveShardKey<T>,
 > {
 	index: I;
-	PK: KeyConfiguration<T, GSIPK>;
-	SK: KeyConfiguration<T, GSISK>;
+	PK: KeyConfiguration<T, GSIPK, GSIPKS>;
+	SK: KeyConfiguration<T, GSISK, GSISKS>;
 	alias?: A;
 }
 
@@ -957,10 +1242,12 @@ export class FacetIndex<
 	GSIPK extends Keys<T> = Keys<T>,
 	GSISK extends Keys<T> = Keys<T>,
 	PV extends PickValidator<T> | undefined = PickValidator<T> | undefined,
+	GSIPKS extends PrimitiveShardKey<T> = PrimitiveShardKey<T>,
+	GSISKS extends PrimitiveShardKey<T> = PrimitiveShardKey<T>,
 > {
 	#facet: Facet<T, PK, SK, PV>;
-	#PK: KeyConfiguration<T, GSIPK>;
-	#SK: KeyConfiguration<T, GSISK>;
+	#PK: KeyConfiguration<T, GSIPK, GSIPKS>;
+	#SK: KeyConfiguration<T, GSISK, GSISKS>;
 
 	readonly indexName: Index;
 
@@ -974,8 +1261,8 @@ export class FacetIndex<
 	constructor(
 		indexName: Index,
 		facet: Facet<T, PK, SK, PV>,
-		gsipk: KeyConfiguration<T, GSIPK>,
-		gsisk: KeyConfiguration<T, GSISK>,
+		gsipk: KeyConfiguration<T, GSIPK, GSIPKS>,
+		gsisk: KeyConfiguration<T, GSISK, GSISKS>,
 	) {
 		this.indexName = indexName;
 		this.#facet = facet;
@@ -1004,6 +1291,27 @@ export class FacetIndex<
 	 */
 	get keyFields(): readonly (GSIPK | GSISK)[] {
 		return [...this.#PK.keys, ...this.#SK.keys];
+	}
+
+	/**
+	 * @internal Used by `Facet.patch` to enumerate this index's key
+	 * inputs (key fields plus shard keys) and recompute its synthetic
+	 * attributes. Not part of the public API.
+	 */
+	get patchTargets(): readonly PatchKeyTarget<T>[] {
+		const indexKeyNames = IndexKeyNameMap[this.indexName];
+		return [
+			{
+				attributeName: indexKeyNames.PK,
+				inputs: [...this.#PK.keys, ...(this.#PK.shard?.keys ?? [])],
+				build: (model) => this.pk(model),
+			},
+			{
+				attributeName: indexKeyNames.SK,
+				inputs: [...this.#SK.keys, ...(this.#SK.shard?.keys ?? [])],
+				build: (model) => this.sk(model),
+			},
+		];
 	}
 
 	/**
