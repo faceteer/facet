@@ -17,6 +17,7 @@ import {
 	PatchMissingKeyInputsError,
 	patchSingleItem,
 	type PatchFacet,
+	type PatchKeyInputGroups,
 	type PatchKeyTarget,
 } from './patch.js';
 import { wait } from './wait.js';
@@ -153,6 +154,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 			throw result.error;
 		}
 		expect(result.record.postTitle).toBe('Updated');
+		expect(result.usedFallbackRead).toBe(false);
 		expect(getSpy).not.toHaveBeenCalled();
 
 		const after = await rawItem(post);
@@ -179,6 +181,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		if (!result.wasSuccessful) {
 			throw result.error;
 		}
+		expect(result.usedFallbackRead).toBe(false);
 		expect(getSpy).not.toHaveBeenCalled();
 		expect(updateSpy).toHaveBeenCalledTimes(1);
 
@@ -241,6 +244,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		if (!result.wasSuccessful) {
 			throw result.error;
 		}
+		expect(result.usedFallbackRead).toBe(true);
 		expect(getSpy).toHaveBeenCalledTimes(1);
 		expect(updateSpy).toHaveBeenCalledTimes(1);
 
@@ -255,7 +259,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		expect(after.authorId.S).toBe(post.authorId);
 	});
 
-	test('missingKeyInputs error mode reports which fields and keys are involved without a network call', async () => {
+	test('strict mode reports which fields and keys are involved when the compiler cannot see them', async () => {
 		const post = await putPost({
 			sendAt: new Date('2026-03-05T00:00:00.000Z'),
 			authorId: 'author-5',
@@ -263,10 +267,17 @@ describe('Facet.patch against DynamoDB Local', () => {
 		const getSpy = vi.spyOn(ddb, 'getItem');
 		const updateSpy = vi.spyOn(ddb, 'updateItem');
 
-		const result = await PatchPostFacet.patch(
+		/**
+		 * A facet widened to a type without its index accessors erases
+		 * what the strict overload checks at compile time, so the same
+		 * incomplete patch compiles here and exercises the runtime
+		 * backstop instead.
+		 */
+		const ErasedPostFacet: Facet<Post, 'pageId', 'postId'> = PatchPostFacet;
+		const result = await ErasedPostFacet.patch(
 			{ pageId: post.pageId, postId: post.postId },
 			{ sendAt: new Date('2026-04-05T00:00:00.000Z') },
-			{ missingKeyInputs: 'error' },
+			{ missingKeyInputs: 'strict' },
 		);
 
 		expect(result.wasSuccessful).toBe(false);
@@ -277,6 +288,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		const error = result.error as PatchMissingKeyInputsError;
 		expect(error.fields).toEqual(['authorId']);
 		expect(error.attributeNames).toEqual(['GSI1SK']);
+		expect(result.usedFallbackRead).toBe(false);
 		expect(getSpy).not.toHaveBeenCalled();
 		expect(updateSpy).not.toHaveBeenCalled();
 	});
@@ -292,7 +304,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		const result = await PatchPostFacet.patch(
 			{ pageId: post.pageId, postId: post.postId, authorId: post.authorId },
 			{ sendAt: newSendAt },
-			{ missingKeyInputs: 'error' },
+			{ missingKeyInputs: 'strict' },
 		);
 
 		if (!result.wasSuccessful) {
@@ -493,6 +505,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		expect((result.error as Error).name).toBe(
 			'ConditionalCheckFailedException',
 		);
+		expect(result.usedFallbackRead).toBe(true);
 
 		const after = await rawItem(post);
 		expect(after.GSI1SK).toEqual(before.GSI1SK);
@@ -541,6 +554,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 		}
 		expect((plain.error as Error).name).toBe('ConditionalCheckFailedException');
 		expect(plain.conflictingItemRaw).toBeUndefined();
+		expect(plain.usedFallbackRead).toBe(false);
 
 		const viaRead = await PatchPostFacet.patch(
 			{ pageId: ghost.pageId, postId: ghost.postId },
@@ -551,6 +565,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 			throw new Error('Expected the patch to report a failure');
 		}
 		expect(viaRead.error).toBeInstanceOf(PatchItemNotFoundError);
+		expect(viaRead.usedFallbackRead).toBe(true);
 
 		const gone = await ddb.getItem({
 			TableName: tableName,
@@ -931,7 +946,7 @@ describe('Facet.patch against DynamoDB Local', () => {
 			await PatchPostFacet.patch(
 				{ pageId: 'p', postId: 'a' },
 				{ postTitle: 't' },
-				{ missingKeyInputs: 'error' },
+				{ missingKeyInputs: 'strict' },
 			);
 			await PatchPostFacet.patch(
 				{ pageId: 'p', postId: 'a' },
@@ -939,7 +954,173 @@ describe('Facet.patch against DynamoDB Local', () => {
 				// @ts-expect-error auto is not a valid missingKeyInputs value
 				{ missingKeyInputs: 'auto' },
 			);
+
+			// Both response branches expose the fallback-read flag.
+			const flag: boolean = result.usedFallbackRead;
+			void flag;
 		});
+
+		expect<0>(0 satisfies 0).toBe(0);
+	});
+
+	test('patchInputs reports the extra fields each affected key needs', () => {
+		expect(PatchPostFacet.patchInputs(['sendAt'])).toEqual({
+			GSI1SK: ['authorId'],
+		});
+		expect(PatchPostFacet.patchInputs(['authorId'])).toEqual({
+			GSI1SK: ['sendAt'],
+		});
+		// Base key fields cover GSI1PK's shard key and GSI2PK's inputs.
+		expect(PatchPostFacet.patchInputs(['postStatus'])).toEqual({});
+		expect(PatchPostFacet.patchInputs(['postTitle'])).toEqual({});
+		expect(PatchPostFacet.patchInputs(['sendAt', 'authorId'])).toEqual({});
+		expect(PatchPostFacet.patchInputs(['postStatus', 'sendAt'])).toEqual({
+			GSI1SK: ['authorId'],
+		});
+
+		// Non-identity shard keys count as required inputs.
+		interface Item {
+			itemId: string;
+			category?: string;
+			region?: string;
+		}
+		const RegionFacet = new Facet({
+			name: 'PATCH_REGION_INPUTS',
+			validator: (input: unknown): Item => input as Item,
+			PK: { keys: ['itemId'], prefix: '#PRII' },
+			SK: { keys: [], prefix: '#PRII' },
+			connection: { dynamoDb: ddb, tableName },
+		}).addIndex({
+			index: Index.GSI1,
+			PK: {
+				keys: ['category'],
+				shard: { count: 4, keys: ['region'] },
+				prefix: '#PRIC',
+			},
+			SK: { keys: [], prefix: '#PRIC' },
+		});
+		expect(RegionFacet.patchInputs(['category'])).toEqual({
+			GSI1PK: ['region'],
+		});
+
+		PatchPostFacet.patchInputs(
+			// @ts-expect-error pageId composes the PK and is not patchable
+			['pageId'],
+		);
+	});
+
+	test('strict mode enforces key-input completeness at compile time', () => {
+		void (async () => {
+			// Touching a GSI key input without its co-input is rejected;
+			// the required property in the error names the missing field.
+			// @ts-expect-error strict demands authorId for GSI1SK
+			await PatchPostFacet.patch(
+				{ pageId: 'p', postId: 'a' },
+				{ sendAt: new Date() },
+				{ missingKeyInputs: 'strict' },
+			);
+
+			// The co-input satisfies the demand from either parameter.
+			await PatchPostFacet.patch(
+				{ pageId: 'p', postId: 'a', authorId: 'a1' },
+				{ sendAt: new Date() },
+				{ missingKeyInputs: 'strict' },
+			);
+			await PatchPostFacet.patch(
+				{ pageId: 'p', postId: 'a' },
+				{ sendAt: new Date(), authorId: 'a1' },
+				{ missingKeyInputs: 'strict' },
+			);
+
+			// Base key fields count as supplied, including as the shard
+			// key of GSI1PK (postId) and the co-input of GSI2PK (pageId).
+			await PatchPostFacet.patch(
+				{ pageId: 'p', postId: 'a' },
+				{ postStatus: PostStatus.Queued },
+				{ missingKeyInputs: 'strict' },
+			);
+
+			// A patch that touches no key input has no demands.
+			await PatchPostFacet.patch(
+				{ pageId: 'p', postId: 'a' },
+				{ postTitle: 't' },
+				{ missingKeyInputs: 'strict' },
+			);
+
+			// Non-identity shard keys are demanded like any other input.
+			interface Item {
+				itemId: string;
+				category?: string;
+				region?: string;
+			}
+			const RegionFacet = new Facet({
+				name: 'PATCH_REGION',
+				validator: (input: unknown): Item => input as Item,
+				PK: { keys: ['itemId'], prefix: '#PRI' },
+				SK: { keys: [], prefix: '#PRI' },
+				connection: { dynamoDb: ddb, tableName },
+			}).addIndex({
+				index: Index.GSI1,
+				PK: {
+					keys: ['category'],
+					shard: { count: 4, keys: ['region'] },
+					prefix: '#PRC',
+				},
+				SK: { keys: [], prefix: '#PRC' },
+			});
+			// @ts-expect-error strict demands the shard key region
+			await RegionFacet.patch(
+				{ itemId: 'x' },
+				{ category: 'c' },
+				{ missingKeyInputs: 'strict' },
+			);
+			await RegionFacet.patch(
+				{ itemId: 'x', region: 'us' },
+				{ category: 'c' },
+				{ missingKeyInputs: 'strict' },
+			);
+
+			// The demand property is branded, so supplying it cannot
+			// bypass the check.
+			// @ts-expect-error the demand carries an unexported brand
+			await PatchPostFacet.patch(
+				{ pageId: 'p', postId: 'a' },
+				{ sendAt: new Date() },
+				{
+					missingKeyInputs: 'strict',
+					'Supply these key inputs in query or patch': ['authorId'],
+				},
+			);
+
+			// Documented limit, pinned deliberately: a widened patch or
+			// query declares every field at the type level, so the
+			// compile-time check passes and the runtime backstop takes
+			// over instead.
+			const widePatch: Partial<Omit<Post, 'pageId' | 'postId'>> = {
+				sendAt: new Date(),
+			};
+			await PatchPostFacet.patch({ pageId: 'p', postId: 'a' }, widePatch, {
+				missingKeyInputs: 'strict',
+			});
+			const wideQuery: Pick<Post, 'pageId' | 'postId'> & Partial<Post> = {
+				pageId: 'p',
+				postId: 'a',
+			};
+			await PatchPostFacet.patch(
+				wideQuery,
+				{ sendAt: new Date() },
+				{ missingKeyInputs: 'strict' },
+			);
+		});
+
+		// The exported groups type carries no undefined from optional
+		// facet properties like ttl.
+		const groupsHaveNoUndefined: [
+			Extract<PatchKeyInputGroups<typeof PatchPostFacet>, undefined>,
+		] extends [never]
+			? true
+			: false = true;
+		void groupsHaveNoUndefined;
 
 		expect<0>(0 satisfies 0).toBe(0);
 	});

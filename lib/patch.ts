@@ -7,7 +7,7 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import type { AttributeMap } from './converter/converter.js';
 import { condition, type ConditionExpression } from './expression/condition.js';
-import type { WithoutReservedAttributes } from './facet.js';
+import type { FacetIndex, WithoutReservedAttributes } from './facet.js';
 import type { Keys } from './keys.js';
 import { normalizeTtl } from './ttl.js';
 
@@ -42,11 +42,80 @@ export interface PatchOptions<T> {
 	 *
 	 * - `'read'` (default): read the record and recompute every
 	 *   affected key from its current values. Two round trips.
-	 * - `'error'`: report a {@link PatchMissingKeyInputsError} naming
-	 *   the fields to supply. No network call.
+	 * - `'strict'`: never read. An incomplete patch fails to compile
+	 *   at the call site, and a {@link PatchMissingKeyInputsError} is
+	 *   reported if one gets through anyway (for example through a
+	 *   type-erased facet).
 	 */
-	missingKeyInputs?: 'read' | 'error';
+	missingKeyInputs?: 'read' | 'strict';
 }
+
+/**
+ * One `{ inputs: ... }` wrapper per synthetic key registered on the
+ * facet type `This`, holding the union of model fields (key fields
+ * plus shard keys) that compose that key. Extracted from the index
+ * accessors that `addIndex` merges into the facet's type.
+ */
+/* eslint-disable @typescript-eslint/no-unused-vars -- the unused infer slots position the key and shard parameters */
+export type PatchKeyInputGroups<This> = NonNullable<
+	{
+		[K in keyof This]: This[K] extends FacetIndex<
+			infer _T,
+			infer _PK,
+			infer _SK,
+			infer GSIPK,
+			infer GSISK,
+			infer _PV,
+			infer GSIPKS,
+			infer GSISKS
+		>
+			? { inputs: GSIPK | GSIPKS } | { inputs: GSISK | GSISKS }
+			: never;
+	}[keyof This]
+	// NonNullable strips the `undefined` that optional facet
+	// properties (like `ttl`) fold into the indexed union.
+>;
+/* eslint-enable @typescript-eslint/no-unused-vars */
+
+/**
+ * The fields a strict patch still needs: for every synthetic key the
+ * patch touches, the inputs found in neither the patch, the query,
+ * nor the base key fields. `never` when the patch is self-sufficient.
+ */
+export type MissingPatchKeyInputs<
+	Groups,
+	P,
+	Q,
+	PK extends PropertyKey,
+	SK extends PropertyKey,
+> = Groups extends { inputs: infer U extends PropertyKey }
+	? [Extract<keyof P, U>] extends [never]
+		? never
+		: Exclude<U, keyof P | keyof Q | PK | SK>
+	: never;
+
+/**
+ * Brands the strict-mode demand property so no options object can
+ * satisfy it. The symbol is never exported and has no runtime value.
+ */
+declare const patchDemandBrand: unique symbol;
+
+/**
+ * The options shape of a strict-mode patch. When the patch leaves a
+ * touched key's inputs unresolved, the required
+ * `'Supply these key inputs in query or patch'` property makes the
+ * call fail to compile, naming the missing fields in the error. The
+ * property is branded with an unexported symbol, so it can't be
+ * supplied to bypass the check.
+ */
+export type StrictPatchOptions<D extends PropertyKey> = [D] extends [never]
+	? { missingKeyInputs: 'strict' }
+	: {
+			missingKeyInputs: 'strict';
+			'Supply these key inputs in query or patch': readonly D[] & {
+				readonly [patchDemandBrand]: typeof patchDemandBrand;
+			};
+		};
 
 /**
  * The successful result of a `Facet.patch` call.
@@ -58,6 +127,12 @@ export interface PatchSuccess<T> {
 	 * 'ALL_NEW'` and validated by the facet's `validator`.
 	 */
 	record: T;
+	/**
+	 * True when the patch issued a fallback read to resolve missing
+	 * key inputs, adding a second round trip. `Facet.patchInputs`
+	 * reports ahead of time which fields to supply to avoid the read.
+	 */
+	usedFallbackRead: boolean;
 }
 
 /**
@@ -79,13 +154,20 @@ export interface PatchFailure<T> {
 	 * The raw conflicting item, set whenever DynamoDB returned one.
 	 */
 	conflictingItemRaw?: AttributeMap;
+	/**
+	 * True when the patch issued a fallback read before failing.
+	 */
+	usedFallbackRead: boolean;
 }
 
 export type PatchSingleItemResponse<T> = PatchSuccess<T> | PatchFailure<T>;
 
 /**
- * Reported when `missingKeyInputs: 'error'` is set and an affected
+ * Reported when `missingKeyInputs: 'strict'` is set and an affected
  * composite key can't be recomputed from `query` and `patch` alone.
+ * Strict mode normally rejects such a patch at compile time; this is
+ * the runtime backstop for calls the compiler can't see, such as a
+ * facet widened to a type without its index accessors.
  */
 export class PatchMissingKeyInputsError extends Error {
 	/**
@@ -215,6 +297,7 @@ export async function patchSingleItem<T extends WithoutReservedAttributes<T>>(
 	patch: Partial<T>,
 	options: PatchOptions<T> = {},
 ): Promise<PatchSingleItemResponse<T>> {
+	let usedFallbackRead = false;
 	try {
 		const queryRecord = query as Record<PropertyKey, unknown>;
 		const patchRecord = patch as Record<PropertyKey, unknown>;
@@ -260,7 +343,7 @@ export async function patchSingleItem<T extends WithoutReservedAttributes<T>>(
 		let readItem: AttributeMap | undefined;
 
 		if (missing.length > 0) {
-			if (options.missingKeyInputs === 'error') {
+			if (options.missingKeyInputs === 'strict') {
 				const missingSet = new Set(missing);
 				const dependents = affected
 					.filter((target) =>
@@ -270,6 +353,7 @@ export async function patchSingleItem<T extends WithoutReservedAttributes<T>>(
 				return {
 					wasSuccessful: false,
 					error: new PatchMissingKeyInputsError(missing, dependents),
+					usedFallbackRead,
 				};
 			}
 
@@ -277,11 +361,13 @@ export async function patchSingleItem<T extends WithoutReservedAttributes<T>>(
 				TableName: facet.connection.tableName,
 				Key: key,
 			};
+			usedFallbackRead = true;
 			const getResult = await facet.connection.dynamoDb.getItem(getInput);
 			if (!getResult.Item) {
 				return {
 					wasSuccessful: false,
 					error: new PatchItemNotFoundError(),
+					usedFallbackRead,
 				};
 			}
 			readItem = getResult.Item;
@@ -472,21 +558,24 @@ export async function patchSingleItem<T extends WithoutReservedAttributes<T>>(
 		}
 
 		const result = await facet.connection.dynamoDb.updateItem(updateInput);
-		/* v8 ignore next 5 -- ALL_NEW always returns Attributes on success */
+		/* v8 ignore next 6 -- ALL_NEW always returns Attributes on success */
 		if (!result.Attributes) {
 			return {
 				wasSuccessful: false,
 				error: new Error('UpdateItem returned no attributes.'),
+				usedFallbackRead,
 			};
 		}
 		return {
 			wasSuccessful: true,
 			record: facet.out(result.Attributes),
+			usedFallbackRead,
 		};
 	} catch (error) {
 		const failure: PatchFailure<T> = {
 			wasSuccessful: false,
 			error,
+			usedFallbackRead,
 		};
 		if (error instanceof ConditionalCheckFailedException && error.Item) {
 			failure.conflictingItemRaw = error.Item;

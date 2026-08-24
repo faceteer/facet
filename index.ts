@@ -46,11 +46,14 @@ export type {
 export type { GetOptions } from './lib/get.js';
 
 export type {
+	MissingPatchKeyInputs,
 	PatchFailure,
+	PatchKeyInputGroups,
 	PatchOf,
 	PatchOptions,
 	PatchSingleItemResponse,
 	PatchSuccess,
+	StrictPatchOptions,
 } from './lib/patch.js';
 
 export type {
