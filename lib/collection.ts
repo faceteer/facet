@@ -148,15 +148,72 @@ type ModelUnion<M extends MemberMap> = ModelOf<M[keyof M]>;
  */
 export type SharedField<M extends MemberMap> = keyof ModelUnion<M>;
 
+type UnwrapMember<V> = V extends SingleMember<infer F> ? F : V;
+
 /**
- * The argument type of a collection `query()`: a partial object over
- * the fields the member models share, typically just the
- * partition-key fields. If the members share no fields this is `{}`
- * and the compile-time check is vacuous; the query-time partition-key
- * guard is the correctness backstop.
+ * The key source a collection member reads layouts through: the facet
+ * itself on the base table, or the member's registered `FacetIndex`
+ * when the collection queries a GSI. A member without the index
+ * registered resolves to `never`, so it contributes nothing to the
+ * compile-time checks; construction throws for it at runtime.
  */
-export type PartitionInput<M extends MemberMap> = {
-	[K in SharedField<M>]?: ModelUnion<M>[K];
+type KeySourceOf<V, I extends Index | undefined> = [I] extends [undefined]
+	? UnwrapMember<V>
+	: UnwrapMember<V> extends Record<NonNullable<I>, infer S>
+		? S
+		: never;
+
+/**
+ * The `[never]` guards matter: `never extends X` always takes the true
+ * branch, which would infer the key fields of an unregistered index
+ * member as `unknown` and wave every field through the checks.
+ */
+type PkFieldsOf<V, I extends Index | undefined> = [KeySourceOf<V, I>] extends [
+	never,
+]
+	? never
+	: KeySourceOf<V, I> extends { readonly pkLayout: KeyLayout<infer K> }
+		? K
+		: never;
+
+type SkFieldsOf<V, I extends Index | undefined> = [KeySourceOf<V, I>] extends [
+	never,
+]
+	? never
+	: KeySourceOf<V, I> extends { readonly skLayout: KeyLayout<infer K> }
+		? K
+		: never;
+
+/**
+ * The union of every member's partition-key field names: the fields a
+ * collection `query()` must supply.
+ */
+type RequiredPartitionField<
+	M extends MemberMap,
+	I extends Index | undefined,
+> = {
+	[P in keyof M]: PkFieldsOf<M[P], I>;
+}[keyof M];
+
+/**
+ * The argument type of a collection `query()`: every member's
+ * partition-key fields are required, and the remaining fields the
+ * member models share stay optional. On a GSI collection (`I` is an
+ * `Index`) the required fields come from each member's index
+ * partition-key layout instead. A member typed without literal key
+ * layouts (a hand-built structural stand-in) contributes nothing
+ * required; the query-time partition-key guard is the runtime
+ * backstop.
+ */
+export type PartitionInput<
+	M extends MemberMap,
+	I extends Index | undefined = undefined,
+> = {
+	[K in RequiredPartitionField<M, I>]: FieldTypeUnion<M, K>;
+} & {
+	[
+		K in Exclude<SharedField<M>, RequiredPartitionField<M, I>>
+	]?: ModelUnion<M>[K];
 };
 
 type FieldOn<V, K extends PropertyKey> = K extends keyof ModelOf<V>
@@ -181,19 +238,41 @@ type IdenticalAcross<M extends MemberMap, K extends PropertyKey> = {
 	: false;
 
 /**
- * The fields eligible as an ordered collection's `orderBy` axis: shared
- * by every member, typed identically on every member, and `Date` or
- * `string`. `number` fields are excluded because composite keys
- * stringify numbers without zero-padding, so lexicographic order
- * diverges from numeric order.
+ * `true` when the field `K` appears in every member's sort key: on the
+ * base table, or on the `I` index for a GSI collection.
  */
-export type AxisField<M extends MemberMap> = {
-	[K in SharedField<M>]: IdenticalAcross<M, K> extends true
-		? [FieldTypeUnion<M, K>] extends [Date]
-			? K
-			: [FieldTypeUnion<M, K>] extends [string]
+type InEverySortKey<
+	M extends MemberMap,
+	K extends PropertyKey,
+	I extends Index | undefined,
+> = {
+	[P in keyof M]: [K] extends [SkFieldsOf<M[P], I>] ? true : false;
+}[keyof M] extends true
+	? true
+	: false;
+
+/**
+ * The fields eligible as an ordered collection's `orderBy` axis: shared
+ * by every member, part of every member's sort key (on the base table,
+ * or on the `I` index), typed identically on every member, and `Date`
+ * or `string`. `number` fields are excluded because composite keys
+ * stringify numbers without zero-padding, so lexicographic order
+ * diverges from numeric order. Whether the field leads each sort key
+ * isn't visible in the types, because key order is a runtime value, so
+ * construction verifies the leading position and throws otherwise.
+ */
+export type AxisField<
+	M extends MemberMap,
+	I extends Index | undefined = undefined,
+> = {
+	[K in SharedField<M>]: InEverySortKey<M, K, I> extends true
+		? IdenticalAcross<M, K> extends true
+			? [FieldTypeUnion<M, K>] extends [Date]
 				? K
-				: never
+				: [FieldTypeUnion<M, K>] extends [string]
+					? K
+					: never
+			: never
 		: never;
 }[SharedField<M>];
 
@@ -202,7 +281,7 @@ export type AxisField<M extends MemberMap> = {
  */
 export type AxisValue<
 	M extends MemberMap,
-	A extends AxisField<M>,
+	A extends PropertyKey,
 > = FieldTypeUnion<M, A>;
 
 /**
@@ -214,7 +293,7 @@ export type AxisValue<
  * value is composed into a key with the shared prefix and delimiter
  * through the same `buildKey` path the write side uses.
  */
-export type AxisBound<M extends MemberMap, A extends AxisField<M>> =
+export type AxisBound<M extends MemberMap, A extends PropertyKey> =
 	AxisValue<M, A> | string;
 
 /**
@@ -282,8 +361,8 @@ export interface CollectionQueryOptions<M extends MemberMap> {
 	/**
 	 * A DynamoDB `FilterExpression` over the fields the member models
 	 * share. Filters run after the page is cut, so a filtered page can
-	 * be short or empty while matching rows remain, so paginate on
-	 * cursor presence.
+	 * be short or empty while matching rows remain. Paginate on cursor
+	 * presence, not on page emptiness.
 	 */
 	filter?: FilterConditionExpression<Pick<ModelUnion<M>, SharedField<M>>>;
 	/**
@@ -355,17 +434,30 @@ export interface OrderedCollectionOptions<
  * DynamoDB rejects `ConsistentRead` on queries against a global
  * secondary index, so `consistentRead` is only offered when the
  * collection reads the base table. Intersected into the ordered query
- * methods' option types: on base-table collections (`I` is
- * `undefined`) this is `unknown`, which intersects away to nothing; on
- * GSI collections it forces `consistentRead` to `never`, making the
- * option a compile-time error. Mirrors `ConsistentReadOnBaseTable` in
- * `query.ts`.
+ * methods' option types, which omit the inherited `consistentRead` so
+ * this intersection controls the property: on base-table collections
+ * (`I` is `undefined`) it stays a boolean, and on GSI collections its
+ * type is a message literal, so passing `true` fails to compile with
+ * the reason in the error text. The runtime rejection in
+ * `buildQueryInput` backstops untyped callers.
  */
 type ConsistentReadOnBaseCollection<I extends Index | undefined> = [I] extends [
 	undefined,
 ]
-	? unknown
-	: { consistentRead?: never };
+	? {
+			/**
+			 * Use a strongly consistent read. See
+			 * {@link CollectionQueryOptions.consistentRead}.
+			 */
+			consistentRead?: boolean;
+		}
+	: {
+			/**
+			 * Not available: DynamoDB cannot serve consistent reads from a
+			 * global secondary index.
+			 */
+			consistentRead?: 'consistentRead is unavailable on a GSI-backed collection';
+		};
 
 /**
  * The verified shared axis of an ordered collection.
@@ -410,9 +502,11 @@ interface CollectionCore {
  * cluster by each facet's sort-key prefix and a range over them would
  * return a plausible-looking, silently wrong subset.
  *
- * With `{ orderBy }` this builds an ordered collection: construction
- * verifies that every member's sort key leads with the named field on
- * a shared prefix and delimiter, which makes the partition's sort
+ * With `{ orderBy }` this builds an ordered collection: `orderBy`
+ * offers only the fields shared by every member, present in every
+ * member's sort key, and typed `Date` or `string`, and construction
+ * verifies that each sort key leads with the named field on a shared
+ * prefix and delimiter, which makes the partition's sort
  * order meaningful across types and unlocks `between`, `equals`, the
  * four comparisons, `latest`, `earliest`, and a `direction` option,
  * all taking plain values of the axis field's type. With `index` the
@@ -448,7 +542,7 @@ interface CollectionCore {
 export function collection<M extends MemberMap>(facets: M): FacetCollection<M>;
 export function collection<
 	M extends MemberMap,
-	A extends AxisField<M>,
+	A extends AxisField<M, I>,
 	I extends Index | undefined = undefined,
 >(
 	facets: M,
@@ -456,7 +550,7 @@ export function collection<
 ): OrderedFacetCollection<M, A, I>;
 export function collection<
 	M extends MemberMap,
-	A extends AxisField<M>,
+	A extends AxisField<M, I>,
 	I extends Index | undefined,
 >(
 	facets: M,
@@ -643,7 +737,7 @@ class Dispatcher<M extends MemberMap> {
 	readonly #onUnknown: 'collect' | 'throw';
 	readonly #onInvalid: 'throw' | 'collect';
 
-	constructor(core: CollectionCore, options: CollectionQueryOptions<M>) {
+	constructor(core: CollectionCore, options: RunnerOptions<M>) {
 		this.#byName = core.byName;
 		this.#onUnknown = options.onUnknown ?? 'collect';
 		this.#onInvalid = options.onInvalid ?? 'throw';
@@ -739,7 +833,20 @@ interface ExecOptions {
 	limit?: number;
 	scanForward: boolean;
 	filter?: FilterConditionExpression<never>;
-	consistentRead?: boolean;
+	consistentRead?: boolean | string;
+}
+
+/**
+ * The options shape the runners consume. `consistentRead` widens to
+ * `boolean | string` because the GSI-gated option types admit a
+ * message-literal string; any truthy value on an index query hits the
+ * runtime rejection in `buildQueryInput`.
+ */
+interface RunnerOptions<M extends MemberMap> extends Omit<
+	CollectionQueryOptions<M>,
+	'consistentRead'
+> {
+	consistentRead?: boolean | string;
 }
 
 function buildQueryInput(
@@ -796,7 +903,7 @@ async function runSinglePage<M extends MemberMap>(
 	core: CollectionCore,
 	partitionKey: string,
 	sort: SortCondition | undefined,
-	options: CollectionQueryOptions<M>,
+	options: RunnerOptions<M>,
 	scanForward: boolean,
 ): Promise<CollectionResult<M>> {
 	const dispatcher = new Dispatcher<M>(core, options);
@@ -822,7 +929,7 @@ async function runAllPages<M extends MemberMap>(
 	core: CollectionCore,
 	partitionKey: string,
 	sort: SortCondition | undefined,
-	options: CollectionQueryOptions<M>,
+	options: RunnerOptions<M>,
 	scanForward: boolean,
 ): Promise<CollectionResult<M>> {
 	const dispatcher = new Dispatcher<M>(core, options);
@@ -848,7 +955,7 @@ async function runAllPages<M extends MemberMap>(
 async function runFirst<M extends MemberMap>(
 	core: CollectionCore,
 	partitionKey: string,
-	options: CollectionQueryOptions<M>,
+	options: RunnerOptions<M>,
 	scanForward: boolean,
 ): Promise<TaggedItem<M> | null> {
 	const dispatcher = new Dispatcher<M>(core, options);
@@ -888,7 +995,7 @@ async function runBounded<M extends MemberMap>(
 	partitionKey: string,
 	count: number,
 	descending: boolean,
-	options: CollectionQueryOptions<M>,
+	options: RunnerOptions<M>,
 	label: 'latest' | 'earliest',
 ): Promise<CollectionResult<M>> {
 	if (!Number.isInteger(count) || count < 1) {
@@ -948,7 +1055,8 @@ export class FacetCollection<M extends MemberMap> {
 	 * Begin a query over the shared partition.
 	 *
 	 * @param partition - The fields that compose the members' partition
-	 * keys. The builder computes the partition string through every
+	 * keys; every member's partition-key fields are required at compile
+	 * time. The builder computes the partition string through every
 	 * member and throws if any differ.
 	 * @param shard - Explicit shard id when the members' partition keys
 	 * are sharded.
@@ -968,7 +1076,7 @@ export class FacetCollection<M extends MemberMap> {
  */
 export class OrderedFacetCollection<
 	M extends MemberMap,
-	A extends AxisField<M>,
+	A extends AxisField<M, I>,
 	I extends Index | undefined = undefined,
 > {
 	#core: CollectionCore;
@@ -986,13 +1094,14 @@ export class OrderedFacetCollection<
 	 * Begin a query over the shared partition.
 	 *
 	 * @param partition - The fields that compose the members' partition
-	 * keys. The builder computes the partition string through every
+	 * keys; every member's partition-key fields are required at compile
+	 * time. The builder computes the partition string through every
 	 * member and throws if any differ.
 	 * @param shard - Explicit shard id when the members' partition keys
 	 * are sharded.
 	 */
 	query(
-		partition: PartitionInput<M>,
+		partition: PartitionInput<M, I>,
 		shard?: number,
 	): OrderedCollectionQuery<M, A, I> {
 		return new OrderedCollectionQuery<M, A, I>(
@@ -1079,7 +1188,7 @@ export class BaseCollectionQuery<M extends MemberMap> {
  */
 export class OrderedCollectionQuery<
 	M extends MemberMap,
-	A extends AxisField<M>,
+	A extends AxisField<M, I>,
 	I extends Index | undefined = undefined,
 > {
 	#core: CollectionCore;
@@ -1118,7 +1227,7 @@ export class OrderedCollectionQuery<
 		);
 	}
 
-	#scanForward(options: OrderedCollectionQueryOptions<M>): boolean {
+	#scanForward(options: { direction?: CollectionDirection }): boolean {
 		return options.direction !== 'descending';
 	}
 
@@ -1127,7 +1236,7 @@ export class OrderedCollectionQuery<
 	 * along the axis.
 	 */
 	async list(
-		options: OrderedCollectionQueryOptions<M> &
+		options: Omit<OrderedCollectionQueryOptions<M>, 'consistentRead'> &
 			ConsistentReadOnBaseCollection<I> = {},
 	): Promise<CollectionResult<M>> {
 		return runSinglePage(
@@ -1144,7 +1253,10 @@ export class OrderedCollectionQuery<
 	 * carries no cursor.
 	 */
 	async listAll(
-		options: Omit<OrderedCollectionQueryOptions<M>, 'cursor' | 'limit'> &
+		options: Omit<
+			OrderedCollectionQueryOptions<M>,
+			'consistentRead' | 'cursor' | 'limit'
+		> &
 			ConsistentReadOnBaseCollection<I> = {},
 	): Promise<CollectionResult<M>> {
 		return runAllPages(
@@ -1163,7 +1275,10 @@ export class OrderedCollectionQuery<
 	 * `onInvalid: 'collect'`, invalid) rows.
 	 */
 	async first(
-		options: Omit<OrderedCollectionQueryOptions<M>, 'cursor' | 'limit'> &
+		options: Omit<
+			OrderedCollectionQueryOptions<M>,
+			'consistentRead' | 'cursor' | 'limit'
+		> &
 			ConsistentReadOnBaseCollection<I> = {},
 	): Promise<TaggedItem<M> | null> {
 		return runFirst(
@@ -1187,7 +1302,7 @@ export class OrderedCollectionQuery<
 	 */
 	async equals(
 		value: AxisBound<M, A>,
-		options: OrderedCollectionQueryOptions<M> &
+		options: Omit<OrderedCollectionQueryOptions<M>, 'consistentRead'> &
 			ConsistentReadOnBaseCollection<I> = {},
 	): Promise<CollectionResult<M>> {
 		return this.#range('#SK = :sort', { ':sort': this.#bound(value) }, options);
@@ -1198,7 +1313,7 @@ export class OrderedCollectionQuery<
 	 */
 	async greaterThan(
 		value: AxisBound<M, A>,
-		options: OrderedCollectionQueryOptions<M> &
+		options: Omit<OrderedCollectionQueryOptions<M>, 'consistentRead'> &
 			ConsistentReadOnBaseCollection<I> = {},
 	): Promise<CollectionResult<M>> {
 		return this.#range('#SK > :sort', { ':sort': this.#bound(value) }, options);
@@ -1210,7 +1325,7 @@ export class OrderedCollectionQuery<
 	 */
 	async greaterThanOrEqual(
 		value: AxisBound<M, A>,
-		options: OrderedCollectionQueryOptions<M> &
+		options: Omit<OrderedCollectionQueryOptions<M>, 'consistentRead'> &
 			ConsistentReadOnBaseCollection<I> = {},
 	): Promise<CollectionResult<M>> {
 		return this.#range(
@@ -1225,7 +1340,7 @@ export class OrderedCollectionQuery<
 	 */
 	async lessThan(
 		value: AxisBound<M, A>,
-		options: OrderedCollectionQueryOptions<M> &
+		options: Omit<OrderedCollectionQueryOptions<M>, 'consistentRead'> &
 			ConsistentReadOnBaseCollection<I> = {},
 	): Promise<CollectionResult<M>> {
 		return this.#range('#SK < :sort', { ':sort': this.#bound(value) }, options);
@@ -1236,7 +1351,7 @@ export class OrderedCollectionQuery<
 	 */
 	async lessThanOrEqual(
 		value: AxisBound<M, A>,
-		options: OrderedCollectionQueryOptions<M> &
+		options: Omit<OrderedCollectionQueryOptions<M>, 'consistentRead'> &
 			ConsistentReadOnBaseCollection<I> = {},
 	): Promise<CollectionResult<M>> {
 		return this.#range(
@@ -1260,7 +1375,7 @@ export class OrderedCollectionQuery<
 	async between(
 		start: AxisBound<M, A>,
 		end: AxisBound<M, A>,
-		options: OrderedCollectionQueryOptions<M> &
+		options: Omit<OrderedCollectionQueryOptions<M>, 'consistentRead'> &
 			ConsistentReadOnBaseCollection<I> = {},
 	): Promise<CollectionResult<M>> {
 		return this.#range(
@@ -1279,7 +1394,7 @@ export class OrderedCollectionQuery<
 		count: number,
 		options: Omit<
 			OrderedCollectionQueryOptions<M>,
-			'cursor' | 'limit' | 'direction'
+			'consistentRead' | 'cursor' | 'limit' | 'direction'
 		> &
 			ConsistentReadOnBaseCollection<I> = {},
 	): Promise<CollectionResult<M>> {
@@ -1302,7 +1417,7 @@ export class OrderedCollectionQuery<
 		count: number,
 		options: Omit<
 			OrderedCollectionQueryOptions<M>,
-			'cursor' | 'limit' | 'direction'
+			'consistentRead' | 'cursor' | 'limit' | 'direction'
 		> &
 			ConsistentReadOnBaseCollection<I> = {},
 	): Promise<CollectionResult<M>> {
@@ -1319,7 +1434,7 @@ export class OrderedCollectionQuery<
 	async #range(
 		clause: string,
 		bounds: Record<string, string>,
-		options: OrderedCollectionQueryOptions<M>,
+		options: RunnerOptions<M> & { direction?: CollectionDirection },
 	): Promise<CollectionResult<M>> {
 		const values: Record<string, AttributeValue> = {};
 		for (const [placeholder, bound] of Object.entries(bounds)) {

@@ -184,10 +184,14 @@ export type PickValidator<T> = <K extends keyof T>(
  * reads the sort-key layout to verify that the members of an ordered
  * collection sort on one shared axis, and the partition-key layout to
  * verify that a query supplies every partition-key field.
+ *
+ * `K` carries the key field names as literals so `collection()` can
+ * enforce both checks at compile time; the runtime guards stay as the
+ * backstop for untyped callers.
  */
-export interface KeyLayout {
+export interface KeyLayout<K extends PropertyKey = PropertyKey> {
 	readonly prefix: string;
-	readonly keys: readonly PropertyKey[];
+	readonly keys: readonly K[];
 	readonly delimiter: string;
 	readonly sharded: boolean;
 }
@@ -402,7 +406,7 @@ class FacetImpl<
 	 * @internal Used by `collection()` to verify that a query supplies
 	 * every partition-key field. Not part of the public API.
 	 */
-	get pkLayout(): KeyLayout {
+	get pkLayout(): KeyLayout<PK> {
 		return {
 			prefix: this.#PK.prefix,
 			keys: this.#PK.keys,
@@ -416,7 +420,7 @@ class FacetImpl<
 	 * ordered collection share a sort-key axis. Not part of the public
 	 * API.
 	 */
-	get skLayout(): KeyLayout {
+	get skLayout(): KeyLayout<SK> {
 		return {
 			prefix: this.#SK.prefix,
 			keys: this.#SK.keys,
@@ -1339,7 +1343,7 @@ export class FacetIndex<
 	 * query supplies every index partition-key field. Not part of the
 	 * public API.
 	 */
-	get pkLayout(): KeyLayout {
+	get pkLayout(): KeyLayout<GSIPK> {
 		return {
 			prefix: this.#PK.prefix,
 			keys: this.#PK.keys,
@@ -1353,7 +1357,7 @@ export class FacetIndex<
 	 * ordered GSI collection share a sort-key axis on this index. Not
 	 * part of the public API.
 	 */
-	get skLayout(): KeyLayout {
+	get skLayout(): KeyLayout<GSISK> {
 		return {
 			prefix: this.#SK.prefix,
 			keys: this.#SK.keys,

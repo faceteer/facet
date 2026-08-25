@@ -487,6 +487,134 @@ const shardedDevices = collection({
 });
 
 /**
+ * The strict-validation domain, mirroring production consumers whose
+ * validators are generated schemas: an optional model field that older
+ * rows genuinely lack, and validators that reject unexpected
+ * attributes the way an `additionalProperties: false` schema does.
+ * The strict check doubles as proof that `out()` strips every
+ * synthetic attribute, because a leaked `PK`/`SK`/`facet` key would
+ * fail every read.
+ */
+interface Draft {
+	inboxId: string;
+	draftId: string;
+	subject: string;
+	remindAt?: Date;
+}
+interface Rule {
+	inboxId: string;
+	ruleId: string;
+	pattern: string;
+}
+
+function requireOnlyKeys(
+	record: Record<string, unknown>,
+	allowed: readonly string[],
+): void {
+	for (const key of Object.keys(record)) {
+		if (!allowed.includes(key)) {
+			throw new Error(`Unexpected attribute "${key}"`);
+		}
+	}
+}
+
+const DraftFacet = new Facet({
+	name: 'DRAFT',
+	validator: (input: unknown): Draft => {
+		const record = input as Record<string, unknown>;
+		requireOnlyKeys(record, ['inboxId', 'draftId', 'subject', 'remindAt']);
+		const draft: Draft = {
+			inboxId: requireString(record, 'inboxId'),
+			draftId: requireString(record, 'draftId'),
+			subject: requireString(record, 'subject'),
+		};
+		if (record.remindAt !== undefined) {
+			draft.remindAt = requireDate(record, 'remindAt');
+		}
+		return draft;
+	},
+	PK: { keys: ['inboxId'], prefix: 'INBOX' },
+	SK: { keys: ['draftId'], prefix: 'DRAFT' },
+	connection,
+});
+
+const RuleFacet = new Facet({
+	name: 'RULE',
+	validator: (input: unknown): Rule => {
+		const record = input as Record<string, unknown>;
+		requireOnlyKeys(record, ['inboxId', 'ruleId', 'pattern']);
+		return {
+			inboxId: requireString(record, 'inboxId'),
+			ruleId: requireString(record, 'ruleId'),
+			pattern: requireString(record, 'pattern'),
+		};
+	},
+	PK: { keys: ['inboxId'], prefix: 'INBOX' },
+	SK: { keys: ['ruleId'], prefix: 'RULE' },
+	connection,
+});
+
+const inboxScreen = collection({
+	draft: DraftFacet,
+	rule: single(RuleFacet),
+});
+
+/**
+ * The ISO-string axis domain: the ordered axis is a `string` holding
+ * an ISO-8601 datetime, the shape schema-validated consumers use for
+ * timeline fields, rather than a `Date`.
+ */
+interface Delivery {
+	orderId: string;
+	occurredAt: string;
+	deliveryId: string;
+	carrier: string;
+}
+interface Refund {
+	orderId: string;
+	occurredAt: string;
+	refundId: string;
+	amount: string;
+}
+
+const DeliveryFacet = new Facet({
+	name: 'DELIVERY',
+	validator: (input: unknown): Delivery => {
+		const record = input as Record<string, unknown>;
+		return {
+			orderId: requireString(record, 'orderId'),
+			occurredAt: requireString(record, 'occurredAt'),
+			deliveryId: requireString(record, 'deliveryId'),
+			carrier: requireString(record, 'carrier'),
+		};
+	},
+	PK: { keys: ['orderId'], prefix: 'ORDER' },
+	SK: { keys: ['occurredAt', 'deliveryId'], prefix: 'ORDEVT' },
+	connection,
+});
+
+const RefundFacet = new Facet({
+	name: 'REFUND',
+	validator: (input: unknown): Refund => {
+		const record = input as Record<string, unknown>;
+		return {
+			orderId: requireString(record, 'orderId'),
+			occurredAt: requireString(record, 'occurredAt'),
+			refundId: requireString(record, 'refundId'),
+			amount: requireString(record, 'amount'),
+		};
+	},
+	PK: { keys: ['orderId'], prefix: 'ORDER' },
+	SK: { keys: ['occurredAt', 'refundId'], prefix: 'ORDEVT' },
+	connection,
+});
+
+const orderTimeline = collection(
+	{ delivery: DeliveryFacet, refund: RefundFacet },
+	{ orderBy: 'occurredAt' },
+);
+
+/**
  * Timeline seeds for `thread-1`, in ascending axis order. Comment and
  * reaction ids are chosen so ties interleave deterministically.
  */
@@ -767,6 +895,68 @@ describe('collection', () => {
 			{ groupId: 'group-1', alarmId: 'al-1' },
 		]);
 		expect(alarmPuts.hasFailures).toBe(false);
+
+		/**
+		 * inbox-1: strict validators over optional fields. `d-old` omits
+		 * the optional `remindAt` the way rows written before the field
+		 * existed do; the raw row carries an attribute no schema allows.
+		 */
+		const draftPuts = await DraftFacet.put([
+			{ inboxId: 'inbox-1', draftId: 'd-old', subject: 'Before the field' },
+			{
+				inboxId: 'inbox-1',
+				draftId: 'd-new',
+				subject: 'After the field',
+				remindAt: new Date('2024-06-01T00:00:00.000Z'),
+			},
+		]);
+		expect(draftPuts.hasFailures).toBe(false);
+		const rulePut = await RuleFacet.put({
+			inboxId: 'inbox-1',
+			ruleId: 'r1',
+			pattern: 'from:billing@*',
+		});
+		expect(rulePut.wasSuccessful).toBe(true);
+		await ddb.putItem({
+			TableName: tableName,
+			Item: {
+				PK: { S: 'INBOX_inbox-1' },
+				SK: { S: 'DRAFT_zz-extra' },
+				facet: { S: 'DRAFT' },
+				inboxId: { S: 'inbox-1' },
+				draftId: { S: 'zz-extra' },
+				subject: { S: 'Written around the facet' },
+				smtpMessageId: { S: 'raw-writer-artifact' },
+			},
+		});
+
+		/**
+		 * order-1: an ISO-string axis timeline.
+		 */
+		const deliveryPuts = await DeliveryFacet.put([
+			{
+				orderId: 'order-1',
+				occurredAt: '2024-05-01T08:00:00.000Z',
+				deliveryId: 'del-1',
+				carrier: 'UPS',
+			},
+			{
+				orderId: 'order-1',
+				occurredAt: '2024-05-20T16:30:00.000Z',
+				deliveryId: 'del-2',
+				carrier: 'USPS',
+			},
+		]);
+		expect(deliveryPuts.hasFailures).toBe(false);
+		const refundPuts = await RefundFacet.put([
+			{
+				orderId: 'order-1',
+				occurredAt: '2024-05-10T12:00:00.000Z',
+				refundId: 'ref-1',
+				amount: '19.99',
+			},
+		]);
+		expect(refundPuts.hasFailures).toBe(false);
 	}, 60_000);
 
 	describe('screen load (default kind)', () => {
@@ -848,12 +1038,21 @@ describe('collection', () => {
 			expect(screen.cursor).toBeUndefined();
 		});
 
-		test('consistentRead is accepted on base-table queries', async () => {
-			const screen = await pageScreen
+		test('consistentRead reads the same aggregate as the default read', async () => {
+			const consistent = await pageScreen
 				.query({ pageId: 'page-1' })
 				.listAll({ consistentRead: true });
 
-			expect(screen.records).toHaveLength(7);
+			expect(consistent.grouped.page?.pageName).toBe('First Page');
+			expect(consistent.grouped.settings?.theme).toBe('dark');
+			expect(consistent.grouped.post.map((post) => post.postId)).toEqual([
+				'p1',
+				'p2',
+				'p3',
+			]);
+			expect(
+				consistent.grouped.subscriber.map((sub) => sub.subscriberId),
+			).toEqual(['s1', 's2']);
 		});
 	});
 
@@ -1116,6 +1315,28 @@ describe('collection', () => {
 			expect(ties.records).toEqual([]);
 		});
 
+		test('a \\uffff sentinel widens equals to every record at one axis value', async () => {
+			// The documented recovery for equals at a tie: members with
+			// trailing tie-breaker fields build longer keys than the
+			// composed bound, so fetch the whole tie with raw-string
+			// bounds from the composed value to the value plus a sentinel
+			// that sorts after any tie-breaker.
+			const at = 'EVT_2024-01-05T10:00:00.000Z';
+			const tied = await activityFeed
+				.query({ threadId: 'thread-1' })
+				.between(at, `${at}\uffff`);
+
+			expect(tied.records.map(timelineKey)).toEqual(['a-c1', 'b-r1']);
+		});
+
+		test('a reversed between is rejected by DynamoDB, not silently emptied', async () => {
+			await expect(
+				activityFeed
+					.query({ threadId: 'thread-1' })
+					.between(new Date('2024-02-01'), new Date('2024-01-01')),
+			).rejects.toMatchObject({ name: 'ValidationException' });
+		});
+
 		test('latest(n) returns the n newest records, newest first, without a cursor', async () => {
 			const recent = await activityFeed
 				.query({ threadId: 'thread-1' })
@@ -1304,6 +1525,7 @@ describe('collection', () => {
 			expect(() =>
 				collection(
 					{ task: TaskFacet, other: NoIndexFacet },
+					// @ts-expect-error a member without the index makes no field axis-eligible
 					{ orderBy: 'updatedAt', index: Index.GSI1 },
 				),
 			).toThrow(/no GSI1 index registered/);
@@ -1485,12 +1707,15 @@ describe('collection', () => {
 	describe('partition-key guard (query time)', () => {
 		test('throws when a partition-key field is missing', () => {
 			// buildKey would silently truncate the key and read the wrong
-			// partition, so the guard demands every member's PK fields.
-			// The partition input type is Partial, so an empty object
-			// compiles; the runtime guard is what catches the omission.
-			expect(() => pageScreen.query({})).toThrow(
-				/builds its partition key from "pageId"/,
-			);
+			// partition. PartitionInput requires every member's
+			// partition-key fields at compile time; the runtime guard
+			// backstops untyped callers.
+			expect(() =>
+				pageScreen.query(
+					// @ts-expect-error pageId is required by every member
+					{},
+				),
+			).toThrow(/builds its partition key from "pageId"/);
 		});
 
 		test('throws when a member needs a field the others do not', () => {
@@ -1513,10 +1738,15 @@ describe('collection', () => {
 
 			// Both members would build 'PAGE_page-1' after buildKey drops
 			// the undefined tenantId, so the string comparison alone would
-			// pass while TenantPost rows silently never match.
-			expect(() => mixedPartition.query({ pageId: 'page-1' })).toThrow(
-				/"post" builds its partition key from "tenantId"/,
-			);
+			// pass while TenantPost rows silently never match. The union
+			// of every member's partition-key fields is required, at
+			// compile time and at runtime.
+			expect(() =>
+				mixedPartition.query(
+					// @ts-expect-error tenantId is required by the post member
+					{ pageId: 'page-1' },
+				),
+			).toThrow(/"post" builds its partition key from "tenantId"/);
 		});
 
 		test('throws when members build different partition strings', () => {
@@ -1559,7 +1789,13 @@ describe('collection', () => {
 				.query({ groupId: 'group-1' })
 				.listAll();
 
-			expect(devices.records).toHaveLength(3);
+			expect(devices.grouped.sensor.map((sensor) => sensor.sensorId)).toEqual([
+				'sen-1',
+				'sen-2',
+			]);
+			expect(devices.grouped.alarm.map((alarm) => alarm.alarmId)).toEqual([
+				'al-1',
+			]);
 		});
 	});
 
@@ -1632,6 +1868,83 @@ describe('collection', () => {
 			expect(byRawKey.records.map((item) => item.record.seq)).toEqual([
 				'SEQ_5',
 			]);
+		});
+	});
+
+	describe('strict validators and optional fields', () => {
+		test('rows with and without an optional field both dispatch intact', async () => {
+			const screen = await inboxScreen.query({ inboxId: 'inbox-1' }).listAll({
+				onInvalid: 'collect',
+			});
+
+			const oldDraft = screen.grouped.draft.find(
+				(draft) => draft.draftId === 'd-old',
+			);
+			const newDraft = screen.grouped.draft.find(
+				(draft) => draft.draftId === 'd-new',
+			);
+
+			// The old row genuinely lacks the field; the strict validator
+			// accepted both, which also proves out() stripped every
+			// synthetic attribute before validation.
+			expect(oldDraft).toEqual({
+				inboxId: 'inbox-1',
+				draftId: 'd-old',
+				subject: 'Before the field',
+			});
+			expect(oldDraft).not.toHaveProperty('remindAt');
+			expect(newDraft?.remindAt).toEqual(new Date('2024-06-01T00:00:00.000Z'));
+			expect(screen.grouped.rule?.pattern).toBe('from:billing@*');
+		});
+
+		test('a row with an unexpected attribute fails strict validation into failed[]', async () => {
+			const screen = await inboxScreen.query({ inboxId: 'inbox-1' }).listAll({
+				onInvalid: 'collect',
+			});
+
+			expect(screen.failed).toHaveLength(1);
+			expect(screen.failed[0].facet).toBe('draft');
+			expect((screen.failed[0].error as Error).message).toMatch(
+				/Unexpected attribute "smtpMessageId"/,
+			);
+			expect(screen.grouped.draft.map((draft) => draft.draftId)).toEqual([
+				'd-new',
+				'd-old',
+			]);
+		});
+	});
+
+	describe('ISO-string axis', () => {
+		test('between takes ISO strings and returns the interleaved window', async () => {
+			const window = await orderTimeline
+				.query({ orderId: 'order-1' })
+				.between('2024-05-01T00:00:00.000Z', '2024-05-15T00:00:00.000Z');
+
+			expect(
+				window.records.map((item) =>
+					item.type === 'delivery'
+						? item.record.deliveryId
+						: item.record.refundId,
+				),
+			).toEqual(['del-1', 'ref-1']);
+		});
+
+		test('comparisons and latest() work on a string axis', async () => {
+			const since = await orderTimeline
+				.query({ orderId: 'order-1' })
+				.greaterThanOrEqual('2024-05-10T00:00:00.000Z');
+			expect(since.records.map((item) => item.record.occurredAt)).toEqual([
+				'2024-05-10T12:00:00.000Z',
+				'2024-05-20T16:30:00.000Z',
+			]);
+
+			const newest = await orderTimeline
+				.query({ orderId: 'order-1' })
+				.latest(1);
+			expect(newest.records[0]?.type).toBe('delivery');
+			if (newest.records[0]?.type === 'delivery') {
+				expect(newest.records[0].record.deliveryId).toBe('del-2');
+			}
 		});
 	});
 
@@ -1784,6 +2097,25 @@ describe('collection type surface', () => {
 			),
 		).toThrow(/doesn't sort on the "commentId" axis/);
 
+		// A partition-key field is shared and string-typed, but it is not
+		// part of any member's sort key, so it can never be the axis.
+		expect(() =>
+			collection(
+				timelineMembers,
+				// @ts-expect-error threadId is a partition-key field, not a sort-key field
+				{ orderBy: 'threadId' },
+			),
+		).toThrow(/doesn't sort on the "threadId" axis/);
+
+		// Shared and identically typed, but absent from every sort key.
+		expect(() =>
+			collection(
+				timelineMembers,
+				// @ts-expect-error authorId is not part of any member's sort key
+				{ orderBy: 'authorId' },
+			),
+		).toThrow(/doesn't sort on the "authorId" axis/);
+
 		interface MixedA {
 			scopeId: string;
 			at: Date;
@@ -1844,6 +2176,13 @@ describe('collection type surface', () => {
 			// query() rejects unknown fields in an object literal.
 			// @ts-expect-error bogus is not a shared member field
 			pageScreen.query({ pageId: 'p', bogus: true });
+
+			// query() requires every member's partition-key fields, on the
+			// ordered kind and on GSI collections alike.
+			// @ts-expect-error threadId is required by every member
+			activityFeed.query({});
+			// @ts-expect-error projectId is required by every member's GSI1 layout
+			projectActivity.query({});
 
 			// direction is not part of the default kind's vocabulary.
 			// @ts-expect-error direction does not exist on default-kind queries

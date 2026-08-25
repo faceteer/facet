@@ -994,7 +994,7 @@ const { items } = await transactGet(
 
 ### Cross-entity queries
 
-Single-table design stores related entity types in one partition so a single query can return all of them. This is the item-collection pattern. Each facet only reads its own slice of a partition, so `collection()` provides the cross-entity read: group facets that share a partition, query it once, and get every member's records routed to its own validator and type.
+Single-table design stores related entity types in one partition so a single query can return all of them. This is the item-collection pattern. Each facet only reads its own slice of a partition, so `collection()` provides the cross-entity read: group facets that share a partition, query it once, and get every member's records dispatched to its own validator and type.
 
 ```ts
 import { collection, single } from '@faceteer/facet';
@@ -1007,9 +1007,9 @@ export const pageScreen = collection({
 });
 ```
 
-The keys you choose become the discriminants in results. Wrap a member in `single()` when the partition holds at most one of its records. A `single()` member reads back as `Model | undefined` instead of `Model[]`. There is no other setup: the facets already carry their validators, key shapes, and connections. Construction verifies that every member shares the same DynamoDB client and table and that every facet name is unique.
+The keys you choose become the discriminants in results. Wrap a member in `single()` when the partition holds at most one of its records. A `single()` member reads back as `Model | undefined` instead of `Model[]`. There is no other setup: the facets already carry their validators, key configurations, and connections. Construction verifies that every member shares the same DynamoDB client and table and that every facet name is unique.
 
-`query()` takes the fields the member models share, typically just the partition-key fields. At query time it verifies that every member's partition-key fields are supplied (a missing field would silently build a truncated key) and that every member builds the same partition-key string:
+`query()` requires every member's partition-key fields at compile time, because a missing field would silently build a truncated key, and accepts the remaining fields the member models share. At query time it verifies that every member builds the same partition-key string:
 
 ```ts
 const screen = await pageScreen.query({ pageId: 'p1' }).listAll();
@@ -1020,13 +1020,13 @@ screen.grouped.post; // Post[]
 screen.grouped.subscriber; // Subscriber[], [] when none
 ```
 
-Every result carries two views built in one pass: `grouped`, keyed per member, and `records`, the same rows interleaved in sort-key order as `{ type, record }` pairs that narrow on `type`. `listAll()` drains every page before dispatching, so the result reflects the whole partition; paged `list({ limit, cursor })` reflects the current page only. `first()` returns the first member record (or `null`), paging past leading rows that belong to no member so it never reports a false `null`.
+Every result carries two views: `grouped`, keyed per member, and `records`, the same rows interleaved in sort-key order as `{ type, record }` pairs that narrow on `type`. `listAll()` drains every page before dispatching, so the result reflects the whole partition; paged `list({ limit, cursor })` reflects the current page only. `first()` returns the first member record (or `null`), paging past leading rows that belong to no member so it never reports a false `null`. Every terminal also accepts a `filter` over the shared fields (filters run after the page is cut, so paginate on cursor presence, not page emptiness) and, on base-table collections, `consistentRead`.
 
 #### Ordered collections
 
 A default collection's members can have any sort-key layouts, so the partition's sort order carries no cross-type meaning. The query surface is `list`, `listAll`, and `first`, and the range operators don't exist on it at all: calling `.between` on a default collection is a compile error, not a runtime one. A range over rows that cluster by prefix would return a plausible-looking, silently wrong subset.
 
-When every member's sort key leads with the same model field, declare that field as the collection's ordering axis. Construction verifies the layout (leading sort-key field, shared prefix, shared delimiter, no sort-key sharding) and unlocks the range vocabulary with plain typed values:
+When every member's sort key leads with the same model field, declare that field as the collection's ordering axis. `orderBy` offers only the fields that are shared, part of every member's sort key, and `Date` or `string` typed; construction verifies the rest of the layout (leading position, shared prefix, shared delimiter, no sort-key sharding) and unlocks the range vocabulary with plain typed values:
 
 ```ts
 export const activityFeed = collection(
@@ -1067,13 +1067,13 @@ Each returned row is dispatched by its `facet` attribute:
 
 - Rows whose `facet` matches no member land in the result's `unmatched` array. This covers foreign types sharing the partition and records written before the `facet` attribute existed. Set `onUnknown: 'throw'` to reject instead.
 - Rows that match a member but fail its validator throw by default, matching validate-on-read. Set `onInvalid: 'collect'` to move them into `failed` and keep the rest of the read alive.
-- A second row for a `single()` member keeps the first and reports the extras in `failed` with an arity error.
+- A second row for a `single()` member keeps the first and reports the extras in `failed` with an arity error. The guard spans one query call, so audit singleton arity through `listAll()`; paged `list()` can only enforce it within each page.
 
 Records come out exactly as the member's `out()` produced them, so a record read from a collection feeds straight back into that facet's `put()`.
 
 #### Collections on a GSI
 
-An axis can also live on an index: `collection(members, { orderBy: 'updatedAt', index: Index.GSI1 })` verifies each member's GSI sort-key layout, queries that index, and rejects `consistentRead` (DynamoDB can't serve consistent reads from a GSI). This is the retrofit path for existing tables. Base-table keys are immutable per item, but a GSI axis needs only an `addIndex` per member plus a backfill that re-puts existing records.
+An axis can also live on an index: `collection(members, { orderBy: 'updatedAt', index: Index.GSI1 })` verifies each member's GSI sort-key layout, queries that index, and rejects `consistentRead` at compile time (DynamoDB can't serve consistent reads from a GSI). This is the retrofit path for existing tables. Base-table keys are immutable per item, but a GSI axis needs only an `addIndex` per member plus a backfill that re-puts existing records.
 
 ## FAQs
 
