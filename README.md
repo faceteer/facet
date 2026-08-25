@@ -992,6 +992,89 @@ const { items } = await transactGet(
 
 `transaction.get` always returns the full record; it does not support `select` projections.
 
+### Cross-entity queries
+
+Single-table design stores related entity types in one partition so a single query can return all of them. This is the item-collection pattern. Each facet only reads its own slice of a partition, so `collection()` provides the cross-entity read: group facets that share a partition, query it once, and get every member's records routed to its own validator and type.
+
+```ts
+import { collection, single } from '@faceteer/facet';
+
+export const pageScreen = collection({
+	page: single(PageFacet),
+	settings: single(SettingsFacet),
+	post: PostFacet,
+	subscriber: SubscriberFacet,
+});
+```
+
+The keys you choose become the discriminants in results. Wrap a member in `single()` when the partition holds at most one of its records. A `single()` member reads back as `Model | undefined` instead of `Model[]`. There is no other setup: the facets already carry their validators, key shapes, and connections. Construction verifies that every member shares the same DynamoDB client and table and that every facet name is unique.
+
+`query()` takes the fields the member models share, typically just the partition-key fields. At query time it verifies that every member's partition-key fields are supplied (a missing field would silently build a truncated key) and that every member builds the same partition-key string:
+
+```ts
+const screen = await pageScreen.query({ pageId: 'p1' }).listAll();
+
+screen.grouped.page?.pageName; // Page | undefined
+screen.grouped.settings?.theme; // Settings | undefined
+screen.grouped.post; // Post[]
+screen.grouped.subscriber; // Subscriber[], [] when none
+```
+
+Every result carries two views built in one pass: `grouped`, keyed per member, and `records`, the same rows interleaved in sort-key order as `{ type, record }` pairs that narrow on `type`. `listAll()` drains every page before dispatching, so the result reflects the whole partition; paged `list({ limit, cursor })` reflects the current page only. `first()` returns the first member record (or `null`), paging past leading rows that belong to no member so it never reports a false `null`.
+
+#### Ordered collections
+
+A default collection's members can have any sort-key layouts, so the partition's sort order carries no cross-type meaning. The query surface is `list`, `listAll`, and `first`, and the range operators don't exist on it at all: calling `.between` on a default collection is a compile error, not a runtime one. A range over rows that cluster by prefix would return a plausible-looking, silently wrong subset.
+
+When every member's sort key leads with the same model field, declare that field as the collection's ordering axis. Construction verifies the layout (leading sort-key field, shared prefix, shared delimiter, no sort-key sharding) and unlocks the range vocabulary with plain typed values:
+
+```ts
+export const activityFeed = collection(
+	{
+		comment: CommentFacet, // SK: ['createdAt', 'commentId']
+		reaction: ReactionFacet, // SK: ['createdAt', 'reactionId']
+		edit: EditFacet, // SK: ['createdAt']
+	},
+	{ orderBy: 'createdAt' },
+);
+
+const { records } = await activityFeed
+	.query({ postId: 'post-7' })
+	.between(new Date('2024-01-01'), new Date('2024-02-01'));
+
+for (const item of records) {
+	switch (item.type) {
+		case 'comment':
+			render(item.record.body); // item.record is Comment
+			break;
+		case 'reaction':
+			render(item.record.emoji); // item.record is Reaction
+			break;
+		case 'edit':
+			render(item.record.diff); // item.record is Edit
+			break;
+	}
+}
+```
+
+Members may carry different tie-breaker fields after the axis; only the leading field, prefix, and delimiter must agree. The axis field must exist with an identical `Date` or `string` type on every member. `number` fields don't qualify, because keys stringify numbers without zero-padding, so `'9'` sorts after `'10'`. The same caveat applies to a `string` axis whose stored content is variable-width, because it orders lexicographically. Pad numeric strings to a fixed width yourself.
+
+The ordered surface adds `equals`, `greaterThan`, `greaterThanOrEqual`, `lessThan`, `lessThanOrEqual`, `between`, `latest(n)`, `earliest(n)`, and a `direction` option on `list`, `listAll`, and `first`. Bounds are plain values of the axis field's type, composed into key strings through the same path the write side uses. To bypass composition, pass a member's `sk({...})` output or any other string that starts with the shared prefix. Those bounds pass through verbatim.
+
+#### Routing and error handling
+
+Each returned row is dispatched by its `facet` attribute:
+
+- Rows whose `facet` matches no member land in the result's `unmatched` array. This covers foreign types sharing the partition and records written before the `facet` attribute existed. Set `onUnknown: 'throw'` to reject instead.
+- Rows that match a member but fail its validator throw by default, matching validate-on-read. Set `onInvalid: 'collect'` to move them into `failed` and keep the rest of the read alive.
+- A second row for a `single()` member keeps the first and reports the extras in `failed` with an arity error.
+
+Records come out exactly as the member's `out()` produced them, so a record read from a collection feeds straight back into that facet's `put()`.
+
+#### Collections on a GSI
+
+An axis can also live on an index: `collection(members, { orderBy: 'updatedAt', index: Index.GSI1 })` verifies each member's GSI sort-key layout, queries that index, and rejects `consistentRead` (DynamoDB can't serve consistent reads from a GSI). This is the retrofit path for existing tables. Base-table keys are immutable per item, but a GSI axis needs only an `addIndex` per member plus a backfill that re-puts existing records.
+
 ## FAQs
 
 **Why do I have to pass every key field to `get`?**
