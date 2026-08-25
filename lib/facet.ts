@@ -179,6 +179,24 @@ export type PickValidator<T> = <K extends keyof T>(
 ) => Validator<Pick<T, K>>;
 
 /**
+ * The recipe a facet (or one of its indexes) uses to build one of its
+ * composite keys, without any field values baked in. `collection()`
+ * reads the sort-key layout to verify that the members of an ordered
+ * collection sort on one shared axis, and the partition-key layout to
+ * verify that a query supplies every partition-key field.
+ *
+ * `K` carries the key field names as literals so `collection()` can
+ * enforce both checks at compile time; the runtime guards stay as the
+ * backstop for untyped callers.
+ */
+export interface KeyLayout<K extends PropertyKey = PropertyKey> {
+	readonly prefix: string;
+	readonly keys: readonly K[];
+	readonly delimiter: string;
+	readonly sharded: boolean;
+}
+
+/**
  * Attribute names that Facet writes synthetically on every record.
  * A model field with any of these names would silently collide with
  * the synthetic value — see {@link Facet.in}.
@@ -382,6 +400,33 @@ class FacetImpl<
 	 */
 	get keyFields(): readonly (PK | SK)[] {
 		return [...this.#PK.keys, ...this.#SK.keys];
+	}
+
+	/**
+	 * @internal Used by `collection()` to verify that a query supplies
+	 * every partition-key field. Not part of the public API.
+	 */
+	get pkLayout(): KeyLayout<PK> {
+		return {
+			prefix: this.#PK.prefix,
+			keys: this.#PK.keys,
+			delimiter: this.delimiter,
+			sharded: this.#PK.shard !== undefined,
+		};
+	}
+
+	/**
+	 * @internal Used by `collection()` to verify that the members of an
+	 * ordered collection share a sort-key axis. Not part of the public
+	 * API.
+	 */
+	get skLayout(): KeyLayout<SK> {
+		return {
+			prefix: this.#SK.prefix,
+			keys: this.#SK.keys,
+			delimiter: this.delimiter,
+			sharded: this.#SK.shard !== undefined,
+		};
 	}
 
 	/**
@@ -1291,6 +1336,34 @@ export class FacetIndex<
 	 */
 	get keyFields(): readonly (GSIPK | GSISK)[] {
 		return [...this.#PK.keys, ...this.#SK.keys];
+	}
+
+	/**
+	 * @internal Used by `collection()` to verify that a GSI collection
+	 * query supplies every index partition-key field. Not part of the
+	 * public API.
+	 */
+	get pkLayout(): KeyLayout<GSIPK> {
+		return {
+			prefix: this.#PK.prefix,
+			keys: this.#PK.keys,
+			delimiter: this.#facet.delimiter,
+			sharded: this.#PK.shard !== undefined,
+		};
+	}
+
+	/**
+	 * @internal Used by `collection()` to verify that the members of an
+	 * ordered GSI collection share a sort-key axis on this index. Not
+	 * part of the public API.
+	 */
+	get skLayout(): KeyLayout<GSISK> {
+		return {
+			prefix: this.#SK.prefix,
+			keys: this.#SK.keys,
+			delimiter: this.#facet.delimiter,
+			sharded: this.#SK.shard !== undefined,
+		};
 	}
 
 	/**

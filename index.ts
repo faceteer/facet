@@ -5,6 +5,14 @@
  */
 
 // --- Values ---
+export {
+	collection,
+	single,
+	BaseCollectionQuery,
+	FacetCollection,
+	OrderedCollectionQuery,
+	OrderedFacetCollection,
+} from './lib/collection.js';
 export { Facet } from './lib/facet.js';
 export { FacetIndex } from './lib/facet.js';
 export { buildKey, Index, IndexKeyNameMap, PK, SK } from './lib/keys.js';
@@ -18,6 +26,27 @@ export { PartitionQuery } from './lib/query.js';
 export { transactGet, transactWrite } from './lib/transact.js';
 
 // --- Types ---
+export type {
+	AxisBound,
+	AxisField,
+	AxisValue,
+	CollectionDirection,
+	CollectionFailure,
+	CollectionMember,
+	CollectionQueryOptions,
+	CollectionResult,
+	Grouped,
+	IsSingle,
+	MemberMap,
+	ModelOf,
+	OrderedCollectionOptions,
+	OrderedCollectionQueryOptions,
+	PartitionInput,
+	SharedField,
+	SingleMember,
+	TaggedItem,
+} from './lib/collection.js';
+
 export type {
 	AddIndexOptions,
 	FacetConstructor,

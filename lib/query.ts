@@ -45,16 +45,30 @@ type ActiveSK<
  * DynamoDB rejects `ConsistentRead` on queries against a global
  * secondary index, so the `consistentRead` option is only offered on
  * base-table queries. Intersected into the public overloads of every
- * {@link PartitionQuery} method: on base-table queries (`GSIPK` is
- * `never`) this is `unknown`, which intersects away to nothing; on
- * index queries it forces `consistentRead` to `never`, making the
- * option a compile-time error.
+ * {@link PartitionQuery} method, which omit the inherited
+ * `consistentRead` so this intersection controls the property: on
+ * base-table queries (`GSIPK` is `never`) it stays a boolean, and on
+ * index queries its type is a message literal, so passing `true`
+ * fails to compile with the reason in the error text. The runtime
+ * rejection in `#execute` backstops untyped callers.
  */
 type ConsistentReadOnBaseTable<GSIPK extends PropertyKey> = [GSIPK] extends [
 	never,
 ]
-	? unknown
-	: { consistentRead?: never };
+	? {
+			/**
+			 * Use a strongly consistent read. See
+			 * {@link QueryOptions.consistentRead}.
+			 */
+			consistentRead?: boolean;
+		}
+	: {
+			/**
+			 * Not available: DynamoDB cannot serve consistent reads from a
+			 * global secondary index.
+			 */
+			consistentRead?: 'consistentRead is unavailable on a global secondary index';
+		};
 
 export interface PartitionQueryOptions<
 	T extends WithoutReservedAttributes<T>,
@@ -144,6 +158,21 @@ export interface QueryOptions<
 	consistentRead?: boolean;
 }
 
+/**
+ * The options shape the private executors consume. `consistentRead`
+ * widens to `boolean | string` because the GSI-gated overloads admit a
+ * message-literal string; any truthy value on an index query hits the
+ * runtime rejection in `#execute`.
+ */
+type QueryRunOptions<
+	T,
+	PK extends keyof T,
+	SK extends keyof T,
+	K extends keyof T = keyof T,
+> = Omit<QueryOptions<T, PK, SK, K>, 'consistentRead'> & {
+	consistentRead?: boolean | string;
+};
+
 export class PartitionQuery<
 	T extends WithoutReservedAttributes<T>,
 	PK extends Keys<T>,
@@ -192,7 +221,7 @@ export class PartitionQuery<
 	 */
 	async #execute<K extends keyof T>(
 		queryInput: QueryInput,
-		options: QueryOptions<T, PK, SK, K>,
+		options: QueryRunOptions<T, PK, SK, K>,
 	): Promise<
 		QueryResult<T> | QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>
 	> {
@@ -205,7 +234,7 @@ export class PartitionQuery<
 					`Consistent reads are not supported on global secondary indexes; remove the consistentRead option from this ${this.#index.indexName} query.`,
 				);
 			}
-			queryInput.ConsistentRead = consistentRead;
+			queryInput.ConsistentRead = true;
 		}
 
 		if (cursor) {
@@ -310,7 +339,7 @@ export class PartitionQuery<
 	async #compareExec<K extends keyof T>(
 		comparison: Comparison,
 		sort: Partial<T> | string,
-		options: QueryOptions<T, PK, SK, K>,
+		options: QueryRunOptions<T, PK, SK, K>,
 	) {
 		const queryInput = this.#baseQueryInput(
 			`#PK = :partition AND #SK ${comparison} :sort`,
@@ -326,7 +355,7 @@ export class PartitionQuery<
 	 */
 	async #beginsWithExec<K extends keyof T>(
 		sort: Partial<T> | string,
-		options: QueryOptions<T, PK, SK, K>,
+		options: QueryRunOptions<T, PK, SK, K>,
 	) {
 		const queryInput = this.#baseQueryInput(
 			'#PK = :partition AND begins_with(#SK, :sort)',
@@ -343,7 +372,7 @@ export class PartitionQuery<
 	async #betweenExec<K extends keyof T>(
 		start: Partial<T> | string,
 		end: Partial<T> | string,
-		options: QueryOptions<T, PK, SK, K>,
+		options: QueryRunOptions<T, PK, SK, K>,
 	) {
 		const queryInput = this.#baseQueryInput(
 			'#PK = :partition AND #SK BETWEEN :start AND :end',
@@ -383,20 +412,20 @@ export class PartitionQuery<
 	 */
 	equals(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options?: QueryOptions<T, PK, SK> & {
+		options?: Omit<QueryOptions<T, PK, SK>, 'consistentRead'> & {
 			select?: never;
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<T>>;
 	equals<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> & {
+		options: Omit<QueryOptions<T, PK, SK, K>, 'consistentRead'> & {
 			select: readonly [K, ...K[]];
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	equals<K extends keyof T>(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> = {},
+		options: QueryRunOptions<T, PK, SK, K> = {},
 	) {
 		return this.#compareExec(Comparison.Equals, sort as Partial<T>, options);
 	}
@@ -414,20 +443,20 @@ export class PartitionQuery<
 	 */
 	greaterThan(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options?: QueryOptions<T, PK, SK> & {
+		options?: Omit<QueryOptions<T, PK, SK>, 'consistentRead'> & {
 			select?: never;
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<T>>;
 	greaterThan<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> & {
+		options: Omit<QueryOptions<T, PK, SK, K>, 'consistentRead'> & {
 			select: readonly [K, ...K[]];
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	greaterThan<K extends keyof T>(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> = {},
+		options: QueryRunOptions<T, PK, SK, K> = {},
 	) {
 		return this.#compareExec(Comparison.Greater, sort as Partial<T>, options);
 	}
@@ -445,20 +474,20 @@ export class PartitionQuery<
 	 */
 	greaterThanOrEqual(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options?: QueryOptions<T, PK, SK> & {
+		options?: Omit<QueryOptions<T, PK, SK>, 'consistentRead'> & {
 			select?: never;
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<T>>;
 	greaterThanOrEqual<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> & {
+		options: Omit<QueryOptions<T, PK, SK, K>, 'consistentRead'> & {
 			select: readonly [K, ...K[]];
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	greaterThanOrEqual<K extends keyof T>(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> = {},
+		options: QueryRunOptions<T, PK, SK, K> = {},
 	) {
 		return this.#compareExec(
 			Comparison.GreaterOrEqual,
@@ -480,20 +509,20 @@ export class PartitionQuery<
 	 */
 	lessThan(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options?: QueryOptions<T, PK, SK> & {
+		options?: Omit<QueryOptions<T, PK, SK>, 'consistentRead'> & {
 			select?: never;
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<T>>;
 	lessThan<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> & {
+		options: Omit<QueryOptions<T, PK, SK, K>, 'consistentRead'> & {
 			select: readonly [K, ...K[]];
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	lessThan<K extends keyof T>(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> = {},
+		options: QueryRunOptions<T, PK, SK, K> = {},
 	) {
 		return this.#compareExec(Comparison.Less, sort as Partial<T>, options);
 	}
@@ -511,20 +540,20 @@ export class PartitionQuery<
 	 */
 	lessThanOrEqual(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options?: QueryOptions<T, PK, SK> & {
+		options?: Omit<QueryOptions<T, PK, SK>, 'consistentRead'> & {
 			select?: never;
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<T>>;
 	lessThanOrEqual<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> & {
+		options: Omit<QueryOptions<T, PK, SK, K>, 'consistentRead'> & {
 			select: readonly [K, ...K[]];
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	lessThanOrEqual<K extends keyof T>(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> = {},
+		options: QueryRunOptions<T, PK, SK, K> = {},
 	) {
 		return this.#compareExec(
 			Comparison.LessOrEqual,
@@ -559,17 +588,17 @@ export class PartitionQuery<
 	 * ```
 	 */
 	list(
-		options?: QueryOptions<T, PK, SK> & {
+		options?: Omit<QueryOptions<T, PK, SK>, 'consistentRead'> & {
 			select?: never;
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<T>>;
 	list<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
-		options: QueryOptions<T, PK, SK, K> & {
+		options: Omit<QueryOptions<T, PK, SK, K>, 'consistentRead'> & {
 			select: readonly [K, ...K[]];
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
-	list<K extends keyof T>(options: QueryOptions<T, PK, SK, K> = {}) {
+	list<K extends keyof T>(options: QueryRunOptions<T, PK, SK, K> = {}) {
 		return this.#beginsWithExec({}, options);
 	}
 
@@ -601,13 +630,19 @@ export class PartitionQuery<
 	 * ```
 	 */
 	first(
-		options?: Omit<QueryOptions<T, PK, SK>, 'cursor' | 'limit'> & {
+		options?: Omit<
+			QueryOptions<T, PK, SK>,
+			'consistentRead' | 'cursor' | 'limit'
+		> & {
 			select?: never;
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<T | null>;
 	first<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
-		options: Omit<QueryOptions<T, PK, SK, K>, 'cursor' | 'limit'> & {
+		options: Omit<
+			QueryOptions<T, PK, SK, K>,
+			'consistentRead' | 'cursor' | 'limit'
+		> & {
 			select: readonly [K, ...K[]];
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>> | null>;
@@ -617,7 +652,7 @@ export class PartitionQuery<
 		shard,
 		select,
 		consistentRead,
-	}: Omit<QueryOptions<T, PK, SK, K>, 'cursor' | 'limit'> = {}) {
+	}: Omit<QueryRunOptions<T, PK, SK, K>, 'cursor' | 'limit'> = {}) {
 		const listResults = await this.#beginsWithExec(
 			{},
 			{ filter, limit: 1, scanForward, shard, select, consistentRead },
@@ -656,20 +691,20 @@ export class PartitionQuery<
 	 */
 	beginsWith(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options?: QueryOptions<T, PK, SK> & {
+		options?: Omit<QueryOptions<T, PK, SK>, 'consistentRead'> & {
 			select?: never;
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<T>>;
 	beginsWith<K extends keyof T>(
 		this: [PV] extends [PickValidator<T>] ? this : never,
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> & {
+		options: Omit<QueryOptions<T, PK, SK, K>, 'consistentRead'> & {
 			select: readonly [K, ...K[]];
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	beginsWith<K extends keyof T>(
 		sort: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> = {},
+		options: QueryRunOptions<T, PK, SK, K> = {},
 	) {
 		return this.#beginsWithExec(sort as Partial<T>, options);
 	}
@@ -711,7 +746,7 @@ export class PartitionQuery<
 	between(
 		start: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		end: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options?: QueryOptions<T, PK, SK> & {
+		options?: Omit<QueryOptions<T, PK, SK>, 'consistentRead'> & {
 			select?: never;
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<T>>;
@@ -719,14 +754,14 @@ export class PartitionQuery<
 		this: [PV] extends [PickValidator<T>] ? this : never,
 		start: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		end: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> & {
+		options: Omit<QueryOptions<T, PK, SK, K>, 'consistentRead'> & {
 			select: readonly [K, ...K[]];
 		} & ConsistentReadOnBaseTable<GSIPK>,
 	): Promise<QueryResult<Pick<T, K | AutoKeys<PK, SK, GSIPK, GSISK>>>>;
 	between<K extends keyof T>(
 		start: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
 		end: Partial<Pick<T, ActiveSK<SK, GSIPK, GSISK>>> | string,
-		options: QueryOptions<T, PK, SK, K> = {},
+		options: QueryRunOptions<T, PK, SK, K> = {},
 	) {
 		return this.#betweenExec(start as Partial<T>, end as Partial<T>, options);
 	}
